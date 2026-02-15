@@ -1,0 +1,3785 @@
+{
+  "datasets": [
+    {
+      "name": "7b732535",
+      "displayName": "coach_profile",
+      "queryLines": [
+        "-- ---------------------------------------------------------------------\r\n",
+        "-- 3) DASHBOARD QUERY (example): remove emoji logic; consume flag_emoji instead\r\n",
+        "-- ---------------------------------------------------------------------\r\n",
+        "WITH p AS (\r\n",
+        "  SELECT\r\n",
+        "    cp.coach_id,\r\n",
+        "    cp.coach_name,\r\n",
+        "    cp.nation_name_display,\r\n",
+        "    cp.flag_emoji,\r\n",
+        "\r\n",
+        "    cp.games_played_all,\r\n",
+        "    cp.games_played_rated,\r\n",
+        "    cp.tournaments_played,\r\n",
+        "    cp.nations_played,\r\n",
+        "\r\n",
+        "    cp.global_elo_current,\r\n",
+        "    cp.global_elo_peak_all,\r\n",
+        "    cp.global_elo_peak_post_threshold,\r\n",
+        "    cp.global_elo_peak_last_50,\r\n",
+        "    cp.global_elo_mean_all,\r\n",
+        "    cp.global_elo_median_all,\r\n",
+        "\r\n",
+        "    cp.opponent_global_elo_mean_weighted,\r\n",
+        "    cp.opponents_count,\r\n",
+        "\r\n",
+        "    cp.main_race_name,\r\n",
+        "    cp.main_race_games_played,\r\n",
+        "    cp.main_race_win_pct,\r\n",
+        "\r\n",
+        "    cp.race_2_name,\r\n",
+        "    cp.race_2_games_played,\r\n",
+        "\r\n",
+        "    cp.best_win_streak,\r\n",
+        "    cp.current_win_streak,\r\n",
+        "    cp.best_unbeaten_streak,\r\n",
+        "    cp.current_unbeaten_streak,\r\n",
+        "\r\n",
+        "    cp.load_timestamp\r\n",
+        "  FROM naf_catalog.gold_presentation.coach_profile cp\r\n",
+        "  LEFT JOIN naf_catalog.gold_presentation.coach_identity_v ci\r\n",
+        "    ON cp.coach_id = ci.coach_id\r\n",
+        "),\r\n",
+        "\r\n",
+        "race_stats AS (\r\n",
+        "  SELECT\r\n",
+        "    coach_id,\r\n",
+        "    COUNT(DISTINCT race_id) AS distinct_races_played,\r\n",
+        "    MAX(win_pct)            AS best_race_win_pct\r\n",
+        "  FROM naf_catalog.gold_presentation.coach_race_performance\r\n",
+        "  WHERE race_id <> 0\r\n",
+        "    AND games_played > 0\r\n",
+        "  GROUP BY coach_id\r\n",
+        "),\r\n",
+        "\r\n",
+        "p2 AS (\r\n",
+        "  SELECT\r\n",
+        "    p.*,\r\n",
+        "    COALESCE(rs.distinct_races_played, 0) AS distinct_races_played,\r\n",
+        "    rs.best_race_win_pct\r\n",
+        "  FROM p\r\n",
+        "  LEFT JOIN race_stats rs\r\n",
+        "    ON p.coach_id = rs.coach_id\r\n",
+        ")\r\n",
+        "\r\n",
+        "SELECT\r\n",
+        "  p2.coach_id,\r\n",
+        "  row.sort_order,\r\n",
+        "  row.label,\r\n",
+        "  row.profile,\r\n",
+        "  p2.load_timestamp\r\n",
+        "FROM p2\r\n",
+        "LATERAL VIEW explode(array(\r\n",
+        "  named_struct('sort_order',  1, 'label', '👤 NAF Name',   'profile', coalesce(p2.coach_name, 'Unknown coach')),\r\n",
+        "  named_struct('sort_order',  2, 'label', '🔢 NAF Number', 'profile', cast(p2.coach_id as string)),\r\n",
+        "  named_struct('sort_order',  3, 'label', '🌍 Nation',     'profile', concat(coalesce(p2.flag_emoji, '🌐'), ' ', coalesce(p2.nation_name_display, 'Unknown'))),\r\n",
+        "\r\n",
+        "  named_struct('sort_order', 10, 'label', '📊 Overview', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 11, 'label', ' • Total games (all)', 'profile', coalesce(cast(p2.games_played_all as string), '0')),\r\n",
+        "  named_struct('sort_order', 13, 'label', ' • Tournaments',       'profile', coalesce(cast(p2.tournaments_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 14, 'label', ' • Nations played',    'profile', coalesce(cast(p2.nations_played as string), '0')),\r\n",
+        "\r\n",
+        "  named_struct('sort_order', 20, 'label', '📈 Ratings', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 21, 'label', ' • Current GLO',                'profile', coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 22, 'label', ' • Peak GLO (all)',             'profile', coalesce(cast(round(p2.global_elo_peak_all, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 23, 'label', ' • Peak GLO (post-threshold)',  'profile', coalesce(cast(round(p2.global_elo_peak_post_threshold, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 24, 'label', ' • Peak GLO (last 50)',         'profile', coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 25, 'label', ' • Mean GLO (all)',             'profile', coalesce(cast(round(coalesce(p2.global_elo_mean_all, p2.global_elo_current), 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 26, 'label', ' • Median GLO (all)',           'profile', coalesce(cast(round(coalesce(p2.global_elo_median_all, p2.global_elo_current), 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 27, 'label', ' • Opponent mean GLO (weighted)','profile', coalesce(cast(round(p2.opponent_global_elo_mean_weighted, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 28, 'label', ' • Opponents faced (distinct)', 'profile', coalesce(cast(p2.opponents_count as string), '0')),\r\n",
+        "\r\n",
+        "  named_struct('sort_order', 30, 'label', '🛡 Favourite race', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 31, 'label', ' • Race',            'profile', coalesce(p2.main_race_name, 'N/A')),\r\n",
+        "  named_struct('sort_order', 32, 'label', ' • Games with race',  'profile', coalesce(cast(p2.main_race_games_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 33, 'label', ' • Win % with race',  'profile', coalesce(cast(round(p2.main_race_win_pct, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 34, 'label', ' • Distinct races played', 'profile', coalesce(cast(p2.distinct_races_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 35, 'label', ' • Best race win %',       'profile', coalesce(cast(round(p2.best_race_win_pct, 1) as string), 'N/A')),\r\n",
+        "\r\n",
+        "  named_struct('sort_order', 40, 'label', '🔥 Streaks', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 41, 'label', ' • Best win streak',      'profile', coalesce(cast(p2.best_win_streak as string), '0')),\r\n",
+        "  named_struct('sort_order', 42, 'label', ' • Current win streak',    'profile', coalesce(cast(p2.current_win_streak as string), '0')),\r\n",
+        "  named_struct('sort_order', 43, 'label', ' • Best unbeaten streak',  'profile', coalesce(cast(p2.best_unbeaten_streak as string), '0')),\r\n",
+        "  named_struct('sort_order', 44, 'label', ' • Current unbeaten streak','profile', coalesce(cast(p2.current_unbeaten_streak as string), '0'))\r\n",
+        ")) e AS row\r\n",
+        "ORDER BY\r\n",
+        "  p2.coach_id,\r\n",
+        "  row.sort_order;\r\n"
+      ]
+    },
+    {
+      "name": "7e6b0b4b",
+      "displayName": "coach_cumulative_results_daily_series",
+      "queryLines": [
+        "-- DASHBOARD DATASET: coach_cumulative_results_daily_series (contract-aligned)\r\n",
+        "-- Source contract: naf_catalog.gold_presentation.coach_cumulative_results_daily_series\r\n",
+        "SELECT\r\n",
+        "  coach_id,\r\n",
+        "  coach_name,\r\n",
+        "  event_day,\r\n",
+        "  result,\r\n",
+        "  value\r\n",
+        "FROM naf_catalog.gold_presentation.coach_cumulative_results_daily_series\r\n",
+        "WHERE scope = 'GLOBAL'\r\n",
+        "  AND race_id = 0\r\n",
+        "ORDER BY\r\n",
+        "  coach_id,\r\n",
+        "  event_day,\r\n",
+        "  result_order;\r\n"
+      ]
+    },
+    {
+      "name": "a59b382e",
+      "displayName": "coach_race_performance",
+      "queryLines": [
+        "-- QUERY: coach_race_performance (dashboard dataset)\r\n",
+        "-- =================================================\r\n",
+        "-- PURPOSE\r\n",
+        "--   Full per-coach, per-race metrics from the presentation contract,\r\n",
+        "--   with a parameter-controlled minimum games threshold.\r\n",
+        "--\r\n",
+        "-- PARAMS\r\n",
+        "--   :min_games  INT   -- minimum games_played required per (coach_id, race_id)\r\n",
+        "--\r\n",
+        "-- OUTPUT GRAIN\r\n",
+        "--   One row per (coach_id, race_id) (filtered by min_games)\r\n",
+        "--\r\n",
+        "-- SOURCE CONTRACT\r\n",
+        "--   naf_catalog.gold_presentation.coach_race_performance\r\n",
+        "\r\n",
+        "WITH params AS (\r\n",
+        "  SELECT CAST(COALESCE(:min_games, 0) AS INT) AS min_games\r\n",
+        ")\r\n",
+        "\r\n",
+        "SELECT\r\n",
+        "  crp.*\r\n",
+        "FROM naf_catalog.gold_presentation.coach_race_performance AS crp\r\n",
+        "CROSS JOIN params AS p\r\n",
+        "WHERE COALESCE(crp.games_played, 0) >= p.min_games\r\n",
+        "ORDER BY\r\n",
+        "  crp.coach_id,\r\n",
+        "  crp.games_played DESC,\r\n",
+        "  crp.race_id;\r\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "min_games",
+          "keyword": "min_games",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7287b5e0",
+      "displayName": "coach_race_rating_timeseries",
+      "queryLines": [
+        "-- QUERY: coach_race_rating_timeseries (dashboard dataset)  [RACE SCOPE]\n",
+        "-- ===================================================================\n",
+        "-- PURPOSE\n",
+        "--   One row per coach game per race (RACE scope) showing Elo rating change + display fields,\n",
+        "--   sourced from the GOLD_PRESENTATION canonical contract.\n",
+        "--\n",
+        "-- LAYER\n",
+        "--   gold_presentation (thin passthrough; include all new metrics automatically)\n",
+        "--\n",
+        "-- OUTPUT GRAIN\n",
+        "--   One row per (rating_system, coach_id, race_id, game_id)\n",
+        "--\n",
+        "-- SOURCE (presentation contract)\n",
+        "--   naf_catalog.gold_presentation.coach_race_elo_rating_history\n",
+        "\n",
+        "SELECT\n",
+        "  *\n",
+        "FROM naf_catalog.gold_presentation.coach_race_elo_rating_history\n",
+        "WHERE rating_system = 'NAF_ELO'\n",
+        "ORDER BY\n",
+        "  coach_id,\n",
+        "  race_id,\n",
+        "  COALESCE(event_timestamp, CAST(game_date AS TIMESTAMP)),\n",
+        "  game_index,\n",
+        "  game_id;\n"
+      ]
+    },
+    {
+      "name": "52345e69",
+      "displayName": "coach_global_rating_timeseries",
+      "queryLines": [
+        "SELECT\r\n",
+        "  *\r\n",
+        "FROM naf_catalog.gold_presentation.coach_global_elo_rating_history\r\n",
+        "WHERE rating_system = 'NAF_ELO'\r\n",
+        "ORDER BY\r\n",
+        "  coach_id,\r\n",
+        "  COALESCE(event_timestamp, CAST(game_date AS TIMESTAMP)),\r\n",
+        "  game_index,\r\n",
+        "  game_id;\r\n"
+      ]
+    },
+    {
+      "name": "92b53229",
+      "displayName": "Bar chart wdl",
+      "queryLines": [
+        "-- QUERY: Overall results (dashboard dataset)\r\n",
+        "SELECT\r\n",
+        "  coach_id,\r\n",
+        "  level,\r\n",
+        "  result,\r\n",
+        "  value\r\n",
+        "FROM naf_catalog.gold_presentation.coach_results_all_long\r\n",
+        "ORDER BY coach_id, level, result;\r\n"
+      ]
+    },
+    {
+      "name": "3660cd57",
+      "displayName": "coach_opponent_insights",
+      "queryLines": [
+        "-- QUERY: coach_opponent_insights (dashboard dataset)\r\n",
+        "-- =================================================\r\n",
+        "-- PURPOSE\r\n",
+        "--   Per-coach opponent “insights” table for dashboards (strength + outcomes vs opponents),\r\n",
+        "--   including all metrics exposed by the presentation contract.\r\n",
+        "--\r\n",
+        "-- LAYER\r\n",
+        "--   gold_presentation (thin passthrough: do not rename/recompute fields here)\r\n",
+        "--\r\n",
+        "-- OUTPUT GRAIN\r\n",
+        "--   One row per (coach_id, category, opponent_coach_id) as defined by the presentation contract\r\n",
+        "--\r\n",
+        "-- SOURCE CONTRACT\r\n",
+        "--   naf_catalog.gold_presentation.coach_opponent_insights\r\n",
+        "\r\n",
+        "SELECT\r\n",
+        "  *\r\n",
+        "FROM naf_catalog.gold_presentation.coach_opponent_insights\r\n",
+        "  "
+      ]
+    },
+    {
+      "name": "15dbc912",
+      "displayName": "Performance by bins",
+      "queryLines": [
+        "SELECT\r\n",
+        "  coach_id,\r\n",
+        "  bin_scheme_id,\r\n",
+        "  bin_scheme_name_display,\r\n",
+        "  bin_label,\r\n",
+        "  opponents_count,\r\n",
+        "  games_played,\r\n",
+        "  wins,\r\n",
+        "  draws,\r\n",
+        "  losses,\r\n",
+        "  win_pct,\r\n",
+        "  win_points,\r\n",
+        "  win_points_per_game\r\n",
+        "FROM naf_catalog.gold_presentation.coach_opponent_global_elo_bin_insights\r\n",
+        "WHERE bin_scheme_id = COALESCE(NULLIF(:bin_scheme_id, ''), 'dynamic_5')\r\n",
+        "ORDER BY\r\n",
+        "  bin_index;"
+      ],
+      "parameters": [
+        {
+          "displayName": "bin_scheme_id",
+          "keyword": "bin_scheme_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "static_3"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "f732672a",
+      "displayName": "Performance by bins Long",
+      "queryLines": [
+        "-- DASHBOARD DATASET: coach_opponent_global_elo_bin_results_long (single-contract read)  [ALIGNED]\n",
+        "-- Notes:\n",
+        "--   - Reads ONLY from canonical presentation contract.\n",
+        "--   - Keeps legacy output names (category/value/value_pct/result_sort_order) via aliases.\n",
+        "--   - value is derived from result_frac * games_played (the contract stores rates + games_played).\n",
+        "\n",
+        "SELECT\n",
+        "  coach_id,\n",
+        "  bin_scheme_id,\n",
+        "  bin_scheme_name_display,\n",
+        "\n",
+        "  bin_label AS category,\n",
+        "  bin_index,\n",
+        "\n",
+        "  result,\n",
+        "\n",
+        "  CAST(ROUND(result_frac * games_played, 0) AS BIGINT) AS value,\n",
+        "  result_pct AS value_pct,\n",
+        "\n",
+        "  result_order AS result_sort_order\n",
+        "FROM naf_catalog.gold_presentation.coach_opponent_global_elo_bin_results_long\n",
+        "WHERE bin_scheme_id = COALESCE(NULLIF(:bin_scheme_id, ''), 'dynamic_5')\n",
+        "ORDER BY\n",
+        "  bin_index;"
+      ],
+      "parameters": [
+        {
+          "displayName": "bin_scheme_id",
+          "keyword": "bin_scheme_id",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "static_3"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12e14a43",
+      "displayName": "Coach Win Streaks and Profile Snapshot",
+      "queryLines": [
+        "SELECT\n",
+        "  coach_id,\n",
+        "  best_win_streak,\n",
+        "  current_win_streak,\n",
+        "  load_timestamp\n",
+        "FROM naf_catalog.gold_presentation.coach_profile\n",
+        "WHERE coach_id = :coach_id;\n",
+        "\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "9dbe70f2",
+      "displayName": "coach page 1",
+      "layout": [
+        {
+          "widget": {
+            "name": "75b61789",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7b732535",
+                  "fields": [
+                    {
+                      "name": "label",
+                      "expression": "`label`"
+                    },
+                    {
+                      "name": "profile",
+                      "expression": "`profile`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Coach Profile",
+                "description": "Stem data and key metrics for chosen coach"
+              },
+              "rowsPerPage": 25,
+              "displayRowNumbers": false,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "label",
+                    "useForSearch": false,
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "profile",
+                    "useForSearch": false,
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 19
+          }
+        },
+        {
+          "widget": {
+            "name": "8212b971",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "52345e69",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "event_timestamp",
+                      "expression": "`event_timestamp`"
+                    },
+                    {
+                      "name": "glo_rating_after",
+                      "expression": "`glo_rating_after`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_timestamp",
+                  "axis": {
+                    "hideLabels": false,
+                    "title": " "
+                  },
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "glo_rating_after",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "coach_id",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Global \"NAF\" ELO rating (GLO)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "89154031",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7287b5e0",
+                  "fields": [
+                    {
+                      "name": "race_name",
+                      "expression": "`race_name`"
+                    },
+                    {
+                      "name": "event_timestamp",
+                      "expression": "`event_timestamp`"
+                    },
+                    {
+                      "name": "elo_rating_after",
+                      "expression": "`elo_rating_after`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_timestamp",
+                  "axis": {
+                    "hideTitle": false,
+                    "hideLabels": false
+                  },
+                  "displayName": " ",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "elo_rating_after",
+                  "displayName": " ",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "race_name",
+                  "legend": {
+                    "hide": false,
+                    "position": "right"
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "Amazon",
+                        "Chaos Chosen",
+                        "Chaos Dwarf",
+                        "Chaos Renegade",
+                        "Dark Elf",
+                        "Dwarf",
+                        "Elf Union",
+                        "Halfling",
+                        "High Elf",
+                        "Human",
+                        "Lizardmen",
+                        "Necromantic Horror",
+                        "Norse",
+                        "Old World Alliance",
+                        "Orc",
+                        "Shambling Undead",
+                        "Skaven",
+                        "Slann",
+                        "Tomb Kings",
+                        "Underworld Denizens",
+                        "Vampire",
+                        "Wood Elf"
+                      ]
+                    }
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Racial NAF ELO ratings (ELO)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 38,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "cc582b57",
+            "queries": [
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_race_name",
+                "query": {
+                  "datasetName": "7287b5e0",
+                  "fields": [
+                    {
+                      "name": "race_name",
+                      "expression": "`race_name`"
+                    },
+                    {
+                      "name": "race_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "race_name",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_race_name"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Choose races to display (ELO):",
+                "showDescription": false,
+                "description": "Choose races to display ratings"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 36,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "ff83aa8d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a59b382e",
+                  "fields": [
+                    {
+                      "name": "race_name",
+                      "expression": "`race_name`"
+                    },
+                    {
+                      "name": "wins",
+                      "expression": "`wins`"
+                    },
+                    {
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    },
+                    {
+                      "name": "points_per_game",
+                      "expression": "`points_per_game`"
+                    },
+                    {
+                      "name": "last_game_event_timestamp",
+                      "expression": "`last_game_event_timestamp`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "race_name",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 4,
+                    "title": "race_name",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "wins",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 10,
+                    "title": "wins",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "draws",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 11,
+                    "title": "draws",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "losses",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 12,
+                    "title": "losses",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "points_per_game",
+                    "numberFormat": "0.00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 19,
+                    "title": "points_per_game",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "last_game_event_timestamp",
+                    "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "datetime",
+                    "displayAs": "datetime",
+                    "visible": true,
+                    "order": 28,
+                    "title": "last_game_event_timestamp",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  }
+                ]
+              },
+              "invisibleColumns": [
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "games_played",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 0,
+                  "title": "games_played",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "win_pct",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 1,
+                  "title": "win_pct",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "coach_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 2,
+                  "title": "coach_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "coach_name",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 3,
+                  "title": "coach_name",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_current",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 5,
+                  "title": "elo_current",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "nation_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 6,
+                  "title": "nation_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "nation_name_display",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 7,
+                  "title": "nation_name_display",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "flag_code",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 8,
+                  "title": "flag_code",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "race_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 9,
+                  "title": "race_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "win_frac",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 13,
+                  "title": "win_frac",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "draw_frac",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 14,
+                  "title": "draw_frac",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "loss_frac",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 15,
+                  "title": "loss_frac",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "draw_pct",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 16,
+                  "title": "draw_pct",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "loss_pct",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 17,
+                  "title": "loss_pct",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "points_total",
+                  "type": "decimal",
+                  "displayAs": "number",
+                  "order": 18,
+                  "title": "points_total",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "td_for",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 20,
+                  "title": "td_for",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "td_against",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 21,
+                  "title": "td_against",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "td_diff",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 22,
+                  "title": "td_diff",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "td_for_per_game",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 23,
+                  "title": "td_for_per_game",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "td_against_per_game",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 24,
+                  "title": "td_against_per_game",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "td_diff_per_game",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 25,
+                  "title": "td_diff_per_game",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "date_first_game_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 26,
+                  "title": "date_first_game_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "date_last_game_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 27,
+                  "title": "date_last_game_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "tournaments_played",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 29,
+                  "title": "tournaments_played",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "min_games_threshold_race_performance",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 30,
+                  "title": "min_games_threshold_race_performance",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "is_valid_min_games_race_performance",
+                  "type": "boolean",
+                  "displayAs": "boolean",
+                  "order": 31,
+                  "title": "is_valid_min_games_race_performance",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_games_with_race",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 32,
+                  "title": "elo_games_with_race",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "min_games_threshold_race_elo",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 33,
+                  "title": "min_games_threshold_race_elo",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "last_n_games_window",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 34,
+                  "title": "last_n_games_window",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "is_valid_min_games_race_elo",
+                  "type": "boolean",
+                  "displayAs": "boolean",
+                  "order": 35,
+                  "title": "is_valid_min_games_race_elo",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "is_valid_post_threshold_race_elo",
+                  "type": "boolean",
+                  "displayAs": "boolean",
+                  "order": 36,
+                  "title": "is_valid_post_threshold_race_elo",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "is_valid_last_50_race_elo",
+                  "type": "boolean",
+                  "displayAs": "boolean",
+                  "order": 37,
+                  "title": "is_valid_last_50_race_elo",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_current_game_index",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 38,
+                  "title": "elo_current_game_index",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_current_date_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 39,
+                  "title": "elo_current_date_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_current_event_timestamp",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 40,
+                  "title": "elo_current_event_timestamp",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_current_game_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 41,
+                  "title": "elo_current_game_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_all",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 42,
+                  "title": "elo_peak_all",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_all_game_index",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 43,
+                  "title": "elo_peak_all_game_index",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_all_date_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 44,
+                  "title": "elo_peak_all_date_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_all_event_timestamp",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 45,
+                  "title": "elo_peak_all_event_timestamp",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_all_game_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 46,
+                  "title": "elo_peak_all_game_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_mean_all",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 47,
+                  "title": "elo_mean_all",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_median_all",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 48,
+                  "title": "elo_median_all",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_post_threshold",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 49,
+                  "title": "elo_peak_post_threshold",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_post_threshold_game_index",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 50,
+                  "title": "elo_peak_post_threshold_game_index",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_post_threshold_date_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 51,
+                  "title": "elo_peak_post_threshold_date_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_post_threshold_event_timestamp",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 52,
+                  "title": "elo_peak_post_threshold_event_timestamp",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_post_threshold_game_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 53,
+                  "title": "elo_peak_post_threshold_game_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_mean_post_threshold",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 54,
+                  "title": "elo_mean_post_threshold",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_median_post_threshold",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 55,
+                  "title": "elo_median_post_threshold",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_last_50",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 56,
+                  "title": "elo_peak_last_50",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_last_50_game_index",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 57,
+                  "title": "elo_peak_last_50_game_index",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_last_50_date_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 58,
+                  "title": "elo_peak_last_50_date_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_last_50_event_timestamp",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 59,
+                  "title": "elo_peak_last_50_event_timestamp",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_peak_last_50_game_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 60,
+                  "title": "elo_peak_last_50_game_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_mean_last_50",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 61,
+                  "title": "elo_mean_last_50",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "elo_median_last_50",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 62,
+                  "title": "elo_median_last_50",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "load_timestamp",
+                  "type": "datetime",
+                  "displayAs": "datetime",
+                  "order": 63,
+                  "title": "load_timestamp",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Results in order of mostly played races"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 8,
+            "width": 4,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "5bcc4f79",
+            "queries": [
+              {
+                "name": "parameter_dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4cdb12539987f55571371c96_min_games",
+                "query": {
+                  "datasetName": "a59b382e",
+                  "parameters": [
+                    {
+                      "name": "min_games",
+                      "keyword": "min_games"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "min_games",
+                    "queryName": "parameter_dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4cdb12539987f55571371c96_min_games"
+                  }
+                ]
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "25"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Min number of games:",
+                "showDescription": true,
+                "description": "Limit displayed races in result table"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 6,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "1b655f4f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "92b53229",
+                  "fields": [
+                    {
+                      "name": "result",
+                      "expression": "`result`"
+                    },
+                    {
+                      "name": "level",
+                      "expression": "`level`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "IN_RANGE(`coach_id`, NULL, NULL)"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "level",
+                  "axis": {
+                    "hideLabels": true
+                  },
+                  "displayName": " ",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "axis": {
+                    "title": " ",
+                    "hideTitle": true,
+                    "hideLabels": true,
+                    "hideGrid": false
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result",
+                  "displayName": "Result",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "loss",
+                        "draw",
+                        "win"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "loss",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "draw",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "win",
+                        "color": "#00FF7F"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showDescription": true,
+                "description": "Distribution of results in all registered games.",
+                "showTitle": true,
+                "title": "W/D/L distribution"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 13,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "6749c1b1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7e6b0b4b",
+                  "fields": [
+                    {
+                      "name": "result",
+                      "expression": "`result`"
+                    },
+                    {
+                      "name": "event_day",
+                      "expression": "`event_day`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_day",
+                  "axis": {
+                    "title": " "
+                  },
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "displayName": " ",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "loss",
+                        "draw",
+                        "win"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "win",
+                        "color": "#00FF7F"
+                      },
+                      {
+                        "value": "loss",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "draw",
+                        "color": "#FFD700"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": false
+                }
+              },
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Cumulative results over time"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "55f0707a",
+            "queries": [
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4d611195921598468cb01404_daily(event_timestamp)",
+                "query": {
+                  "datasetName": "52345e69",
+                  "fields": [
+                    {
+                      "name": "daily(event_timestamp)",
+                      "expression": "DATE_TRUNC(\"DAY\", `event_timestamp`)"
+                    },
+                    {
+                      "name": "daily(event_timestamp)_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "daily(event_timestamp)",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4d611195921598468cb01404_daily(event_timestamp)"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Choose date interval to display (GLO):"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "20975492",
+            "queries": [
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_event_timestamp",
+                "query": {
+                  "datasetName": "7287b5e0",
+                  "fields": [
+                    {
+                      "name": "event_timestamp",
+                      "expression": "`event_timestamp`"
+                    },
+                    {
+                      "name": "event_timestamp_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "event_timestamp",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_event_timestamp"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Choose dates interval to display (ELO)",
+                "showDescription": false,
+                "description": "Choose date interval of rating to display"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 34,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "79167813",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "3660cd57",
+                  "fields": [
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "opponent_coach_name",
+                      "expression": "`opponent_coach_name`"
+                    },
+                    {
+                      "name": "opponent_coach_id",
+                      "expression": "`opponent_coach_id`"
+                    },
+                    {
+                      "name": "win_points_per_game",
+                      "expression": "`win_points_per_game`"
+                    },
+                    {
+                      "name": "wins",
+                      "expression": "`wins`"
+                    },
+                    {
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "frame": {
+                "showTitle": true,
+                "title": "Big rivalries and opponets"
+              },
+              "rowsPerPage": 25,
+              "displayRowNumbers": false,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "category",
+                    "useForSearch": false,
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "opponent_coach_name",
+                    "useForSearch": false,
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "opponent_coach_id"
+                  },
+                  {
+                    "fieldName": "win_points_per_game",
+                    "useForSearch": false,
+                    "format": {
+                      "type": "numeral.js",
+                      "format": "0.00"
+                    },
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "wins",
+                    "useForSearch": false,
+                    "format": {
+                      "type": "numeral.js",
+                      "format": "0"
+                    },
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "draws",
+                    "useForSearch": false,
+                    "format": {
+                      "type": "numeral.js",
+                      "format": "0"
+                    },
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  },
+                  {
+                    "fieldName": "losses",
+                    "useForSearch": false,
+                    "format": {
+                      "type": "numeral.js",
+                      "format": "0"
+                    },
+                    "actions": {
+                      "hover": {
+                        "type": "tooltip",
+                        "tooltipTemplate": "{{ @ }}"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 19,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "1d0bc995",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "15dbc912",
+                  "fields": [
+                    {
+                      "name": "bin_label",
+                      "expression": "`bin_label`"
+                    },
+                    {
+                      "name": "win_points_per_game",
+                      "expression": "`win_points_per_game`"
+                    },
+                    {
+                      "name": "wins",
+                      "expression": "`wins`"
+                    },
+                    {
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "bin_label",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 3,
+                    "title": "bin_label",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "win_points_per_game",
+                    "numberFormat": "0.00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 6,
+                    "title": "win_points_per_game",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "wins",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 7,
+                    "title": "wins",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "draws",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 8,
+                    "title": "draws",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "losses",
+                    "numberFormat": "0",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 9,
+                    "title": "losses",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  }
+                ]
+              },
+              "invisibleColumns": [
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "coach_id",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 0,
+                  "title": "coach_id",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "bin_scheme_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 1,
+                  "title": "bin_scheme_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "bin_scheme_name_display",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 2,
+                  "title": "bin_scheme_name_display",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "opponents_count",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 4,
+                  "title": "opponents_count",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "games_played",
+                  "type": "integer",
+                  "displayAs": "number",
+                  "order": 5,
+                  "title": "games_played",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "win_pct",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 10,
+                  "title": "win_pct",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "win_points",
+                  "type": "decimal",
+                  "displayAs": "number",
+                  "order": 11,
+                  "title": "win_points",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "showDescription": true,
+                "title": "Performance table based on opponent strength"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 45,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "b7a94551",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "15dbc912",
+                  "fields": [
+                    {
+                      "name": "bin_label",
+                      "expression": "`bin_label`"
+                    },
+                    {
+                      "name": "win_points_per_game",
+                      "expression": "`win_points_per_game`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "bin_label",
+                  "axis": {
+                    "hideLabels": false,
+                    "hideTitle": false,
+                    "title": "Opponents rating"
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "win_points_per_game",
+                  "axis": {
+                    "title": "Point per game"
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showDescription": true,
+                "showTitle": true,
+                "title": "Binned point per game by opponent strength",
+                "description": "Point per game (1/0.5/0) in bins based on opponents rating."
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 55,
+            "width": 6,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "a91e47a8",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f732672a",
+                  "fields": [
+                    {
+                      "name": "result",
+                      "expression": "`result`"
+                    },
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Binned result by opponents strength"
+              },
+              "mark": {
+                "layout": "group"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "category",
+                  "displayName": "Opponents rating",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result",
+                  "legend": {
+                    "position": "right",
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "losses",
+                        "draws",
+                        "wins"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "draws",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "losses",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "wins",
+                        "color": "#00FF7F"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 49,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "32e872c3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f732672a",
+                  "fields": [
+                    {
+                      "name": "result",
+                      "expression": "`result`"
+                    },
+                    {
+                      "name": "category",
+                      "expression": "`category`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "frame": {
+                "showDescription": false,
+                "showTitle": true,
+                "title": "Binned result ratios by opponents strength"
+              },
+              "mark": {
+                "layout": "percent-stack"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "category",
+                  "displayName": "Opponents rating",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "150–200",
+                        "200–250",
+                        "250–300",
+                        "300–350",
+                        "Overall"
+                      ]
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "axis": {
+                    "hideLabels": false,
+                    "hideTitle": true
+                  },
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "compact",
+                    "decimalPlaces": {
+                      "type": "max",
+                      "places": 2
+                    }
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result",
+                  "legend": {
+                    "position": "right",
+                    "hideTitle": true
+                  },
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "losses",
+                        "draws",
+                        "wins"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "draws",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "losses",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "wins",
+                        "color": "#00FF7F"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 49,
+            "width": 3,
+            "height": 6
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "af6796ad",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "125c3cde",
+            "queries": [
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_coach_id",
+                "query": {
+                  "datasetName": "7287b5e0",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4d611195921598468cb01404_coach_id",
+                "query": {
+                  "datasetName": "52345e69",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3c8211011fa94c016b8ca4bcfc1_coach_id",
+                "query": {
+                  "datasetName": "7e6b0b4b",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4cdb12539987f55571371c96_coach_id",
+                "query": {
+                  "datasetName": "a59b382e",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c51a3ea91bf180030fab2defe369_coach_id",
+                "query": {
+                  "datasetName": "92b53229",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c5521f271880b4765c729cc14cf7_coach_id",
+                "query": {
+                  "datasetName": "3660cd57",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0ca0837f41b6cb93ca510b45c1fb0_coach_id",
+                "query": {
+                  "datasetName": "15dbc912",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0dc1884821293b1896ef512155786_coach_id",
+                "query": {
+                  "datasetName": "f732672a",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4dcd13ae9aa7e117ade91432_coach_id",
+                "query": {
+                  "datasetName": "7b732535",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4d611195921598468cb01404_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3c8211011fa94c016b8ca4bcfc1_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4cdb12539987f55571371c96_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c51a3ea91bf180030fab2defe369_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c5521f271880b4765c729cc14cf7_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0ca0837f41b6cb93ca510b45c1fb0_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0dc1884821293b1896ef512155786_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4dcd13ae9aa7e117ade91432_coach_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Coach_id\n"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "INTEGER",
+                    "values": [
+                      {
+                        "value": "9524"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "genieSpace": {
+      "isEnabled": false,
+      "enablementMode": "ENABLEMENT_MODE_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
