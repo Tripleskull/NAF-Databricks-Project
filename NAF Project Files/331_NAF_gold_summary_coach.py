@@ -373,114 +373,6 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- TABLE: naf_catalog.gold_summary.coach_performance_summary
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Coach-level performance totals and rates (GLOBAL results universe, all races).
-# MAGIC -- LAYER        : GOLD_SUMMARY
-# MAGIC -- CONTRACT TYPE: SUMMARY (materialised KPIs at declared grain)
-# MAGIC -- GRAIN        : 1 row per coach_id.
-# MAGIC -- PRIMARY KEY  : (coach_id)
-# MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_game_spine_v,
-# MAGIC --               naf_catalog.gold_dim.tournament_dim (nation_id only)
-# MAGIC -- NOTES        : - Uses date_id (keys) instead of display dates.
-# MAGIC --               - No validity flags here; interpret using games_played + known thresholds.
-# MAGIC --               - Uniqueness and NOT NULL key constraints must hold in the underlying fact/spine.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_performance_summary
-# MAGIC USING DELTA AS
-# MAGIC WITH games AS (
-# MAGIC   SELECT
-# MAGIC     g.coach_id,
-# MAGIC     g.game_id,
-# MAGIC     g.tournament_id,
-# MAGIC     td.nation_id AS tournament_nation_id,
-# MAGIC     g.date_id,
-# MAGIC     g.event_timestamp,
-# MAGIC     COALESCE(g.event_timestamp, TO_TIMESTAMP(CAST(g.date_id AS STRING), 'yyyyMMdd')) AS event_ts_coalesced,
-# MAGIC     g.result_numeric,
-# MAGIC     g.td_for,
-# MAGIC     g.td_against
-# MAGIC   FROM naf_catalog.gold_summary.coach_game_spine_v g
-# MAGIC   LEFT JOIN naf_catalog.gold_dim.tournament_dim td
-# MAGIC     ON g.tournament_id = td.tournament_id
-# MAGIC ),
-# MAGIC agg AS (
-# MAGIC   SELECT
-# MAGIC     coach_id,
-# MAGIC
-# MAGIC     CAST(COUNT(*) AS INT) AS games_played,
-# MAGIC
-# MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END) AS INT) AS wins,
-# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.5 THEN 1 ELSE 0 END) AS INT) AS draws,
-# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END) AS INT) AS losses,
-# MAGIC
-# MAGIC     CAST(SUM(result_numeric) AS DECIMAL(12,2)) AS points_total,
-# MAGIC     AVG(result_numeric)                        AS points_per_game,
-# MAGIC
-# MAGIC     CAST(SUM(td_for) AS INT)              AS td_for,
-# MAGIC     CAST(SUM(td_against) AS INT)          AS td_against,
-# MAGIC     CAST(SUM(td_for - td_against) AS INT) AS td_diff,
-# MAGIC
-# MAGIC     AVG(td_for)              AS td_for_per_game,
-# MAGIC     AVG(td_against)          AS td_against_per_game,
-# MAGIC     AVG(td_for - td_against) AS td_diff_per_game,
-# MAGIC
-# MAGIC     MIN(date_id) AS date_first_game_id,
-# MAGIC     MAX(date_id) AS date_last_game_id,
-# MAGIC
-# MAGIC     -- Return the coalesced timestamp so "last game" is never NULL when games exist.
-# MAGIC     max_by(
-# MAGIC       event_ts_coalesced,
-# MAGIC       struct(
-# MAGIC         date_id,
-# MAGIC         event_ts_coalesced,
-# MAGIC         game_id
-# MAGIC       )
-# MAGIC     ) AS last_game_event_timestamp,
-# MAGIC
-# MAGIC     CAST(COUNT(DISTINCT tournament_id) AS INT) AS tournaments_played,
-# MAGIC     CAST(COUNT(DISTINCT tournament_nation_id) AS INT) AS nations_played
-# MAGIC
-# MAGIC   FROM games
-# MAGIC   GROUP BY coach_id
-# MAGIC )
-# MAGIC SELECT
-# MAGIC   coach_id,
-# MAGIC
-# MAGIC   games_played,
-# MAGIC   wins,
-# MAGIC   draws,
-# MAGIC   losses,
-# MAGIC
-# MAGIC   points_total,
-# MAGIC   points_per_game,
-# MAGIC
-# MAGIC   wins   / CAST(NULLIF(games_played, 0) AS DOUBLE) AS win_frac,
-# MAGIC   draws  / CAST(NULLIF(games_played, 0) AS DOUBLE) AS draw_frac,
-# MAGIC   losses / CAST(NULLIF(games_played, 0) AS DOUBLE) AS loss_frac,
-# MAGIC
-# MAGIC   td_for,
-# MAGIC   td_against,
-# MAGIC   td_diff,
-# MAGIC   td_for_per_game,
-# MAGIC   td_against_per_game,
-# MAGIC   td_diff_per_game,
-# MAGIC
-# MAGIC   date_first_game_id,
-# MAGIC   date_last_game_id,
-# MAGIC   last_game_event_timestamp,
-# MAGIC
-# MAGIC   tournaments_played,
-# MAGIC   COALESCE(nations_played, 0) AS nations_played,
-# MAGIC
-# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM agg;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_rating_race_summary
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : RACE-scope Elo rating snapshots + distribution metrics per (rating_system, coach, race),
@@ -1355,6 +1247,260 @@
 # MAGIC   ON c.rating_system = lp.rating_system
 # MAGIC  AND c.coach_id      = lp.coach_id
 # MAGIC ;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.coach_performance_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Coach-level performance totals, rates, and opponent strength context.
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- CONTRACT TYPE: SUMMARY (materialised KPIs at declared grain)
+# MAGIC -- GRAIN        : 1 row per coach_id.
+# MAGIC -- PRIMARY KEY  : (coach_id)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_game_spine_v,
+# MAGIC --               naf_catalog.gold_dim.tournament_dim (nation_id only),
+# MAGIC --               naf_catalog.gold_summary.coach_rating_global_elo_summary (opponent peaks)
+# MAGIC -- NOTES        : - Uses date_id (keys) instead of display dates.
+# MAGIC --               - No validity flags here; interpret using games_played + known thresholds.
+# MAGIC --               - Uniqueness and NOT NULL key constraints must hold in the underlying fact/spine.
+# MAGIC --               - Placed after coach_rating_global_elo_summary so opponent peaks are available.
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_performance_summary
+# MAGIC USING DELTA AS
+# MAGIC WITH params AS (
+# MAGIC   SELECT last_n_games_window
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC games AS (
+# MAGIC   SELECT
+# MAGIC     g.coach_id,
+# MAGIC     g.game_id,
+# MAGIC     g.tournament_id,
+# MAGIC     g.opponent_coach_id,
+# MAGIC     td.nation_id AS tournament_nation_id,
+# MAGIC     g.date_id,
+# MAGIC     g.event_timestamp,
+# MAGIC     COALESCE(g.event_timestamp, TO_TIMESTAMP(CAST(g.date_id AS STRING), 'yyyyMMdd')) AS event_ts_coalesced,
+# MAGIC     g.result_numeric,
+# MAGIC     g.td_for,
+# MAGIC     g.td_against,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY g.coach_id
+# MAGIC       ORDER BY g.date_id DESC,
+# MAGIC                COALESCE(g.event_timestamp, TO_TIMESTAMP(CAST(g.date_id AS STRING), 'yyyyMMdd')) DESC NULLS LAST,
+# MAGIC                g.game_id DESC
+# MAGIC     ) AS game_recency_rank
+# MAGIC   FROM naf_catalog.gold_summary.coach_game_spine_v g
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.tournament_dim td
+# MAGIC     ON g.tournament_id = td.tournament_id
+# MAGIC ),
+# MAGIC -- Opponent GLO peaks from the freshly-built rating summary.
+# MAGIC opponent_peaks AS (
+# MAGIC   SELECT coach_id, global_elo_peak_all AS opponent_glo_peak
+# MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
+# MAGIC   WHERE rating_system = 'NAF_ELO'
+# MAGIC ),
+# MAGIC games_with_opp AS (
+# MAGIC   SELECT
+# MAGIC     g.*,
+# MAGIC     op.opponent_glo_peak
+# MAGIC   FROM games g
+# MAGIC   LEFT JOIN opponent_peaks op
+# MAGIC     ON g.opponent_coach_id = op.coach_id
+# MAGIC ),
+# MAGIC agg AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC
+# MAGIC     CAST(COUNT(*) AS INT) AS games_played,
+# MAGIC
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END) AS INT) AS wins,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.5 THEN 1 ELSE 0 END) AS INT) AS draws,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END) AS INT) AS losses,
+# MAGIC
+# MAGIC     CAST(SUM(result_numeric) AS DECIMAL(12,2)) AS points_total,
+# MAGIC     AVG(result_numeric)                        AS points_per_game,
+# MAGIC
+# MAGIC     CAST(SUM(td_for) AS INT)              AS td_for,
+# MAGIC     CAST(SUM(td_against) AS INT)          AS td_against,
+# MAGIC     CAST(SUM(td_for - td_against) AS INT) AS td_diff,
+# MAGIC
+# MAGIC     AVG(td_for)              AS td_for_per_game,
+# MAGIC     AVG(td_against)          AS td_against_per_game,
+# MAGIC     AVG(td_for - td_against) AS td_diff_per_game,
+# MAGIC
+# MAGIC     MIN(date_id) AS date_first_game_id,
+# MAGIC     MAX(date_id) AS date_last_game_id,
+# MAGIC
+# MAGIC     max_by(
+# MAGIC       event_ts_coalesced,
+# MAGIC       struct(date_id, event_ts_coalesced, game_id)
+# MAGIC     ) AS last_game_event_timestamp,
+# MAGIC
+# MAGIC     CAST(COUNT(DISTINCT tournament_id) AS INT)        AS tournaments_played,
+# MAGIC     CAST(COUNT(DISTINCT tournament_nation_id) AS INT) AS nations_played,
+# MAGIC
+# MAGIC     -- Opponent strength: all games
+# MAGIC     AVG(opponent_glo_peak)                            AS avg_opponent_glo_peak,
+# MAGIC
+# MAGIC     -- Opponent strength: last N games
+# MAGIC     AVG(CASE WHEN game_recency_rank <= p.last_n_games_window
+# MAGIC              THEN opponent_glo_peak END)              AS avg_opponent_glo_peak_last_50
+# MAGIC
+# MAGIC   FROM games_with_opp
+# MAGIC   CROSS JOIN params p
+# MAGIC   GROUP BY coach_id
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   coach_id,
+# MAGIC
+# MAGIC   games_played,
+# MAGIC   wins,
+# MAGIC   draws,
+# MAGIC   losses,
+# MAGIC
+# MAGIC   points_total,
+# MAGIC   points_per_game,
+# MAGIC
+# MAGIC   wins   / CAST(NULLIF(games_played, 0) AS DOUBLE) AS win_frac,
+# MAGIC   draws  / CAST(NULLIF(games_played, 0) AS DOUBLE) AS draw_frac,
+# MAGIC   losses / CAST(NULLIF(games_played, 0) AS DOUBLE) AS loss_frac,
+# MAGIC
+# MAGIC   td_for,
+# MAGIC   td_against,
+# MAGIC   td_diff,
+# MAGIC   td_for_per_game,
+# MAGIC   td_against_per_game,
+# MAGIC   td_diff_per_game,
+# MAGIC
+# MAGIC   date_first_game_id,
+# MAGIC   date_last_game_id,
+# MAGIC   last_game_event_timestamp,
+# MAGIC
+# MAGIC   tournaments_played,
+# MAGIC   COALESCE(nations_played, 0) AS nations_played,
+# MAGIC
+# MAGIC   avg_opponent_glo_peak,
+# MAGIC   avg_opponent_glo_peak_last_50,
+# MAGIC
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM agg;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.coach_form_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Form score — measures how much a coach outperforms (or underperforms)
+# MAGIC --               Elo expectations over their most recent games (GLOBAL scope).
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- CONTRACT TYPE: SUMMARY (materialised KPIs at declared grain)
+# MAGIC -- GRAIN        : 1 row per coach_id.
+# MAGIC -- PRIMARY KEY  : (coach_id)
+# MAGIC -- SOURCES      : naf_catalog.gold_fact.rating_history_fact (GLOBAL scope),
+# MAGIC --               naf_catalog.gold_dim.analytical_config
+# MAGIC -- NOTES        : - form_score = SUM(actual_result - expected_result) over last N GLOBAL games.
+# MAGIC --               - form_pctl = percentile rank among coaches with >= min_games in window.
+# MAGIC --               - Coaches below the minimum threshold get NULL pctl/label (not excluded).
+# MAGIC --               - Label thresholds: Strong (>=90), Good (>=70), Neutral (>=30), Poor (>=10), Weak (<10).
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_form_summary
+# MAGIC USING DELTA AS
+# MAGIC WITH params AS (
+# MAGIC   SELECT
+# MAGIC     form_window_games,
+# MAGIC     form_min_games_for_pctl
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC -- All GLOBAL NAF_ELO games with recency rank per coach.
+# MAGIC global_games AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     game_index,
+# MAGIC     result_numeric,
+# MAGIC     score_expected,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY coach_id
+# MAGIC       ORDER BY game_index DESC
+# MAGIC     ) AS game_rn_desc
+# MAGIC   FROM naf_catalog.gold_fact.rating_history_fact
+# MAGIC   WHERE scope = 'GLOBAL'
+# MAGIC     AND rating_system = 'NAF_ELO'
+# MAGIC     AND COALESCE(race_id, 0) = 0
+# MAGIC     AND coach_id IS NOT NULL
+# MAGIC ),
+# MAGIC -- Form score: sum of outperformance over last N games.
+# MAGIC form_agg AS (
+# MAGIC   SELECT
+# MAGIC     g.coach_id,
+# MAGIC     CAST(SUM(g.result_numeric - g.score_expected) AS DOUBLE) AS form_score,
+# MAGIC     CAST(COUNT(*) AS INT)                                    AS form_games_in_window
+# MAGIC   FROM global_games g
+# MAGIC   CROSS JOIN params p
+# MAGIC   WHERE g.game_rn_desc <= p.form_window_games
+# MAGIC   GROUP BY g.coach_id
+# MAGIC ),
+# MAGIC -- Percentile rank among coaches with enough games in the window.
+# MAGIC pctl_rank AS (
+# MAGIC   SELECT
+# MAGIC     fa.coach_id,
+# MAGIC     fa.form_score,
+# MAGIC     fa.form_games_in_window,
+# MAGIC     PERCENT_RANK() OVER (ORDER BY fa.form_score ASC) * 100.0 AS form_pctl
+# MAGIC   FROM form_agg fa
+# MAGIC   CROSS JOIN params p
+# MAGIC   WHERE fa.form_games_in_window >= p.form_min_games_for_pctl
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   fa.coach_id,
+# MAGIC   fa.form_score,
+# MAGIC   fa.form_games_in_window,
+# MAGIC
+# MAGIC   pr.form_pctl,
+# MAGIC
+# MAGIC   CASE
+# MAGIC     WHEN pr.form_pctl IS NULL     THEN NULL
+# MAGIC     WHEN pr.form_pctl >= 90.0     THEN 'Strong Form'
+# MAGIC     WHEN pr.form_pctl >= 70.0     THEN 'Good Form'
+# MAGIC     WHEN pr.form_pctl >= 30.0     THEN 'Neutral'
+# MAGIC     WHEN pr.form_pctl >= 10.0     THEN 'Poor Form'
+# MAGIC     ELSE                               'Weak Form'
+# MAGIC   END AS form_label,
+# MAGIC
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM form_agg fa
+# MAGIC LEFT JOIN pctl_rank pr
+# MAGIC   ON fa.coach_id = pr.coach_id;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Form score distribution (diagnostic)
+# MAGIC Run after `coach_form_summary` is built to inspect the form score distribution
+# MAGIC and verify the percentile bucketing produces sensible groupings.
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT
+# MAGIC   COUNT(*)                                              AS coaches_total,
+# MAGIC   COUNT(CASE WHEN form_games_in_window >= 50 THEN 1 END) AS coaches_eligible,
+# MAGIC   MIN(form_score)                                       AS form_min,
+# MAGIC   MAX(form_score)                                       AS form_max,
+# MAGIC   AVG(form_score)                                       AS form_avg,
+# MAGIC   PERCENTILE_APPROX(form_score, ARRAY(0.1, 0.25, 0.5, 0.75, 0.9)) AS form_pctls,
+# MAGIC   COUNT(CASE WHEN form_label = 'Strong Form' THEN 1 END) AS strong,
+# MAGIC   COUNT(CASE WHEN form_label = 'Good Form'   THEN 1 END) AS good,
+# MAGIC   COUNT(CASE WHEN form_label = 'Neutral'     THEN 1 END) AS neutral,
+# MAGIC   COUNT(CASE WHEN form_label = 'Poor Form'   THEN 1 END) AS poor,
+# MAGIC   COUNT(CASE WHEN form_label = 'Weak Form'   THEN 1 END) AS weak
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary;
 # MAGIC
 
 # COMMAND ----------

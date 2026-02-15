@@ -96,9 +96,10 @@ Materialised analytical products.
 
 | # | Object | Type | Grain | Sources |
 |---|---|---|---|---|
-| 7 | `coach_performance_summary` | [T] | 1 per coach_id | coach_game_spine_v, tournament_dim |
-| 8 | `coach_rating_race_summary` | [T] | 1 per (rating_system, coach_id, race_id) | coach_race_elo_rating_history_v, analytical_config |
-| 9 | `coach_rating_global_elo_summary` | [T] | 1 per (rating_system, coach_id) | coach_global_elo_rating_history_v, analytical_config |
+| 7 | `coach_rating_race_summary` | [T] | 1 per (rating_system, coach_id, race_id) | coach_race_elo_rating_history_v, analytical_config |
+| 8 | `coach_rating_global_elo_summary` | [T] | 1 per (rating_system, coach_id) | coach_global_elo_rating_history_v, analytical_config |
+| 9 | `coach_performance_summary` | [T] | 1 per coach_id | coach_game_spine_v, tournament_dim, coach_rating_global_elo_summary |
+| 9a | `coach_form_summary` | [T] | 1 per coach_id | rating_history_fact, analytical_config |
 | 10 | `coach_race_summary` | [T] | 1 per (rating_system, coach_id, race_id) | coach_game_spine_v, coach_rating_race_summary, analytical_config |
 | 11 | `coach_tournament_performance_summary` | [T] | 1 per (rating_system, coach_id, tournament_id) | coach_game_spine_v, coach_global_elo_rating_history_v |
 
@@ -132,7 +133,7 @@ All views. Listed in build order (some depend on earlier presentation views).
 
 | # | Object | Type | Grain | Key sources |
 |---|---|---|---|---|
-| 1 | `coach_profile` | [V] | 1 per coach_id | coach_race_summary, coach_streak_summary, coach_performance_summary, coach_rating_global_elo_summary, coach_identity_v |
+| 1 | `coach_profile` | [V] | 1 per coach_id | coach_race_summary, coach_streak_summary, coach_performance_summary, coach_form_summary, coach_rating_global_elo_summary, coach_identity_v |
 | 2 | `coach_race_performance` | [V] | 1 per (coach_id, race_id) | coach_race_summary, coach_identity_v, race_dim |
 | 3 | `coach_opponent_rating` | [V] | 1 per (coach_id, opponent_coach_id) | coach_opponent_summary, coach_identity_v |
 | 4 | `coach_opponent_highlights` | [V] | 1 per coach_id | coach_opponent_global_elo_enriched_v, coach_identity_v |

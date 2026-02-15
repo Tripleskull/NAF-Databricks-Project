@@ -273,6 +273,10 @@
 # MAGIC   CAST(2.0/3.0 AS DOUBLE)  AS rivalry_w_closeness,
 # MAGIC   CAST(1.0/6.0 AS DOUBLE)  AS rivalry_w_share,
 # MAGIC
+# MAGIC   -- Form score (Phase 1)
+# MAGIC   CAST(50      AS INT)     AS form_window_games,
+# MAGIC   CAST(50      AS INT)     AS form_min_games_for_pctl,
+# MAGIC
 # MAGIC   CURRENT_TIMESTAMP()      AS load_timestamp
 # MAGIC ;
 

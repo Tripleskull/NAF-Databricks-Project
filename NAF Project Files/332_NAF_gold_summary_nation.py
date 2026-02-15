@@ -137,6 +137,12 @@
 # MAGIC     PERCENTILE_APPROX(rating_after, 0.5) AS glo_median
 # MAGIC   FROM eligible
 # MAGIC   GROUP BY nation_id, coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Opponent strength per coach (from coach_performance_summary, built in 331).
+# MAGIC opponent_strength AS (
+# MAGIC   SELECT coach_id, avg_opponent_glo_peak
+# MAGIC   FROM naf_catalog.gold_summary.coach_performance_summary
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -153,6 +159,9 @@
 # MAGIC   a.glo_mean_all,
 # MAGIC   a.glo_median_all,
 # MAGIC
+# MAGIC   -- Opponent strength context
+# MAGIC   os.avg_opponent_glo_peak,
+# MAGIC
 # MAGIC   a.games_played,
 # MAGIC   (a.games_played >= p.min_games) AS is_valid_glo,
 # MAGIC
@@ -161,7 +170,9 @@
 # MAGIC CROSS JOIN params p
 # MAGIC LEFT JOIN eligible_agg e
 # MAGIC   ON a.nation_id = e.nation_id
-# MAGIC  AND a.coach_id  = e.coach_id;
+# MAGIC  AND a.coach_id  = e.coach_id
+# MAGIC LEFT JOIN opponent_strength os
+# MAGIC   ON a.coach_id = os.coach_id;
 # MAGIC
 
 # COMMAND ----------
@@ -268,6 +279,17 @@
 # MAGIC all_nations AS (
 # MAGIC   -- include all nations for stable presentation contracts (0s where no activity)
 # MAGIC   SELECT nation_id FROM naf_catalog.gold_dim.nation_dim
+# MAGIC ),
+# MAGIC
+# MAGIC -- Opponent strength aggregated to nation level (valid coaches only).
+# MAGIC opp_strength_by_nation AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     AVG(avg_opponent_glo_peak) AS avg_opponent_glo_peak
+# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics
+# MAGIC   WHERE is_valid_glo = TRUE
+# MAGIC     AND avg_opponent_glo_peak IS NOT NULL
+# MAGIC   GROUP BY nation_id
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -304,13 +326,16 @@
 # MAGIC   gpn.glo_peak_mean,
 # MAGIC   gpn.glo_peak_median,
 # MAGIC
+# MAGIC   osn.avg_opponent_glo_peak,
+# MAGIC
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM all_nations n
 # MAGIC LEFT JOIN coach_nation_agg cna ON n.nation_id = cna.nation_id
 # MAGIC CROSS JOIN coach_global_totals cgt
 # MAGIC LEFT JOIN host_nation_agg hna ON n.nation_id = hna.nation_id
 # MAGIC CROSS JOIN host_global_totals hgt
-# MAGIC LEFT JOIN glo_peak_by_nation gpn ON n.nation_id = gpn.nation_id;
+# MAGIC LEFT JOIN glo_peak_by_nation gpn ON n.nation_id = gpn.nation_id
+# MAGIC LEFT JOIN opp_strength_by_nation osn ON n.nation_id = osn.nation_id;
 # MAGIC
 
 # COMMAND ----------

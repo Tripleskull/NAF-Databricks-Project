@@ -140,6 +140,7 @@
 # MAGIC   s.glo_peak_max,
 # MAGIC   s.glo_peak_mean,
 # MAGIC   s.glo_peak_median,
+# MAGIC   s.avg_opponent_glo_peak,
 # MAGIC
 # MAGIC   -- Global share (from summary)
 # MAGIC   s.coaches_global_pct,

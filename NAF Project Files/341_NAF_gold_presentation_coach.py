@@ -65,6 +65,7 @@
 # MAGIC --                naf_catalog.gold_summary.coach_race_summary,
 # MAGIC --                naf_catalog.gold_summary.coach_streak_summary,
 # MAGIC --                naf_catalog.gold_summary.coach_race_performance (via coach_race_performance view),
+# MAGIC --                naf_catalog.gold_summary.coach_form_summary,
 # MAGIC --                naf_catalog.gold_presentation.coach_identity_v
 # MAGIC -- NOTES        : "GLOBAL" scope is represented by scope_race_id = 0 (not NULL)
 # MAGIC -- =====================================================================
@@ -237,6 +238,16 @@
 # MAGIC   og.opponent_games_rated,
 # MAGIC   og.opponent_games_imputed,
 # MAGIC
+# MAGIC   -- Opponent strength context (all games + last 50)
+# MAGIC   p.avg_opponent_glo_peak,
+# MAGIC   p.avg_opponent_glo_peak_last_50,
+# MAGIC
+# MAGIC   -- Form score (recent outperformance of Elo expectations)
+# MAGIC   fs.form_score,
+# MAGIC   fs.form_pctl,
+# MAGIC   fs.form_label,
+# MAGIC   fs.form_games_in_window,
+# MAGIC
 # MAGIC   -- Top races
 # MAGIC   tr.race_1_id            AS main_race_id,
 # MAGIC   tr.race_1_name          AS main_race_name,
@@ -275,7 +286,8 @@
 # MAGIC     COALESCE(rg.load_timestamp, TIMESTAMP('1900-01-01')),
 # MAGIC     COALESCE(og.load_timestamp, TIMESTAMP('1900-01-01')),
 # MAGIC     COALESCE(tr.race_load_timestamp, TIMESTAMP('1900-01-01')),
-# MAGIC     COALESCE(sg.streak_load_timestamp, TIMESTAMP('1900-01-01'))
+# MAGIC     COALESCE(sg.streak_load_timestamp, TIMESTAMP('1900-01-01')),
+# MAGIC     COALESCE(fs.load_timestamp, TIMESTAMP('1900-01-01'))
 # MAGIC   ) AS load_timestamp
 # MAGIC
 # MAGIC FROM naf_catalog.gold_presentation.coach_identity_v AS ci
@@ -293,6 +305,8 @@
 # MAGIC   ON ci.coach_id = ra.coach_id
 # MAGIC LEFT JOIN streak_global AS sg
 # MAGIC   ON ci.coach_id = sg.coach_id
+# MAGIC LEFT JOIN naf_catalog.gold_summary.coach_form_summary AS fs
+# MAGIC   ON ci.coach_id = fs.coach_id
 # MAGIC ;
 # MAGIC
 

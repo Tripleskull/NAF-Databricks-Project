@@ -45,6 +45,7 @@
 # MAGIC     ('gold_summary',     'coach_streak_segments',                  'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_streak_summary',                   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_tournament_performance_summary',   'PLAN', 'TABLE'),
+# MAGIC     ('gold_summary',     'coach_form_summary',                     'PLAN', 'TABLE'),
 # MAGIC
 # MAGIC     ('gold_presentation','coach_profile',                          'PLAN', 'VIEW'),
 # MAGIC     ('gold_presentation','coach_race_performance',                 'PLAN', 'VIEW'),
@@ -449,6 +450,64 @@
 # MAGIC -- FK: coach_rating_global_elo_summary.coach_id → coach_dim
 # MAGIC SELECT 'coach_rating_global_elo_summary: orphan coach_id', COUNT(*)
 # MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
+# MAGIC WHERE d.coach_id IS NULL
+# MAGIC
+# MAGIC HAVING fail_rows > 0;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- =====================================================================
+# MAGIC -- PHASE 1: COACH FORM SUMMARY + OPPONENT STRENGTH TESTS
+# MAGIC -- =====================================================================
+# MAGIC -- Returns ONLY failing checks. Empty result = all pass.
+# MAGIC
+# MAGIC -- PK: coach_form_summary (coach_id)
+# MAGIC SELECT 'coach_form_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT coach_id FROM naf_catalog.gold_summary.coach_form_summary GROUP BY coach_id HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Non-empty check
+# MAGIC SELECT 'coach_form_summary: table is empty', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary
+# MAGIC UNION ALL
+# MAGIC -- Form score range: warn if any outside [-20, +20] (generous bound)
+# MAGIC SELECT 'coach_form_summary: form_score outside [-20, +20]', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary
+# MAGIC WHERE form_score IS NOT NULL AND (form_score < -20 OR form_score > 20)
+# MAGIC UNION ALL
+# MAGIC -- Percentile range: form_pctl must be 0–100 for eligible coaches
+# MAGIC SELECT 'coach_form_summary: form_pctl outside [0, 100]', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary
+# MAGIC WHERE form_pctl IS NOT NULL AND (form_pctl < 0 OR form_pctl > 100)
+# MAGIC UNION ALL
+# MAGIC -- Label consistency: non-NULL pctl must have non-NULL label
+# MAGIC SELECT 'coach_form_summary: form_pctl set but form_label NULL', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary
+# MAGIC WHERE form_pctl IS NOT NULL AND form_label IS NULL
+# MAGIC UNION ALL
+# MAGIC -- Label consistency: non-NULL label must have non-NULL pctl
+# MAGIC SELECT 'coach_form_summary: form_label set but form_pctl NULL', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary
+# MAGIC WHERE form_label IS NOT NULL AND form_pctl IS NULL
+# MAGIC UNION ALL
+# MAGIC -- Opponent strength: avg_opponent_glo_peak should be between 100 and 400 for coaches with 10+ games
+# MAGIC SELECT 'coach_performance_summary: avg_opponent_glo_peak outside [100, 400] for 10+ game coaches', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_performance_summary
+# MAGIC WHERE games_played >= 10
+# MAGIC   AND avg_opponent_glo_peak IS NOT NULL
+# MAGIC   AND (avg_opponent_glo_peak < 100 OR avg_opponent_glo_peak > 400)
+# MAGIC UNION ALL
+# MAGIC -- Opponent strength last 50: should also be in reasonable range
+# MAGIC SELECT 'coach_performance_summary: avg_opponent_glo_peak_last_50 outside [100, 400] for 50+ game coaches', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_performance_summary
+# MAGIC WHERE games_played >= 50
+# MAGIC   AND avg_opponent_glo_peak_last_50 IS NOT NULL
+# MAGIC   AND (avg_opponent_glo_peak_last_50 < 100 OR avg_opponent_glo_peak_last_50 > 400)
+# MAGIC UNION ALL
+# MAGIC -- FK: coach_form_summary.coach_id → coach_dim
+# MAGIC SELECT 'coach_form_summary: orphan coach_id', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.coach_form_summary s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
 # MAGIC WHERE d.coach_id IS NULL
 # MAGIC

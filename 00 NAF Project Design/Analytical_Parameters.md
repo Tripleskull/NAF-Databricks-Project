@@ -194,6 +194,53 @@ Not yet implemented. When needed, mirror the global pattern with bin edges calib
 | Rivalry weight: games | 1/6 | `rivalry_w_games` | §4.2 |
 | Rivalry weight: closeness | 2/3 | `rivalry_w_closeness` | §4.2 |
 | Rivalry weight: share | 1/6 | `rivalry_w_share` | §4.2 |
+| Form window games | 50 | `form_window_games` | §8.1 |
+| Form min games for pctl | 50 | `form_min_games_for_pctl` | §8.1 |
+
+---
+
+## 8. Form Score (Phase 1)
+
+### 8.1 Parameters
+
+| Parameter | Value | Config column | Purpose |
+|---|---|---|---|
+| Form window games | 50 | `form_window_games` | Number of most-recent GLOBAL games used to compute form score |
+| Form min games for pctl | 50 | `form_min_games_for_pctl` | Minimum games in form window to be eligible for percentile ranking |
+
+### 8.2 Computation
+
+**Form score** measures how much a coach has recently over- or under-performed relative to Elo expectations:
+
+```
+form_score = SUM(result_numeric - score_expected) over last N GLOBAL games
+```
+
+Where `result_numeric` is 1 (win) / 0.5 (draw) / 0 (loss) and `score_expected` is the Elo-predicted probability.
+
+A positive form score means the coach is winning more than expected; negative means losing more than expected.
+
+### 8.3 Percentile ranking
+
+Coaches with `form_games_in_window >= form_min_games_for_pctl` are ranked by `PERCENT_RANK()` on `form_score`, scaled to 0–100.
+
+Coaches below the threshold get `form_pctl = NULL` and `form_label = NULL`.
+
+### 8.4 Form labels (fixed — not tuneable)
+
+| Percentile range | Label |
+|---|---|
+| >= 90 | Strong Form |
+| 70–89 | Good Form |
+| 30–69 | Neutral |
+| 10–29 | Poor Form |
+| < 10 | Weak Form |
+
+### 8.5 Object
+
+| Object | Schema | Grain | Purpose |
+|---|---|---|---|
+| `coach_form_summary` | `gold_summary` | 1 row per `coach_id` | Form score, percentile, and label |
 
 ---
 
