@@ -654,6 +654,142 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   World-relative strength and world specialist identification.
+# MAGIC --   Computes each coach's race Elo relative to world median and identifies
+# MAGIC --   world top 2% specialists per race.
+# MAGIC -- LAYER:
+# MAGIC --   GOLD_SUMMARY
+# MAGIC -- GRAIN:
+# MAGIC --   1 row per (coach_id, race_id) for coaches with 25+ games (post-threshold)
+# MAGIC -- PRIMARY KEY:
+# MAGIC --   (coach_id, race_id)
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.coach_rating_race_summary (elo_peak_post_threshold, games_with_race)
+# MAGIC --   - naf_catalog.gold_summary.world_race_elo_quantiles (world median)
+# MAGIC -- NOTES:
+# MAGIC --   - is_world_specialist: top 2% globally, above world median, 25+ games
+# MAGIC --   - Uses PERCENT_RANK() pattern from coach_form_summary
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH coach_race_data AS (
+# MAGIC   SELECT
+# MAGIC     crr.coach_id,
+# MAGIC     crr.race_id,
+# MAGIC     crr.elo_peak_post_threshold AS elo_peak,
+# MAGIC     crr.games_with_race,
+# MAGIC     w.elo_peak_p50 AS world_median_elo,
+# MAGIC     w.elo_peak_p90 AS world_p90_elo
+# MAGIC   FROM naf_catalog.gold_summary.coach_rating_race_summary crr
+# MAGIC   INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles w
+# MAGIC     ON crr.race_id = w.race_id
+# MAGIC   WHERE crr.rating_system = 'ELO'
+# MAGIC     AND crr.games_with_race >= 25
+# MAGIC     AND crr.elo_peak_post_threshold IS NOT NULL
+# MAGIC ),
+# MAGIC percentiles AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     race_id,
+# MAGIC     elo_peak,
+# MAGIC     games_with_race,
+# MAGIC     world_median_elo,
+# MAGIC     world_p90_elo,
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY race_id ORDER BY elo_peak) * 100 AS DOUBLE) AS world_percentile
+# MAGIC   FROM coach_race_data
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   coach_id,
+# MAGIC   race_id,
+# MAGIC   elo_peak,
+# MAGIC   games_with_race,
+# MAGIC   world_median_elo,
+# MAGIC   world_p90_elo,
+# MAGIC   CAST(elo_peak - world_median_elo AS DOUBLE) AS relative_strength,
+# MAGIC   world_percentile,
+# MAGIC   CASE
+# MAGIC     WHEN world_percentile >= 98.0
+# MAGIC      AND elo_peak >= world_median_elo
+# MAGIC      AND games_with_race >= 25
+# MAGIC     THEN TRUE
+# MAGIC     ELSE FALSE
+# MAGIC   END AS is_world_specialist,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM percentiles;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Nation-relative ranking and national specialist identification.
+# MAGIC --   Identifies top 3 coaches per race within each nation (minimum quality required).
+# MAGIC -- LAYER:
+# MAGIC --   GOLD_SUMMARY
+# MAGIC -- GRAIN:
+# MAGIC --   1 row per (coach_id, race_id) for coaches with 25+ games (post-threshold)
+# MAGIC -- PRIMARY KEY:
+# MAGIC --   (coach_id, race_id)
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.coach_rating_race_summary (elo_peak_post_threshold, games_with_race)
+# MAGIC --   - naf_catalog.gold_dim.coach_dim (nation_id)
+# MAGIC --   - naf_catalog.gold_summary.world_race_elo_quantiles (world median threshold)
+# MAGIC -- NOTES:
+# MAGIC --   - is_national_specialist: top 3 in nation, above world median, 25+ games
+# MAGIC --   - Uses DENSE_RANK() to handle ties
+# MAGIC --   - Excludes Unknown nation (nation_id = 0)
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH coach_nation_race AS (
+# MAGIC   SELECT
+# MAGIC     crr.coach_id,
+# MAGIC     crr.race_id,
+# MAGIC     c.nation_id,
+# MAGIC     crr.elo_peak_post_threshold AS elo_peak,
+# MAGIC     crr.games_with_race,
+# MAGIC     w.elo_peak_p50 AS world_median_elo
+# MAGIC   FROM naf_catalog.gold_summary.coach_rating_race_summary crr
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
+# MAGIC     ON crr.coach_id = c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles w
+# MAGIC     ON crr.race_id = w.race_id
+# MAGIC   WHERE crr.rating_system = 'ELO'
+# MAGIC     AND crr.games_with_race >= 25
+# MAGIC     AND crr.elo_peak_post_threshold IS NOT NULL
+# MAGIC     AND c.nation_id <> 0
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   coach_id,
+# MAGIC   race_id,
+# MAGIC   nation_id,
+# MAGIC   elo_peak,
+# MAGIC   games_with_race,
+# MAGIC   world_median_elo,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, race_id ORDER BY elo_peak DESC) AS INT) AS nation_rank,
+# MAGIC   CASE
+# MAGIC     WHEN DENSE_RANK() OVER (PARTITION BY nation_id, race_id ORDER BY elo_peak DESC) <= 3
+# MAGIC      AND elo_peak >= world_median_elo
+# MAGIC      AND games_with_race >= 25
+# MAGIC     THEN TRUE
+# MAGIC     ELSE FALSE
+# MAGIC   END AS is_national_specialist,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM coach_nation_race;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_streak_segments
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Compute streak segments (WIN / UNBEATEN) for GLOBAL and RACE scopes.

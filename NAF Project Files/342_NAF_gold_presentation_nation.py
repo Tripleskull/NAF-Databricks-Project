@@ -922,3 +922,45 @@
 # MAGIC LEFT JOIN naf_catalog.gold_dim.date_dim AS d
 # MAGIC   ON s.date_id = d.date_id;
 # MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_domestic_performance_display
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Dashboard contract for home/abroad performance metrics.
+# MAGIC --   Shows performance split by tournament location and opponent origin.
+# MAGIC -- LAYER:
+# MAGIC --   GOLD_PRESENTATION
+# MAGIC -- GRAIN:
+# MAGIC --   1 row per nation_id
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC --   - naf_catalog.gold_dim.nation_dim
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_domestic_performance_display AS
+# MAGIC SELECT
+# MAGIC   s.nation_id,
+# MAGIC   n.nation_name,
+# MAGIC   n.nation_name_display,
+# MAGIC   n.flag_code AS nation_flag_code,
+# MAGIC
+# MAGIC   -- Tournament location dimension
+# MAGIC   s.games_home,
+# MAGIC   s.games_away,
+# MAGIC   s.win_frac_home,
+# MAGIC   s.win_frac_away,
+# MAGIC
+# MAGIC   -- Opponent origin dimension
+# MAGIC   s.games_vs_domestic,
+# MAGIC   s.games_vs_foreign,
+# MAGIC   s.win_frac_vs_domestic,
+# MAGIC   s.win_frac_vs_foreign,
+# MAGIC
+# MAGIC   s.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary AS s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
+# MAGIC   ON s.nation_id = n.nation_id;
+# MAGIC

@@ -569,6 +569,77 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Home/abroad performance split by tournament location and opponent origin.
+# MAGIC --   Supports nation dashboard features showing domestic vs international patterns.
+# MAGIC -- LAYER:
+# MAGIC --   GOLD_SUMMARY
+# MAGIC -- GRAIN:
+# MAGIC --   1 row per nation_id
+# MAGIC -- PRIMARY KEY:
+# MAGIC --   (nation_id)
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_fact.coach_games_fact
+# MAGIC --   - naf_catalog.gold_dim.coach_dim
+# MAGIC --   - naf_catalog.gold_dim.tournament_dim
+# MAGIC -- NOTES:
+# MAGIC --   - Excludes Unknown nation (nation_id = 0)
+# MAGIC --   - Home/away based on tournament_dim.nation_id vs coach_dim.nation_id
+# MAGIC --   - Domestic/foreign based on opponent coach_dim.nation_id
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH game_context AS (
+# MAGIC   SELECT
+# MAGIC     cgf.game_id,
+# MAGIC     cgf.coach_id,
+# MAGIC     cgf.opponent_coach_id,
+# MAGIC     cgf.tournament_id,
+# MAGIC     cgf.result_numeric,
+# MAGIC     c.nation_id AS coach_nation_id,
+# MAGIC     t.nation_id AS tournament_nation_id,
+# MAGIC     opp_c.nation_id AS opponent_nation_id
+# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
+# MAGIC     ON cgf.coach_id = c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_dim.tournament_dim t
+# MAGIC     ON cgf.tournament_id = t.tournament_id
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim opp_c
+# MAGIC     ON cgf.opponent_coach_id = opp_c.coach_id
+# MAGIC   WHERE c.nation_id <> 0
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   coach_nation_id AS nation_id,
+# MAGIC
+# MAGIC   -- Tournament location dimension
+# MAGIC   CAST(SUM(CASE WHEN tournament_nation_id = coach_nation_id THEN 1 ELSE 0 END) AS INT) AS games_home,
+# MAGIC   CAST(SUM(CASE WHEN tournament_nation_id <> coach_nation_id THEN 1 ELSE 0 END) AS INT) AS games_away,
+# MAGIC   CAST(SUM(CASE WHEN tournament_nation_id = coach_nation_id THEN result_numeric ELSE 0 END) AS DOUBLE) /
+# MAGIC     NULLIF(SUM(CASE WHEN tournament_nation_id = coach_nation_id THEN 1 ELSE 0 END), 0) AS win_frac_home,
+# MAGIC   CAST(SUM(CASE WHEN tournament_nation_id <> coach_nation_id THEN result_numeric ELSE 0 END) AS DOUBLE) /
+# MAGIC     NULLIF(SUM(CASE WHEN tournament_nation_id <> coach_nation_id THEN 1 ELSE 0 END), 0) AS win_frac_away,
+# MAGIC
+# MAGIC   -- Opponent origin dimension
+# MAGIC   CAST(SUM(CASE WHEN opponent_nation_id = coach_nation_id THEN 1 ELSE 0 END) AS INT) AS games_vs_domestic,
+# MAGIC   CAST(SUM(CASE WHEN opponent_nation_id <> coach_nation_id THEN 1 ELSE 0 END) AS INT) AS games_vs_foreign,
+# MAGIC   CAST(SUM(CASE WHEN opponent_nation_id = coach_nation_id THEN result_numeric ELSE 0 END) AS DOUBLE) /
+# MAGIC     NULLIF(SUM(CASE WHEN opponent_nation_id = coach_nation_id THEN 1 ELSE 0 END), 0) AS win_frac_vs_domestic,
+# MAGIC   CAST(SUM(CASE WHEN opponent_nation_id <> coach_nation_id THEN result_numeric ELSE 0 END) AS DOUBLE) /
+# MAGIC     NULLIF(SUM(CASE WHEN opponent_nation_id <> coach_nation_id THEN 1 ELSE 0 END), 0) AS win_frac_vs_foreign,
+# MAGIC
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM game_context
+# MAGIC GROUP BY coach_nation_id;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_overview_comparison_summary
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:

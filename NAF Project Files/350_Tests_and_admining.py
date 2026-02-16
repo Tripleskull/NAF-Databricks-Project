@@ -670,6 +670,136 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Phase 4: Home/Abroad + Specialist Badges tests
+# MAGIC %sql
+# MAGIC -- =====================================================================
+# MAGIC -- PHASE 4: HOME/ABROAD PERFORMANCE + SPECIALIST BADGES TESTS
+# MAGIC -- =====================================================================
+# MAGIC -- Returns ONLY failing checks. Empty result = all pass.
+# MAGIC
+# MAGIC -- PK: nation_domestic_summary (nation_id)
+# MAGIC SELECT 'nation_domestic_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT nation_id FROM naf_catalog.gold_summary.nation_domestic_summary GROUP BY nation_id HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Non-empty check
+# MAGIC SELECT 'nation_domestic_summary: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC UNION ALL
+# MAGIC -- FK: nation_id → nation_dim
+# MAGIC SELECT 'nation_domestic_summary: orphan nation_id' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id
+# MAGIC WHERE d.nation_id IS NULL
+# MAGIC UNION ALL
+# MAGIC -- Win fractions between 0-1
+# MAGIC SELECT 'nation_domestic_summary: win_frac_home outside [0,1]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC WHERE win_frac_home IS NOT NULL AND (win_frac_home < 0 OR win_frac_home > 1)
+# MAGIC UNION ALL
+# MAGIC SELECT 'nation_domestic_summary: win_frac_away outside [0,1]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC WHERE win_frac_away IS NOT NULL AND (win_frac_away < 0 OR win_frac_away > 1)
+# MAGIC UNION ALL
+# MAGIC SELECT 'nation_domestic_summary: win_frac_vs_domestic outside [0,1]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC WHERE win_frac_vs_domestic IS NOT NULL AND (win_frac_vs_domestic < 0 OR win_frac_vs_domestic > 1)
+# MAGIC UNION ALL
+# MAGIC SELECT 'nation_domestic_summary: win_frac_vs_foreign outside [0,1]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC WHERE win_frac_vs_foreign IS NOT NULL AND (win_frac_vs_foreign < 0 OR win_frac_vs_foreign > 1)
+# MAGIC UNION ALL
+# MAGIC -- No Unknown nation
+# MAGIC SELECT 'nation_domestic_summary: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary
+# MAGIC WHERE nation_id = 0
+# MAGIC UNION ALL
+# MAGIC -- PK: coach_race_relative_strength (coach_id, race_id)
+# MAGIC SELECT 'coach_race_relative_strength: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT coach_id, race_id FROM naf_catalog.gold_summary.coach_race_relative_strength GROUP BY coach_id, race_id HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Non-empty check
+# MAGIC SELECT 'coach_race_relative_strength: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC UNION ALL
+# MAGIC -- FK: coach_id → coach_dim
+# MAGIC SELECT 'coach_race_relative_strength: orphan coach_id' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_relative_strength s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
+# MAGIC WHERE d.coach_id IS NULL
+# MAGIC UNION ALL
+# MAGIC -- FK: race_id → race_dim
+# MAGIC SELECT 'coach_race_relative_strength: orphan race_id' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_relative_strength s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.race_dim d ON s.race_id = d.race_id
+# MAGIC WHERE d.race_id IS NULL
+# MAGIC UNION ALL
+# MAGIC -- World percentile between 0-100
+# MAGIC SELECT 'coach_race_relative_strength: world_percentile outside [0,100]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC WHERE world_percentile IS NOT NULL AND (world_percentile < 0 OR world_percentile > 100)
+# MAGIC UNION ALL
+# MAGIC -- Specialist flag logic: must meet all criteria
+# MAGIC SELECT 'coach_race_relative_strength: world_specialist=TRUE but criteria not met' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC WHERE is_world_specialist = TRUE
+# MAGIC   AND NOT (world_percentile >= 98.0 AND elo_peak >= world_median_elo AND games_with_race >= 25)
+# MAGIC UNION ALL
+# MAGIC -- Minimum games threshold
+# MAGIC SELECT 'coach_race_relative_strength: games_with_race < 25' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC WHERE games_with_race < 25
+# MAGIC UNION ALL
+# MAGIC -- PK: coach_race_nation_rank (coach_id, race_id)
+# MAGIC SELECT 'coach_race_nation_rank: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT coach_id, race_id FROM naf_catalog.gold_summary.coach_race_nation_rank GROUP BY coach_id, race_id HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Non-empty check
+# MAGIC SELECT 'coach_race_nation_rank: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC UNION ALL
+# MAGIC -- FK: coach_id → coach_dim
+# MAGIC SELECT 'coach_race_nation_rank: orphan coach_id' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
+# MAGIC WHERE d.coach_id IS NULL
+# MAGIC UNION ALL
+# MAGIC -- FK: race_id → race_dim
+# MAGIC SELECT 'coach_race_nation_rank: orphan race_id' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.race_dim d ON s.race_id = d.race_id
+# MAGIC WHERE d.race_id IS NULL
+# MAGIC UNION ALL
+# MAGIC -- FK: nation_id → nation_dim
+# MAGIC SELECT 'coach_race_nation_rank: orphan nation_id' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id
+# MAGIC WHERE d.nation_id IS NULL
+# MAGIC UNION ALL
+# MAGIC -- Nation rank >= 1
+# MAGIC SELECT 'coach_race_nation_rank: nation_rank < 1' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC WHERE nation_rank < 1
+# MAGIC UNION ALL
+# MAGIC -- No Unknown nation
+# MAGIC SELECT 'coach_race_nation_rank: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC WHERE nation_id = 0
+# MAGIC UNION ALL
+# MAGIC -- National specialist flag logic: must meet all criteria
+# MAGIC SELECT 'coach_race_nation_rank: national_specialist=TRUE but criteria not met' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC WHERE is_national_specialist = TRUE
+# MAGIC   AND NOT (nation_rank <= 3 AND elo_peak >= world_median_elo AND games_with_race >= 25)
+# MAGIC UNION ALL
+# MAGIC -- Minimum games threshold
+# MAGIC SELECT 'coach_race_nation_rank: games_with_race < 25' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC WHERE games_with_race < 25
+# MAGIC
+# MAGIC HAVING fail_rows > 0;
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC -- ============================================================
 # MAGIC -- SILVER invariants
