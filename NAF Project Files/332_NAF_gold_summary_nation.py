@@ -1504,6 +1504,39 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_summary.world_race_elo_quantiles
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : World-level race Elo peak distribution (all coaches globally).
+# MAGIC --                Provides the boxplot baseline for nation vs world race comparisons.
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per race_id
+# MAGIC -- PRIMARY KEY  : (race_id)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_coach_race_elo_peak
+# MAGIC -- NOTES        : PEAK only (post-threshold). Filtered by is_valid_elo (25+ games).
+# MAGIC --                Mirrors the pattern of world_glo_metric_quantiles but at race level.
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_summary.world_race_elo_quantiles AS
+# MAGIC SELECT
+# MAGIC   race_id,
+# MAGIC   CAST(COUNT(DISTINCT coach_id) AS INT) AS coaches_count,
+# MAGIC   MIN(elo_peak)                         AS elo_peak_min,
+# MAGIC   PERCENTILE_APPROX(elo_peak, 0.10)     AS elo_peak_p10,
+# MAGIC   PERCENTILE_APPROX(elo_peak, 0.25)     AS elo_peak_p25,
+# MAGIC   PERCENTILE_APPROX(elo_peak, 0.50)     AS elo_peak_p50,
+# MAGIC   PERCENTILE_APPROX(elo_peak, 0.75)     AS elo_peak_p75,
+# MAGIC   PERCENTILE_APPROX(elo_peak, 0.90)     AS elo_peak_p90,
+# MAGIC   MAX(elo_peak)                         AS elo_peak_max,
+# MAGIC   CURRENT_TIMESTAMP()                   AS load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_coach_race_elo_peak
+# MAGIC WHERE is_valid_elo = TRUE
+# MAGIC   AND elo_peak IS NOT NULL
+# MAGIC GROUP BY race_id;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_summary.world_glo_metric_quantiles AS
 # MAGIC WITH metric_long AS (
 # MAGIC   SELECT

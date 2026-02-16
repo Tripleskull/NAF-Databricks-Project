@@ -399,6 +399,82 @@
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_race_strength_comparison
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Grouped boxplot data: nation race Elo PEAK vs world race Elo PEAK.
+# MAGIC --   Two rows per (nation_id, race_id): one NATION, one WORLD.
+# MAGIC --   Dashboard uses this for side-by-side boxplot comparisons per race.
+# MAGIC -- GRAIN:
+# MAGIC --   One row per (nation_id, race_id, scope)
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.nation_race_elo_peak_summary (nation quantiles)
+# MAGIC --   - naf_catalog.gold_summary.world_race_elo_quantiles (world quantiles)
+# MAGIC --   - naf_catalog.gold_dim.nation_dim, naf_catalog.gold_dim.race_dim
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_race_strength_comparison AS
+# MAGIC
+# MAGIC -- NATION rows
+# MAGIC SELECT
+# MAGIC   s.nation_id,
+# MAGIC   n.nation_name,
+# MAGIC   n.nation_name_display,
+# MAGIC   n.flag_code,
+# MAGIC   s.race_id,
+# MAGIC   r.race_name,
+# MAGIC   'NATION'                              AS scope,
+# MAGIC   1                                     AS scope_sort,
+# MAGIC   s.coaches_with_race_count             AS coaches_count,
+# MAGIC   s.elo_peak_min,
+# MAGIC   s.elo_peak_p10,
+# MAGIC   CAST(NULL AS DOUBLE)                  AS elo_peak_p25,
+# MAGIC   s.elo_peak_median                     AS elo_peak_p50,
+# MAGIC   CAST(NULL AS DOUBLE)                  AS elo_peak_p75,
+# MAGIC   s.elo_peak_p90,
+# MAGIC   s.elo_peak_max,
+# MAGIC   s.elo_peak_mean,
+# MAGIC   s.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_race_elo_peak_summary AS s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
+# MAGIC   ON s.nation_id = n.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.race_dim AS r
+# MAGIC   ON s.race_id = r.race_id
+# MAGIC
+# MAGIC UNION ALL
+# MAGIC
+# MAGIC -- WORLD rows (one per race, replicated per nation for easy dashboard joins)
+# MAGIC SELECT
+# MAGIC   nrs.nation_id,
+# MAGIC   nd.nation_name,
+# MAGIC   nd.nation_name_display,
+# MAGIC   nd.flag_code,
+# MAGIC   w.race_id,
+# MAGIC   rd.race_name,
+# MAGIC   'WORLD'                               AS scope,
+# MAGIC   2                                     AS scope_sort,
+# MAGIC   w.coaches_count,
+# MAGIC   w.elo_peak_min,
+# MAGIC   w.elo_peak_p10,
+# MAGIC   w.elo_peak_p25,
+# MAGIC   w.elo_peak_p50,
+# MAGIC   w.elo_peak_p75,
+# MAGIC   w.elo_peak_p90,
+# MAGIC   w.elo_peak_max,
+# MAGIC   CAST(NULL AS DOUBLE)                  AS elo_peak_mean,
+# MAGIC   w.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_race_elo_peak_summary AS nrs
+# MAGIC INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles AS w
+# MAGIC   ON nrs.race_id = w.race_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS nd
+# MAGIC   ON nrs.nation_id = nd.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.race_dim AS rd
+# MAGIC   ON w.race_id = rd.race_id;
+# MAGIC
+
+# COMMAND ----------
+
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_metric_quantiles
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE: Dashboard contract for nation + world GLO quantiles (boxplot stats)

@@ -630,6 +630,43 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- =====================================================================
+# MAGIC -- PHASE 3: RACE STRENGTH COMPARISON TESTS
+# MAGIC -- =====================================================================
+# MAGIC -- Returns ONLY failing checks. Empty result = all pass.
+# MAGIC
+# MAGIC -- Non-empty: world_race_elo_quantiles
+# MAGIC SELECT 'world_race_elo_quantiles: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.world_race_elo_quantiles
+# MAGIC UNION ALL
+# MAGIC -- PK: world_race_elo_quantiles (race_id)
+# MAGIC SELECT 'world_race_elo_quantiles: PK duplicates', COUNT(*)
+# MAGIC FROM (SELECT race_id FROM naf_catalog.gold_summary.world_race_elo_quantiles GROUP BY race_id HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Quantile ordering: p10 <= p25 <= p50 <= p75 <= p90
+# MAGIC SELECT 'world_race_elo_quantiles: quantile ordering violated', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.world_race_elo_quantiles
+# MAGIC WHERE elo_peak_p10 > elo_peak_p25
+# MAGIC    OR elo_peak_p25 > elo_peak_p50
+# MAGIC    OR elo_peak_p50 > elo_peak_p75
+# MAGIC    OR elo_peak_p75 > elo_peak_p90
+# MAGIC UNION ALL
+# MAGIC -- Non-empty: nation_race_strength_comparison
+# MAGIC SELECT 'nation_race_strength_comparison: view is empty', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC FROM naf_catalog.gold_presentation.nation_race_strength_comparison
+# MAGIC UNION ALL
+# MAGIC -- Both scopes present
+# MAGIC SELECT 'nation_race_strength_comparison: missing NATION scope', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC FROM naf_catalog.gold_presentation.nation_race_strength_comparison WHERE scope = 'NATION'
+# MAGIC UNION ALL
+# MAGIC SELECT 'nation_race_strength_comparison: missing WORLD scope', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC FROM naf_catalog.gold_presentation.nation_race_strength_comparison WHERE scope = 'WORLD'
+# MAGIC
+# MAGIC HAVING fail_rows > 0;
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- ============================================================
 # MAGIC -- SILVER invariants
 # MAGIC -- ============================================================
