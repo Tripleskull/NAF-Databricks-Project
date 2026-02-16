@@ -583,6 +583,53 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- =====================================================================
+# MAGIC -- PHASE 2: NATION CUMULATIVE WDL SERIES TESTS
+# MAGIC -- =====================================================================
+# MAGIC -- Returns ONLY failing checks. Empty result = all pass.
+# MAGIC
+# MAGIC -- PK: nation_results_cumulative_series (nation_id, game_sequence_number)
+# MAGIC SELECT 'nation_results_cumulative_series: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT nation_id, game_sequence_number FROM naf_catalog.gold_summary.nation_results_cumulative_series GROUP BY nation_id, game_sequence_number HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Non-empty check
+# MAGIC SELECT 'nation_results_cumulative_series: table is empty', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC UNION ALL
+# MAGIC -- Cumulative consistency: cum_wins + cum_draws + cum_losses = cum_games
+# MAGIC SELECT 'nation_results_cumulative_series: cum_wins+draws+losses != cum_games', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC WHERE (cum_wins + cum_draws + cum_losses) <> cum_games
+# MAGIC UNION ALL
+# MAGIC -- No intra-nation games (opponent_nation_id must differ from nation_id)
+# MAGIC SELECT 'nation_results_cumulative_series: intra-nation game found', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC WHERE opponent_nation_id = nation_id
+# MAGIC UNION ALL
+# MAGIC -- No Unknown nation rows
+# MAGIC SELECT 'nation_results_cumulative_series: Unknown nation_id=0 found', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC WHERE nation_id = 0 OR opponent_nation_id = 0
+# MAGIC UNION ALL
+# MAGIC -- cum_win_frac between 0 and 1
+# MAGIC SELECT 'nation_results_cumulative_series: cum_win_frac outside [0,1]', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC WHERE cum_win_frac IS NOT NULL AND (cum_win_frac < 0 OR cum_win_frac > 1)
+# MAGIC UNION ALL
+# MAGIC -- cum_points_frac between 0 and 1
+# MAGIC SELECT 'nation_results_cumulative_series: cum_points_frac outside [0,1]', COUNT(*)
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC WHERE cum_points_frac IS NOT NULL AND (cum_points_frac < 0 OR cum_points_frac > 1)
+# MAGIC UNION ALL
+# MAGIC -- Sequence starts at 1 for each nation
+# MAGIC SELECT 'nation_results_cumulative_series: min sequence != 1 for some nation', COUNT(*)
+# MAGIC FROM (SELECT nation_id, MIN(game_sequence_number) AS min_seq FROM naf_catalog.gold_summary.nation_results_cumulative_series GROUP BY nation_id HAVING MIN(game_sequence_number) <> 1)
+# MAGIC
+# MAGIC HAVING fail_rows > 0;
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- ============================================================
 # MAGIC -- SILVER invariants
 # MAGIC -- ============================================================

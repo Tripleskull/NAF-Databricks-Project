@@ -455,6 +455,120 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Per-game cumulative W/D/L record for each nation against
+# MAGIC --                external opponents (intra-nation games excluded).
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- CONTRACT TYPE: SERIES (time series with cumulative windows)
+# MAGIC -- GRAIN        : 1 row per (nation_id, game_sequence_number)
+# MAGIC -- PRIMARY KEY  : (nation_id, game_sequence_number)
+# MAGIC -- SOURCES      : naf_catalog.gold_fact.coach_games_fact,
+# MAGIC --                naf_catalog.gold_dim.coach_dim (both sides for nation IDs)
+# MAGIC -- NOTES        : Each individual game where a coach from nation N plays a
+# MAGIC --                coach from a different nation produces one row for nation N.
+# MAGIC --                Intra-nation games (same nation on both sides) are excluded.
+# MAGIC --                Ordering: event_timestamp ASC, game_id ASC within nation.
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH international_games AS (
+# MAGIC   SELECT
+# MAGIC     cgf.game_id,
+# MAGIC     cgf.game_date,
+# MAGIC     cgf.date_id,
+# MAGIC     cgf.event_timestamp,
+# MAGIC     cgf.tournament_id,
+# MAGIC     c.nation_id,
+# MAGIC     opp.nation_id         AS opponent_nation_id,
+# MAGIC     cgf.result_numeric
+# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
+# MAGIC     ON cgf.coach_id = c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim opp
+# MAGIC     ON cgf.opponent_coach_id = opp.coach_id
+# MAGIC   WHERE c.nation_id <> opp.nation_id          -- exclude intra-nation
+# MAGIC     AND c.nation_id <> 0                       -- exclude Unknown-nation coaches
+# MAGIC     AND opp.nation_id <> 0                     -- exclude Unknown-nation opponents
+# MAGIC ),
+# MAGIC
+# MAGIC sequenced AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     game_id,
+# MAGIC     game_date,
+# MAGIC     date_id,
+# MAGIC     event_timestamp,
+# MAGIC     tournament_id,
+# MAGIC     opponent_nation_id,
+# MAGIC     result_numeric,
+# MAGIC
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY nation_id
+# MAGIC       ORDER BY event_timestamp ASC NULLS LAST, game_id ASC
+# MAGIC     ) AS game_sequence_number
+# MAGIC   FROM international_games
+# MAGIC ),
+# MAGIC
+# MAGIC cumulative AS (
+# MAGIC   SELECT
+# MAGIC     s.*,
+# MAGIC
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END)
+# MAGIC       OVER (PARTITION BY nation_id
+# MAGIC             ORDER BY game_sequence_number
+# MAGIC             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+# MAGIC     AS INT) AS cum_wins,
+# MAGIC
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.5 THEN 1 ELSE 0 END)
+# MAGIC       OVER (PARTITION BY nation_id
+# MAGIC             ORDER BY game_sequence_number
+# MAGIC             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+# MAGIC     AS INT) AS cum_draws,
+# MAGIC
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END)
+# MAGIC       OVER (PARTITION BY nation_id
+# MAGIC             ORDER BY game_sequence_number
+# MAGIC             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+# MAGIC     AS INT) AS cum_losses
+# MAGIC   FROM sequenced s
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   nation_id,
+# MAGIC   game_sequence_number,
+# MAGIC   game_id,
+# MAGIC   game_date,
+# MAGIC   date_id,
+# MAGIC   event_timestamp,
+# MAGIC   tournament_id,
+# MAGIC   opponent_nation_id,
+# MAGIC   result_numeric,
+# MAGIC
+# MAGIC   cum_wins,
+# MAGIC   cum_draws,
+# MAGIC   cum_losses,
+# MAGIC   (cum_wins + cum_draws + cum_losses)   AS cum_games,
+# MAGIC
+# MAGIC   CASE WHEN game_sequence_number > 0
+# MAGIC     THEN CAST(cum_wins AS DOUBLE) / game_sequence_number
+# MAGIC     ELSE NULL
+# MAGIC   END AS cum_win_frac,
+# MAGIC
+# MAGIC   CASE WHEN game_sequence_number > 0
+# MAGIC     THEN (cum_wins + 0.5 * cum_draws) / game_sequence_number
+# MAGIC     ELSE NULL
+# MAGIC   END AS cum_points_frac,
+# MAGIC
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM cumulative;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_overview_comparison_summary
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:

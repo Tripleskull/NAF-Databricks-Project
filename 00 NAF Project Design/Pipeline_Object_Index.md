@@ -161,6 +161,7 @@ All views. Listed in build order (some depend on earlier presentation views).
 | 2 | `nation_overview_summary` | [T] | 1 per nation_id | coach_games_fact, games_fact, tournament_dim, nation_coach_glo_metrics |
 | 3 | `nation_games_timeseries` | [T] | 1 per (nation_id, game_date) | games_fact, tournament_dim |
 | 4 | `nation_coach_activity_timeseries` | [T] | 1 per (nation_id, game_date) | coach_games_fact, coach_dim |
+| 4a | `nation_results_cumulative_series` | [T] | 1 per (nation_id, game_sequence_number) | coach_games_fact, coach_dim (x2) |
 | 5 | `nation_overview_comparison` | [T] | 1 per (focus_nation_id, comparison_group) | nation_overview_summary, nation_coach_glo_metrics |
 | 6 | `nation_race_summary` | [T] | 1 per (nation_id, race_id) | coach_games_fact, coach_dim |
 | 7 | `nation_glo_metric_quantiles` | [T] | 1 per (nation_id, metric_type) | nation_coach_glo_metrics |
@@ -191,6 +192,7 @@ Some presentation views are defined inline in 332 rather than 342. Listed togeth
 | 12 | `nation_race_elo_peak_summary` | [V] | 1 per (nation_id, race_id) + World | 342 | gold_summary.nation_race_elo_peak_summary, nation_dim, race_dim |
 | 13 | `nation_coach_glo_metrics_long` | [V] | 1 per (nation_id, coach_id, metric) | 342 | nation_coach_glo_metrics, nation_dim, coach_dim |
 | 14 | `nation_top_coach_opponent_bin_perf` | [V] | 1 per (nation_id, coach_id, bin_index) | 342 | nation_coach_glo_metrics, coach_opponent_glo_bin_summary, nation_dim, coach_dim |
+| 15 | `nation_results_cumulative_display` | [V] | 1 per (nation_id, game_sequence_number) | 342 | nation_results_cumulative_series, nation_dim (x2), date_dim |
 
 ---
 

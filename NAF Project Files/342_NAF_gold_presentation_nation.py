@@ -794,3 +794,63 @@
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim AS c
 # MAGIC   ON tr.coach_id = c.coach_id;
 # MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_results_cumulative_display
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Dashboard-friendly cumulative W/D/L series for nations.
+# MAGIC --   Enriched with nation + opponent nation display attributes.
+# MAGIC --   Dashboard can filter by opponent_nation_id for specific matchups
+# MAGIC --   or show all rows for REST_OF_WORLD view.
+# MAGIC -- GRAIN:
+# MAGIC --   One row per (nation_id, game_sequence_number)
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.nation_results_cumulative_series
+# MAGIC --   - naf_catalog.gold_dim.nation_dim (x2: nation + opponent)
+# MAGIC --   - naf_catalog.gold_dim.date_dim
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_results_cumulative_display AS
+# MAGIC SELECT
+# MAGIC   -- Nation identity
+# MAGIC   s.nation_id,
+# MAGIC   n.nation_name,
+# MAGIC   n.nation_name_display,
+# MAGIC   n.flag_code AS nation_flag_code,
+# MAGIC
+# MAGIC   -- Game-level context
+# MAGIC   s.game_sequence_number,
+# MAGIC   s.game_id,
+# MAGIC   s.game_date,
+# MAGIC   s.date_id,
+# MAGIC   d.year_month,
+# MAGIC   s.event_timestamp,
+# MAGIC   s.tournament_id,
+# MAGIC   s.result_numeric,
+# MAGIC
+# MAGIC   -- Opponent nation
+# MAGIC   s.opponent_nation_id,
+# MAGIC   opp.nation_name           AS opponent_nation_name,
+# MAGIC   opp.nation_name_display   AS opponent_nation_name_display,
+# MAGIC   opp.flag_code             AS opponent_flag_code,
+# MAGIC
+# MAGIC   -- Cumulative aggregates
+# MAGIC   s.cum_wins,
+# MAGIC   s.cum_draws,
+# MAGIC   s.cum_losses,
+# MAGIC   s.cum_games,
+# MAGIC   s.cum_win_frac,
+# MAGIC   s.cum_points_frac,
+# MAGIC
+# MAGIC   s.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series AS s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
+# MAGIC   ON s.nation_id = n.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS opp
+# MAGIC   ON s.opponent_nation_id = opp.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.date_dim AS d
+# MAGIC   ON s.date_id = d.date_id;
+# MAGIC
