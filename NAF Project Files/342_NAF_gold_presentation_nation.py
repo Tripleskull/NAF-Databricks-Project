@@ -32,14 +32,6 @@
 
 # COMMAND ----------
 
-
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
 # MAGIC %sql -- SCHEMA: naf_catalog.gold_presentation
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
 

@@ -403,6 +403,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Coach pipeline PK/FK checks
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- COACH PIPELINE: PK UNIQUENESS + FK COVERAGE
@@ -414,41 +415,41 @@
 # MAGIC FROM (SELECT coach_id FROM naf_catalog.gold_summary.coach_performance_summary GROUP BY coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_rating_global_elo_summary (rating_system, coach_id)
-# MAGIC SELECT 'coach_rating_global_elo_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_rating_global_elo_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT rating_system, coach_id FROM naf_catalog.gold_summary.coach_rating_global_elo_summary GROUP BY rating_system, coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_rating_race_summary (rating_system, coach_id, race_id)
-# MAGIC SELECT 'coach_rating_race_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_rating_race_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT rating_system, coach_id, race_id FROM naf_catalog.gold_summary.coach_rating_race_summary GROUP BY rating_system, coach_id, race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_race_summary (rating_system, coach_id, race_id)
-# MAGIC SELECT 'coach_race_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_race_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT rating_system, coach_id, race_id FROM naf_catalog.gold_summary.coach_race_summary GROUP BY rating_system, coach_id, race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_opponent_summary (rating_system, coach_id, opponent_coach_id)
-# MAGIC SELECT 'coach_opponent_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_opponent_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT rating_system, coach_id, opponent_coach_id FROM naf_catalog.gold_summary.coach_opponent_summary GROUP BY rating_system, coach_id, opponent_coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_streak_summary (scope, coach_id, scope_race_id)
-# MAGIC SELECT 'coach_streak_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_streak_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT scope, coach_id, scope_race_id FROM naf_catalog.gold_summary.coach_streak_summary GROUP BY scope, coach_id, scope_race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_tournament_performance_summary (rating_system, coach_id, tournament_id)
-# MAGIC SELECT 'coach_tournament_performance_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_tournament_performance_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT rating_system, coach_id, tournament_id FROM naf_catalog.gold_summary.coach_tournament_performance_summary GROUP BY rating_system, coach_id, tournament_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_profile (coach_id)
-# MAGIC SELECT 'coach_profile: PK duplicates', COUNT(*)
+# MAGIC SELECT 'coach_profile: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT coach_id FROM naf_catalog.gold_presentation.coach_profile GROUP BY coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- FK: coach_performance_summary.coach_id → coach_dim
-# MAGIC SELECT 'coach_performance_summary: orphan coach_id', COUNT(*)
+# MAGIC SELECT 'coach_performance_summary: orphan coach_id' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_performance_summary s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
 # MAGIC WHERE d.coach_id IS NULL
 # MAGIC UNION ALL
 # MAGIC -- FK: coach_rating_global_elo_summary.coach_id → coach_dim
-# MAGIC SELECT 'coach_rating_global_elo_summary: orphan coach_id', COUNT(*)
+# MAGIC SELECT 'coach_rating_global_elo_summary: orphan coach_id' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
 # MAGIC WHERE d.coach_id IS NULL
@@ -468,45 +469,45 @@
 # MAGIC FROM (SELECT coach_id FROM naf_catalog.gold_summary.coach_form_summary GROUP BY coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- Non-empty check
-# MAGIC SELECT 'coach_form_summary: table is empty', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC SELECT 'coach_form_summary: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_form_summary
 # MAGIC UNION ALL
 # MAGIC -- Form score range: warn if any outside [-20, +20] (generous bound)
-# MAGIC SELECT 'coach_form_summary: form_score outside [-20, +20]', COUNT(*)
+# MAGIC SELECT 'coach_form_summary: form_score outside [-20, +20]' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_form_summary
 # MAGIC WHERE form_score IS NOT NULL AND (form_score < -20 OR form_score > 20)
 # MAGIC UNION ALL
 # MAGIC -- Percentile range: form_pctl must be 0–100 for eligible coaches
-# MAGIC SELECT 'coach_form_summary: form_pctl outside [0, 100]', COUNT(*)
+# MAGIC SELECT 'coach_form_summary: form_pctl outside [0, 100]' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_form_summary
 # MAGIC WHERE form_pctl IS NOT NULL AND (form_pctl < 0 OR form_pctl > 100)
 # MAGIC UNION ALL
 # MAGIC -- Label consistency: non-NULL pctl must have non-NULL label
-# MAGIC SELECT 'coach_form_summary: form_pctl set but form_label NULL', COUNT(*)
+# MAGIC SELECT 'coach_form_summary: form_pctl set but form_label NULL' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_form_summary
 # MAGIC WHERE form_pctl IS NOT NULL AND form_label IS NULL
 # MAGIC UNION ALL
 # MAGIC -- Label consistency: non-NULL label must have non-NULL pctl
-# MAGIC SELECT 'coach_form_summary: form_label set but form_pctl NULL', COUNT(*)
+# MAGIC SELECT 'coach_form_summary: form_label set but form_pctl NULL' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_form_summary
 # MAGIC WHERE form_label IS NOT NULL AND form_pctl IS NULL
 # MAGIC UNION ALL
 # MAGIC -- Opponent strength: avg_opponent_glo_peak should be between 100 and 400 for coaches with 10+ games
-# MAGIC SELECT 'coach_performance_summary: avg_opponent_glo_peak outside [100, 400] for 10+ game coaches', COUNT(*)
+# MAGIC SELECT 'coach_performance_summary: avg_opponent_glo_peak outside [100, 400] for 10+ game coaches' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_performance_summary
 # MAGIC WHERE games_played >= 10
 # MAGIC   AND avg_opponent_glo_peak IS NOT NULL
 # MAGIC   AND (avg_opponent_glo_peak < 100 OR avg_opponent_glo_peak > 400)
 # MAGIC UNION ALL
 # MAGIC -- Opponent strength last 50: should also be in reasonable range
-# MAGIC SELECT 'coach_performance_summary: avg_opponent_glo_peak_last_50 outside [100, 400] for 50+ game coaches', COUNT(*)
+# MAGIC SELECT 'coach_performance_summary: avg_opponent_glo_peak_last_50 outside [100, 400] for 50+ game coaches' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_performance_summary
 # MAGIC WHERE games_played >= 50
 # MAGIC   AND avg_opponent_glo_peak_last_50 IS NOT NULL
 # MAGIC   AND (avg_opponent_glo_peak_last_50 < 100 OR avg_opponent_glo_peak_last_50 > 400)
 # MAGIC UNION ALL
 # MAGIC -- FK: coach_form_summary.coach_id → coach_dim
-# MAGIC SELECT 'coach_form_summary: orphan coach_id', COUNT(*)
+# MAGIC SELECT 'coach_form_summary: orphan coach_id' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_form_summary s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
 # MAGIC WHERE d.coach_id IS NULL
@@ -515,6 +516,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Nation pipeline PK/FK/consistency checks
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- NATION PIPELINE: PK UNIQUENESS + FK COVERAGE + CONSISTENCY
@@ -526,53 +528,53 @@
 # MAGIC FROM (SELECT nation_id, coach_id FROM naf_catalog.gold_summary.nation_coach_glo_metrics GROUP BY nation_id, coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_overview_summary (nation_id)
-# MAGIC SELECT 'nation_overview_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_overview_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id FROM naf_catalog.gold_summary.nation_overview_summary GROUP BY nation_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_race_summary (nation_id, race_id)
-# MAGIC SELECT 'nation_race_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_race_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, race_id FROM naf_catalog.gold_summary.nation_race_summary GROUP BY nation_id, race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_vs_nation_summary (nation_id, opponent_nation_id)
-# MAGIC SELECT 'nation_vs_nation_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_vs_nation_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, opponent_nation_id FROM naf_catalog.gold_summary.nation_vs_nation_summary GROUP BY nation_id, opponent_nation_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_rivalry_summary (nation_id, opponent_nation_id)
-# MAGIC SELECT 'nation_rivalry_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_rivalry_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, opponent_nation_id FROM naf_catalog.gold_summary.nation_rivalry_summary GROUP BY nation_id, opponent_nation_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_glo_metric_quantiles (nation_id, metric_type)
-# MAGIC SELECT 'nation_glo_metric_quantiles: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_glo_metric_quantiles: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, metric_type FROM naf_catalog.gold_summary.nation_glo_metric_quantiles GROUP BY nation_id, metric_type HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_race_elo_peak_summary (nation_id, race_id)
-# MAGIC SELECT 'nation_race_elo_peak_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_race_elo_peak_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, race_id FROM naf_catalog.gold_summary.nation_race_elo_peak_summary GROUP BY nation_id, race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_overview_comparison_summary (focus_nation_id, comparison_group)
-# MAGIC SELECT 'nation_overview_comparison_summary: PK duplicates', COUNT(*)
+# MAGIC SELECT 'nation_overview_comparison_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT focus_nation_id, comparison_group FROM naf_catalog.gold_summary.nation_overview_comparison_summary GROUP BY focus_nation_id, comparison_group HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- FK: nation_coach_glo_metrics.nation_id → nation_dim
-# MAGIC SELECT 'nation_coach_glo_metrics: orphan nation_id', COUNT(*)
+# MAGIC SELECT 'nation_coach_glo_metrics: orphan nation_id' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_coach_glo_metrics s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id
 # MAGIC WHERE d.nation_id IS NULL
 # MAGIC UNION ALL
 # MAGIC -- FK: nation_coach_glo_metrics.coach_id → coach_dim
-# MAGIC SELECT 'nation_coach_glo_metrics: orphan coach_id', COUNT(*)
+# MAGIC SELECT 'nation_coach_glo_metrics: orphan coach_id' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_coach_glo_metrics s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id
 # MAGIC WHERE d.coach_id IS NULL
 # MAGIC UNION ALL
 # MAGIC -- Consistency: metric_type values should be uppercase only
-# MAGIC SELECT 'nation_glo_metric_quantiles: non-uppercase metric_type', COUNT(*)
+# MAGIC SELECT 'nation_glo_metric_quantiles: non-uppercase metric_type' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_glo_metric_quantiles
 # MAGIC WHERE metric_type <> UPPER(metric_type)
 # MAGIC UNION ALL
 # MAGIC -- Consistency: rivalry_summary should not be a VIEW overwriting a TABLE
 # MAGIC -- (verify it's a TABLE by checking information_schema)
-# MAGIC SELECT 'nation_rivalry_summary: should be TABLE not VIEW', COUNT(*)
+# MAGIC SELECT 'nation_rivalry_summary: should be TABLE not VIEW' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.information_schema.tables
 # MAGIC WHERE table_schema = 'gold_summary'
 # MAGIC   AND table_name = 'nation_rivalry_summary'
@@ -582,6 +584,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Nation cumulative WDL series tests
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- PHASE 2: NATION CUMULATIVE WDL SERIES TESTS
@@ -593,42 +596,43 @@
 # MAGIC FROM (SELECT nation_id, game_sequence_number FROM naf_catalog.gold_summary.nation_results_cumulative_series GROUP BY nation_id, game_sequence_number HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- Non-empty check
-# MAGIC SELECT 'nation_results_cumulative_series: table is empty', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC SELECT 'nation_results_cumulative_series: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC UNION ALL
 # MAGIC -- Cumulative consistency: cum_wins + cum_draws + cum_losses = cum_games
-# MAGIC SELECT 'nation_results_cumulative_series: cum_wins+draws+losses != cum_games', COUNT(*)
+# MAGIC SELECT 'nation_results_cumulative_series: cum_wins+draws+losses != cum_games' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC WHERE (cum_wins + cum_draws + cum_losses) <> cum_games
 # MAGIC UNION ALL
 # MAGIC -- No intra-nation games (opponent_nation_id must differ from nation_id)
-# MAGIC SELECT 'nation_results_cumulative_series: intra-nation game found', COUNT(*)
+# MAGIC SELECT 'nation_results_cumulative_series: intra-nation game found' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC WHERE opponent_nation_id = nation_id
 # MAGIC UNION ALL
 # MAGIC -- No Unknown nation rows
-# MAGIC SELECT 'nation_results_cumulative_series: Unknown nation_id=0 found', COUNT(*)
+# MAGIC SELECT 'nation_results_cumulative_series: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC WHERE nation_id = 0 OR opponent_nation_id = 0
 # MAGIC UNION ALL
 # MAGIC -- cum_win_frac between 0 and 1
-# MAGIC SELECT 'nation_results_cumulative_series: cum_win_frac outside [0,1]', COUNT(*)
+# MAGIC SELECT 'nation_results_cumulative_series: cum_win_frac outside [0,1]' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC WHERE cum_win_frac IS NOT NULL AND (cum_win_frac < 0 OR cum_win_frac > 1)
 # MAGIC UNION ALL
 # MAGIC -- cum_points_frac between 0 and 1
-# MAGIC SELECT 'nation_results_cumulative_series: cum_points_frac outside [0,1]', COUNT(*)
+# MAGIC SELECT 'nation_results_cumulative_series: cum_points_frac outside [0,1]' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC WHERE cum_points_frac IS NOT NULL AND (cum_points_frac < 0 OR cum_points_frac > 1)
 # MAGIC UNION ALL
 # MAGIC -- Sequence starts at 1 for each nation
-# MAGIC SELECT 'nation_results_cumulative_series: min sequence != 1 for some nation', COUNT(*)
+# MAGIC SELECT 'nation_results_cumulative_series: min sequence != 1 for some nation' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, MIN(game_sequence_number) AS min_seq FROM naf_catalog.gold_summary.nation_results_cumulative_series GROUP BY nation_id HAVING MIN(game_sequence_number) <> 1)
 # MAGIC
 # MAGIC HAVING fail_rows > 0;
 
 # COMMAND ----------
 
+# DBTITLE 1,Race strength comparison tests
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- PHASE 3: RACE STRENGTH COMPARISON TESTS
@@ -640,11 +644,11 @@
 # MAGIC FROM naf_catalog.gold_summary.world_race_elo_quantiles
 # MAGIC UNION ALL
 # MAGIC -- PK: world_race_elo_quantiles (race_id)
-# MAGIC SELECT 'world_race_elo_quantiles: PK duplicates', COUNT(*)
+# MAGIC SELECT 'world_race_elo_quantiles: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT race_id FROM naf_catalog.gold_summary.world_race_elo_quantiles GROUP BY race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- Quantile ordering: p10 <= p25 <= p50 <= p75 <= p90
-# MAGIC SELECT 'world_race_elo_quantiles: quantile ordering violated', COUNT(*)
+# MAGIC SELECT 'world_race_elo_quantiles: quantile ordering violated' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.world_race_elo_quantiles
 # MAGIC WHERE elo_peak_p10 > elo_peak_p25
 # MAGIC    OR elo_peak_p25 > elo_peak_p50
@@ -652,14 +656,14 @@
 # MAGIC    OR elo_peak_p75 > elo_peak_p90
 # MAGIC UNION ALL
 # MAGIC -- Non-empty: nation_race_strength_comparison
-# MAGIC SELECT 'nation_race_strength_comparison: view is empty', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC SELECT 'nation_race_strength_comparison: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_presentation.nation_race_strength_comparison
 # MAGIC UNION ALL
 # MAGIC -- Both scopes present
-# MAGIC SELECT 'nation_race_strength_comparison: missing NATION scope', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC SELECT 'nation_race_strength_comparison: missing NATION scope' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_presentation.nation_race_strength_comparison WHERE scope = 'NATION'
 # MAGIC UNION ALL
-# MAGIC SELECT 'nation_race_strength_comparison: missing WORLD scope', CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END
+# MAGIC SELECT 'nation_race_strength_comparison: missing WORLD scope' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_presentation.nation_race_strength_comparison WHERE scope = 'WORLD'
 # MAGIC
 # MAGIC HAVING fail_rows > 0;
@@ -890,6 +894,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Cell 10
 # MAGIC %sql
 # MAGIC WITH p AS (
 # MAGIC   SELECT CAST(PMOD(XXHASH64('UNKNOWN'), 2147483647) AS INT) AS unknown_hash
@@ -927,7 +932,7 @@
 # MAGIC     CAST(NULL AS STRING) AS ioc_code,
 # MAGIC     CAST(NULL AS STRING) AS fifa_code
 # MAGIC ) s
-# MAGIC ON t.nation_id = s.nation_idhttps://dbc-24ea936c-b383.cloud.databricks.com/editor/notebooks/1193144559090815?o=3710693717888594$0
+# MAGIC ON t.nation_id = s.nation_id
 # MAGIC WHEN NOT MATCHED THEN
 # MAGIC   INSERT (nation_id, nation_name, nation_name_display, ioc_code, fifa_code)
 # MAGIC   VALUES (s.nation_id, s.nation_name, s.nation_name_display, s.ioc_code, s.fifa_code);
@@ -957,7 +962,6 @@
 # MAGIC SELECT COUNT(*) AS gold_dim_unknown_zero_rows
 # MAGIC FROM naf_catalog.gold_dim.nation_dim
 # MAGIC WHERE nation_id = 0;
-# MAGIC
 
 # COMMAND ----------
 
