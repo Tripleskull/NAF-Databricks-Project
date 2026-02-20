@@ -19,7 +19,7 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 
 ### Working Folder
 **IMPORTANT**: Always work in the GitHub-connected folder:
-- **Path**: `C:\Users\tripl\OneDrive\Dokumenter\NAF-Databricks-Project`
+- **Path**: `C:\NAF-Databricks-Project`
 - **Do NOT use**: `NAF Project with Claude` (old folder, to be cleaned up)
 
 ### Git Workflow
@@ -27,7 +27,7 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 2. **Save**: Changes automatically save locally
 3. **Commit** (user runs on Windows):
    ```bash
-   cd "C:\Users\tripl\OneDrive\Dokumenter\NAF-Databricks-Project"
+   cd "C:\NAF-Databricks-Project"
    git status
    git add .
    git commit -m "Description of changes"

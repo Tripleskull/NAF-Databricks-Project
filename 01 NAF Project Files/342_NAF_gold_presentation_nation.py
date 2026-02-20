@@ -1049,4 +1049,113 @@
 # MAGIC   AND s.bin_index = bs.bin_index
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
 # MAGIC   ON s.nation_id = ni.nation_id;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_team_candidates_display
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Dashboard contract for the national team selector.
+# MAGIC --   Shows eligible coaches with their selector scores, component percentiles,
+# MAGIC --   raw metrics, and specialist badge counts.
+# MAGIC -- LAYER:
+# MAGIC --   GOLD_PRESENTATION
+# MAGIC -- GRAIN:
+# MAGIC --   1 row per (nation_id, coach_id)
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
+# MAGIC --   - naf_catalog.gold_dim.coach_dim
+# MAGIC --   - naf_catalog.gold_summary.coach_race_relative_strength  (world specialist count)
+# MAGIC --   - naf_catalog.gold_summary.coach_race_nation_rank        (national specialist count)
+# MAGIC -- PHASE: 6
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_team_candidates_display AS
+# MAGIC SELECT
+# MAGIC   tc.nation_id,
+# MAGIC   ni.nation_name_display,
+# MAGIC   ni.flag_emoji,
+# MAGIC   tc.coach_id,
+# MAGIC   cd.coach_name,
+# MAGIC
+# MAGIC   -- Ranking
+# MAGIC   tc.selector_rank,
+# MAGIC   CAST(ROUND(tc.selector_score,           2) AS DOUBLE) AS selector_score,
+# MAGIC
+# MAGIC   -- Component percentiles (0–100, within-nation)
+# MAGIC   CAST(ROUND(tc.rating_pctl,              1) AS DOUBLE) AS rating_pctl,
+# MAGIC   CAST(ROUND(tc.form_pctl,                1) AS DOUBLE) AS form_pctl,
+# MAGIC   CAST(ROUND(tc.opponent_strength_pctl,   1) AS DOUBLE) AS opponent_strength_pctl,
+# MAGIC   CAST(ROUND(tc.versatility_pctl,         1) AS DOUBLE) AS versatility_pctl,
+# MAGIC   CAST(ROUND(tc.international_pctl,       1) AS DOUBLE) AS international_pctl,
+# MAGIC
+# MAGIC   -- Raw metric values
+# MAGIC   tc.glo_peak,
+# MAGIC   tc.form_score,
+# MAGIC   tc.avg_opponent_glo_peak,
+# MAGIC   tc.races_above_world_median,
+# MAGIC   tc.races_played_eligible,
+# MAGIC   tc.win_frac_vs_foreign,
+# MAGIC
+# MAGIC   -- Specialist badge counts
+# MAGIC   COALESCE(ws.world_specialist_count,    0) AS world_specialist_count,
+# MAGIC   COALESCE(ns.national_specialist_count, 0) AS national_specialist_count,
+# MAGIC
+# MAGIC   tc.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_team_candidate_scores tc
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v ni
+# MAGIC   ON tc.nation_id = ni.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim cd
+# MAGIC   ON tc.coach_id = cd.coach_id
+# MAGIC LEFT JOIN (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     CAST(SUM(CASE WHEN is_world_specialist THEN 1 ELSE 0 END) AS INT) AS world_specialist_count
+# MAGIC   FROM naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC   GROUP BY coach_id
+# MAGIC ) ws ON tc.coach_id = ws.coach_id
+# MAGIC LEFT JOIN (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     nation_id,
+# MAGIC     CAST(SUM(CASE WHEN is_national_specialist THEN 1 ELSE 0 END) AS INT) AS national_specialist_count
+# MAGIC   FROM naf_catalog.gold_summary.coach_race_nation_rank
+# MAGIC   GROUP BY coach_id, nation_id
+# MAGIC ) ns ON tc.coach_id = ns.coach_id AND tc.nation_id = ns.nation_id;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_power_ranking_display
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Dashboard contract for the nation power ranking table.
+# MAGIC --   Ranks nations by the average selector_score of their top 8 candidates.
+# MAGIC -- LAYER:
+# MAGIC --   GOLD_PRESENTATION
+# MAGIC -- GRAIN:
+# MAGIC --   1 row per nation_id
+# MAGIC -- SOURCES:
+# MAGIC --   - naf_catalog.gold_summary.nation_power_ranking
+# MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
+# MAGIC -- PHASE: 6
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_power_ranking_display AS
+# MAGIC SELECT
+# MAGIC   pr.power_rank,
+# MAGIC   pr.nation_id,
+# MAGIC   ni.nation_name_display,
+# MAGIC   ni.flag_emoji,
+# MAGIC   CAST(ROUND(pr.top_8_avg_selector_score, 2) AS DOUBLE) AS top_8_avg_selector_score,
+# MAGIC   CAST(ROUND(pr.top_8_avg_glo_peak,       1) AS DOUBLE) AS top_8_avg_glo_peak,
+# MAGIC   pr.coaches_in_top_8,
+# MAGIC   pr.coaches_eligible,
+# MAGIC   pr.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_power_ranking pr
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v ni
+# MAGIC   ON pr.nation_id = ni.nation_id;
 # MAGIC

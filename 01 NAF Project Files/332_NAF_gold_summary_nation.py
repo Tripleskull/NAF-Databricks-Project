@@ -2082,3 +2082,235 @@
 # MAGIC   AND sp.bin_scheme_id = a.bin_scheme_id
 # MAGIC   AND sp.bin_index = a.bin_index;
 # MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Multi-dimensional candidate scoring for national team selection.
+# MAGIC --                Scores eligible coaches on five components (each a within-nation
+# MAGIC --                percentile 0–100), then combines into a weighted selector_score.
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per (nation_id, coach_id)
+# MAGIC -- PRIMARY KEY  : (nation_id, coach_id)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_coach_glo_metrics  (eligibility + glo_peak)
+# MAGIC --                naf_catalog.gold_summary.coach_form_summary         (form_score)
+# MAGIC --                naf_catalog.gold_summary.coach_performance_summary  (avg_opponent_glo_peak)
+# MAGIC --                naf_catalog.gold_summary.coach_race_relative_strength (versatility)
+# MAGIC --                naf_catalog.gold_fact.coach_games_fact + coach_dim   (international win rate)
+# MAGIC --                naf_catalog.gold_dim.analytical_config               (selector weights)
+# MAGIC -- NOTES        : - Eligibility gate: is_valid_glo = TRUE (50+ global games).
+# MAGIC --                - NULL components COALESCE to 0 before percentile ranking.
+# MAGIC --                  A coach with no international games gets international_pctl = 0.
+# MAGIC --                - Within-nation percentile: PERCENT_RANK() × 100. Lowest = 0, highest = 100.
+# MAGIC --                - selector_score is the weighted sum of component percentiles (max 100).
+# MAGIC --                - selector_rank: DENSE_RANK within nation by selector_score DESC.
+# MAGIC -- PHASE        : 6
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH params AS (
+# MAGIC   SELECT
+# MAGIC     selector_w_rating,
+# MAGIC     selector_w_form,
+# MAGIC     selector_w_opponent,
+# MAGIC     selector_w_versatility,
+# MAGIC     selector_w_international
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC
+# MAGIC -- Base: eligible coaches per nation (valid GLO, excluding Unknown nation)
+# MAGIC eligible AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     coach_id,
+# MAGIC     glo_peak
+# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics
+# MAGIC   WHERE is_valid_glo = TRUE
+# MAGIC     AND nation_id <> 0
+# MAGIC ),
+# MAGIC
+# MAGIC -- Form score: outperformance of Elo expectations over last N games
+# MAGIC form_data AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     form_score
+# MAGIC   FROM naf_catalog.gold_summary.coach_form_summary
+# MAGIC ),
+# MAGIC
+# MAGIC -- Opponent strength: average peak rating of all opponents faced (all-time)
+# MAGIC opp_data AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     avg_opponent_glo_peak
+# MAGIC   FROM naf_catalog.gold_summary.coach_performance_summary
+# MAGIC ),
+# MAGIC
+# MAGIC -- Versatility: count of races with 25+ games where the coach is above world median Elo
+# MAGIC versatility_data AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     CAST(COUNT(*) AS INT)                                                      AS races_played_eligible,
+# MAGIC     CAST(SUM(CASE WHEN elo_peak >= world_median_elo THEN 1 ELSE 0 END) AS INT) AS races_above_world_median
+# MAGIC   FROM naf_catalog.gold_summary.coach_race_relative_strength
+# MAGIC   GROUP BY coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- International win rate per coach: win fraction vs opponents from a different nation.
+# MAGIC -- All-games scope. Excludes Unknown nation (nation_id = 0) on both sides.
+# MAGIC intl_data AS (
+# MAGIC   SELECT
+# MAGIC     cgf.coach_id,
+# MAGIC     CAST(
+# MAGIC       SUM(CASE WHEN opp_c.nation_id <> c.nation_id AND opp_c.nation_id <> 0
+# MAGIC                THEN cgf.result_numeric ELSE NULL END) AS DOUBLE
+# MAGIC     ) /
+# MAGIC     NULLIF(
+# MAGIC       SUM(CASE WHEN opp_c.nation_id <> c.nation_id AND opp_c.nation_id <> 0
+# MAGIC                THEN 1 ELSE NULL END),
+# MAGIC       0
+# MAGIC     ) AS win_frac_vs_foreign
+# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
+# MAGIC     ON cgf.coach_id = c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim opp_c
+# MAGIC     ON cgf.opponent_coach_id = opp_c.coach_id
+# MAGIC   WHERE c.nation_id <> 0
+# MAGIC   GROUP BY cgf.coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Combine all components; NULL → 0 for missing data
+# MAGIC combined AS (
+# MAGIC   SELECT
+# MAGIC     e.nation_id,
+# MAGIC     e.coach_id,
+# MAGIC     e.glo_peak,
+# MAGIC     COALESCE(f.form_score,              0.0) AS form_score,
+# MAGIC     COALESCE(o.avg_opponent_glo_peak,   0.0) AS avg_opponent_glo_peak,
+# MAGIC     COALESCE(v.races_above_world_median,  0) AS races_above_world_median,
+# MAGIC     COALESCE(v.races_played_eligible,     0) AS races_played_eligible,
+# MAGIC     COALESCE(i.win_frac_vs_foreign,     0.0) AS win_frac_vs_foreign
+# MAGIC   FROM eligible e
+# MAGIC   LEFT JOIN form_data f        ON e.coach_id = f.coach_id
+# MAGIC   LEFT JOIN opp_data o         ON e.coach_id = o.coach_id
+# MAGIC   LEFT JOIN versatility_data v ON e.coach_id = v.coach_id
+# MAGIC   LEFT JOIN intl_data i        ON e.coach_id = i.coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Within-nation percentile scores (0–100 via PERCENT_RANK)
+# MAGIC scored AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     coach_id,
+# MAGIC     glo_peak,
+# MAGIC     form_score,
+# MAGIC     avg_opponent_glo_peak,
+# MAGIC     races_above_world_median,
+# MAGIC     races_played_eligible,
+# MAGIC     win_frac_vs_foreign,
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY glo_peak                 ASC) * 100.0 AS DOUBLE) AS rating_pctl,
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY form_score               ASC) * 100.0 AS DOUBLE) AS form_pctl,
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY avg_opponent_glo_peak    ASC) * 100.0 AS DOUBLE) AS opponent_strength_pctl,
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY races_above_world_median ASC) * 100.0 AS DOUBLE) AS versatility_pctl,
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY win_frac_vs_foreign      ASC) * 100.0 AS DOUBLE) AS international_pctl
+# MAGIC   FROM combined
+# MAGIC ),
+# MAGIC
+# MAGIC -- Weighted composite selector score
+# MAGIC selector AS (
+# MAGIC   SELECT
+# MAGIC     s.nation_id,
+# MAGIC     s.coach_id,
+# MAGIC     s.glo_peak,
+# MAGIC     s.form_score,
+# MAGIC     s.avg_opponent_glo_peak,
+# MAGIC     s.races_above_world_median,
+# MAGIC     s.races_played_eligible,
+# MAGIC     s.win_frac_vs_foreign,
+# MAGIC     s.rating_pctl,
+# MAGIC     s.form_pctl,
+# MAGIC     s.opponent_strength_pctl,
+# MAGIC     s.versatility_pctl,
+# MAGIC     s.international_pctl,
+# MAGIC     CAST(
+# MAGIC         p.selector_w_rating        * s.rating_pctl
+# MAGIC       + p.selector_w_form          * s.form_pctl
+# MAGIC       + p.selector_w_opponent      * s.opponent_strength_pctl
+# MAGIC       + p.selector_w_versatility   * s.versatility_pctl
+# MAGIC       + p.selector_w_international * s.international_pctl
+# MAGIC     AS DOUBLE) AS selector_score
+# MAGIC   FROM scored s
+# MAGIC   CROSS JOIN params p
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   *,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id ORDER BY selector_score DESC) AS INT) AS selector_rank,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM selector;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_power_ranking
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Ranks nations by the average selector_score of their top 8 candidates.
+# MAGIC --                Answers: "Which nation could field the strongest team?"
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per nation_id
+# MAGIC -- PRIMARY KEY  : (nation_id)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC -- NOTES        : - "Top 8" = coaches at selector_rank <= 8. DENSE_RANK ties may yield
+# MAGIC --                  slightly more than 8 rows per nation; coaches_in_top_8 reflects actual count.
+# MAGIC --                - Nations with fewer than 8 eligible coaches are still ranked.
+# MAGIC --                - power_rank: DENSE_RANK by top_8_avg_selector_score DESC (global ranking).
+# MAGIC -- PHASE        : 6
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_power_ranking
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH top_candidates AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     coach_id,
+# MAGIC     selector_score,
+# MAGIC     glo_peak,
+# MAGIC     selector_rank
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC   WHERE selector_rank <= 8
+# MAGIC ),
+# MAGIC
+# MAGIC agg AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     CAST(COUNT(*)            AS INT)    AS coaches_in_top_8,
+# MAGIC     CAST(AVG(selector_score) AS DOUBLE) AS top_8_avg_selector_score,
+# MAGIC     CAST(AVG(glo_peak)       AS DOUBLE) AS top_8_avg_glo_peak
+# MAGIC   FROM top_candidates
+# MAGIC   GROUP BY nation_id
+# MAGIC ),
+# MAGIC
+# MAGIC eligible_counts AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     CAST(COUNT(*) AS INT) AS coaches_eligible
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC   GROUP BY nation_id
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   a.nation_id,
+# MAGIC   a.coaches_in_top_8,
+# MAGIC   a.top_8_avg_selector_score,
+# MAGIC   a.top_8_avg_glo_peak,
+# MAGIC   ec.coaches_eligible,
+# MAGIC   CAST(DENSE_RANK() OVER (ORDER BY a.top_8_avg_selector_score DESC) AS INT) AS power_rank,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM agg a
+# MAGIC LEFT JOIN eligible_counts ec
+# MAGIC   ON a.nation_id = ec.nation_id;

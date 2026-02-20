@@ -2143,6 +2143,60 @@
 # MAGIC ),
 # MAGIC
 # MAGIC -- -----------------------------------------------------------------
+# MAGIC -- CELL: Phase 6 (team selector + nation power ranking)
+# MAGIC -- -----------------------------------------------------------------
+# MAGIC phase6_checks AS (
+# MAGIC   -- nation_team_candidate_scores
+# MAGIC   SELECT 'ERROR' AS severity, 'nation_team_candidate_scores: PK duplicates' AS check_name, CAST(COUNT(*) AS BIGINT) AS fail_rows
+# MAGIC   FROM (SELECT nation_id, coach_id FROM naf_catalog.gold_summary.nation_team_candidate_scores GROUP BY nation_id, coach_id HAVING COUNT(*) > 1)
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: selector_score outside [0,100]', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
+# MAGIC   WHERE selector_score < 0 OR selector_score > 100
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: Unknown nation_id=0 found', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores WHERE nation_id = 0
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: orphan coach_id', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores s
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.coach_dim d ON s.coach_id = d.coach_id WHERE d.coach_id IS NULL
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: orphan nation_id', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores s
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id WHERE d.nation_id IS NULL
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'WARN', 'nation_team_candidate_scores: no nation has selector_rank=1', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores WHERE selector_rank = 1
+# MAGIC   UNION ALL
+# MAGIC   -- nation_power_ranking
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: PK duplicates', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM (SELECT nation_id FROM naf_catalog.gold_summary.nation_power_ranking GROUP BY nation_id HAVING COUNT(*) > 1)
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: power_rank=1 missing', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking WHERE power_rank = 1
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: orphan nation_id', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking s
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id WHERE d.nation_id IS NULL
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: top_8_avg_selector_score outside [0,100]', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
+# MAGIC   WHERE top_8_avg_selector_score < 0 OR top_8_avg_selector_score > 100
+# MAGIC   UNION ALL
+# MAGIC   -- Config integrity: selector weights must sum to 1.0
+# MAGIC   SELECT 'WARN', 'analytical_config: selector weights do not sum to 1.0', CAST(CASE
+# MAGIC     WHEN ABS(selector_w_rating + selector_w_form + selector_w_opponent + selector_w_versatility + selector_w_international - 1.0) > 0.001
+# MAGIC     THEN 1 ELSE 0 END AS BIGINT)
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC
+# MAGIC -- -----------------------------------------------------------------
 # MAGIC -- CELL 8: Rating system allowed values
 # MAGIC -- -----------------------------------------------------------------
 # MAGIC rating_checks AS (
@@ -2169,6 +2223,7 @@
 # MAGIC   UNION ALL SELECT * FROM phase3_checks
 # MAGIC   UNION ALL SELECT * FROM phase4_checks
 # MAGIC   UNION ALL SELECT * FROM phase5_checks
+# MAGIC   UNION ALL SELECT * FROM phase6_checks
 # MAGIC   UNION ALL SELECT * FROM rating_checks
 # MAGIC )
 # MAGIC

@@ -277,6 +277,14 @@
 # MAGIC   CAST(50      AS INT)     AS form_window_games,
 # MAGIC   CAST(50      AS INT)     AS form_min_games_for_pctl,
 # MAGIC
+# MAGIC   -- Team selector weights (Phase 6)
+# MAGIC   -- Sum must equal 1.0. Tunable; see Analytical_Parameters.md.
+# MAGIC   CAST(0.30    AS DOUBLE)  AS selector_w_rating,
+# MAGIC   CAST(0.25    AS DOUBLE)  AS selector_w_form,
+# MAGIC   CAST(0.15    AS DOUBLE)  AS selector_w_opponent,
+# MAGIC   CAST(0.15    AS DOUBLE)  AS selector_w_versatility,
+# MAGIC   CAST(0.15    AS DOUBLE)  AS selector_w_international,
+# MAGIC
 # MAGIC   CURRENT_TIMESTAMP()      AS load_timestamp
 # MAGIC ;
 
