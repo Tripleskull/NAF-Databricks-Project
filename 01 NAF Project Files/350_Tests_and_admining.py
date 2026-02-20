@@ -2241,29 +2241,39 @@
 
 # COMMAND ----------
 
+# MAGIC %sql
+# MAGIC CREATE VOLUME IF NOT EXISTS naf_catalog.gold_summary.exports;
+
+# COMMAND ----------
+
 # DBTITLE 1,Export test report to CSV
 import datetime
+from pyspark.sql import functions as F
 
-# Read the test report table
 df = spark.table("naf_catalog.gold_summary.test_report")
-
-# Write to CSV (single partition for easy reading)
 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
-csv_path = f"/tmp/naf_test_report_{timestamp}.csv"
 
+# Write to a folder in a UC Volume (do NOT end the folder name with .csv)
+out_dir = f"/Volumes/naf_catalog/gold_summary/exports/naf_test_report_{timestamp}"
 (df.coalesce(1)
-   .write.mode("overwrite")
-   .option("header", "true")
-   .csv(csv_path))
+  .write.mode("overwrite")
+  .option("header", "true")
+  .csv(out_dir))
 
-# Show summary
-total = df.count()
-failures = df.filter("status = 'FAIL'").count()
-warnings = df.filter("severity = 'WARN' AND status = 'FAIL'").count()
-errors   = df.filter("severity = 'ERROR' AND status = 'FAIL'").count()
+# Copy the single part file to a nice name (still inside the same Volume)
+part = [f.path for f in dbutils.fs.ls(out_dir) if f.name.startswith("part-") and f.name.endswith(".csv")][0]
+final_csv = f"/Volumes/naf_catalog/gold_summary/exports/naf_test_report_{timestamp}.csv"
+dbutils.fs.cp(part, final_csv, True)
 
-print(f"Test report: {total} checks | {failures} failures ({errors} ERROR, {warnings} WARN)")
-print(f"CSV written to: {csv_path}")
+# Summary (single pass)
+summary = (df.agg(
+    F.count("*").alias("total"),
+    F.sum(F.when(F.col("status") == "FAIL", 1).otherwise(0)).alias("failures"),
+    F.sum(F.when((F.col("status") == "FAIL") & (F.col("severity") == "WARN"), 1).otherwise(0)).alias("warnings"),
+    F.sum(F.when((F.col("status") == "FAIL") & (F.col("severity") == "ERROR"), 1).otherwise(0)).alias("errors"),
+).collect()[0])
 
-# Display the failures for quick review
-df.filter("status = 'FAIL'").show(100, truncate=False)
+print(f"Test report: {summary['total']} checks | {summary['failures']} failures ({summary['errors']} ERROR, {summary['warnings']} WARN)")
+print(f"CSV written to: {final_csv}")
+
+df.filter(F.col("status") == "FAIL").show(100, truncate=False)
