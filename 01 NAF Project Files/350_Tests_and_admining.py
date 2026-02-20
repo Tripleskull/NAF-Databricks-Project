@@ -1417,6 +1417,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,SILVER: CORE UNIQUENESS + NOT-NULL + DATE KEY INTEGRITY
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- SILVER: CORE UNIQUENESS + NOT-NULL + DATE KEY INTEGRITY
@@ -1499,17 +1500,17 @@
 # MAGIC WHERE game_date IS NOT NULL
 # MAGIC   AND date_id <> CAST(date_format(game_date, 'yyyyMMdd') AS INT);
 # MAGIC
-# MAGIC SELECT 'silver.tournaments_clean date_id' AS check_name,
+# MAGIC SELECT 'silver.tournaments_clean start_date_id' AS check_name,
 # MAGIC        COUNT(*) AS bad_rows
 # MAGIC FROM naf_catalog.silver.tournaments_clean
 # MAGIC WHERE date_start IS NOT NULL
-# MAGIC   AND date_id <> CAST(date_format(date_start, 'yyyyMMdd') AS INT);
+# MAGIC   AND start_date_id <> CAST(date_format(date_start, 'yyyyMMdd') AS INT);
 # MAGIC
-# MAGIC SELECT 'silver.tournaments_clean date_end_id' AS check_name,
+# MAGIC SELECT 'silver.tournaments_clean end_date_id' AS check_name,
 # MAGIC        COUNT(*) AS bad_rows
 # MAGIC FROM naf_catalog.silver.tournaments_clean
 # MAGIC WHERE date_end IS NOT NULL
-# MAGIC   AND date_end_id <> CAST(date_format(date_end, 'yyyyMMdd') AS INT);
+# MAGIC   AND end_date_id <> CAST(date_format(date_end, 'yyyyMMdd') AS INT);
 # MAGIC
 # MAGIC -- =====================================================================
 # MAGIC -- SILVER: NATION SURROGATE KEY SAFETY
