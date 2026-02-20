@@ -1608,38 +1608,6 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_summary.world_glo_metric_quantiles AS
-# MAGIC WITH metric_long AS (
-# MAGIC   SELECT
-# MAGIC     coach_id,
-# MAGIC     stack(
-# MAGIC       3,
-# MAGIC       'PEAK',   glo_peak,
-# MAGIC       'MEAN',   glo_mean,
-# MAGIC       'MEDIAN', glo_median
-# MAGIC     ) AS (metric_type, metric_value)
-# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics
-# MAGIC   WHERE is_valid_glo = TRUE
-# MAGIC )
-# MAGIC SELECT
-# MAGIC   metric_type,
-# MAGIC   CAST(COUNT(DISTINCT coach_id) AS INT) AS coaches_count,
-# MAGIC   MIN(metric_value)                     AS value_min,
-# MAGIC   PERCENTILE_APPROX(metric_value, 0.10) AS value_p10,
-# MAGIC   PERCENTILE_APPROX(metric_value, 0.25) AS value_p25,
-# MAGIC   PERCENTILE_APPROX(metric_value, 0.50) AS value_p50,
-# MAGIC   PERCENTILE_APPROX(metric_value, 0.75) AS value_p75,
-# MAGIC   PERCENTILE_APPROX(metric_value, 0.90) AS value_p90,
-# MAGIC   MAX(metric_value)                     AS value_max,
-# MAGIC   CURRENT_TIMESTAMP()                   AS load_timestamp
-# MAGIC FROM metric_long
-# MAGIC WHERE metric_value IS NOT NULL
-# MAGIC GROUP BY metric_type;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- SUMMARY: World quantiles (so dashboards don't fake "World" rows)
 # MAGIC -- =====================================================================
@@ -1671,96 +1639,9 @@
 # MAGIC WHERE metric_value IS NOT NULL
 # MAGIC GROUP BY metric_type;
 # MAGIC
-# MAGIC -- =====================================================================
-# MAGIC -- PRESENTATION: Nation + World quantiles (joins nation_dim for display)
-# MAGIC -- =====================================================================
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_metric_quantiles AS
-# MAGIC SELECT
-# MAGIC   q.nation_id,
-# MAGIC   n.nation_name,
-# MAGIC   n.nation_name_display,
-# MAGIC   q.metric_type,
-# MAGIC   q.coaches_count,
-# MAGIC   q.value_min,
-# MAGIC   q.value_p10,
-# MAGIC   q.value_p25,
-# MAGIC   q.value_p50,
-# MAGIC   q.value_p75,
-# MAGIC   q.value_p90,
-# MAGIC   q.value_max,
-# MAGIC   q.load_timestamp
-# MAGIC FROM naf_catalog.gold_summary.nation_glo_metric_quantiles q
-# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim n
-# MAGIC   ON q.nation_id = n.nation_id
-# MAGIC
-# MAGIC UNION ALL
-# MAGIC
-# MAGIC SELECT
-# MAGIC   CAST(NULL AS INT) AS nation_id,
-# MAGIC   'World'           AS nation_name,
-# MAGIC   'World'           AS nation_name_display,
-# MAGIC   w.metric_type,
-# MAGIC   w.coaches_count,
-# MAGIC   w.value_min,
-# MAGIC   w.value_p10,
-# MAGIC   w.value_p25,
-# MAGIC   w.value_p50,
-# MAGIC   w.value_p75,
-# MAGIC   w.value_p90,
-# MAGIC   w.value_max,
-# MAGIC   w.load_timestamp
-# MAGIC FROM naf_catalog.gold_summary.world_glo_metric_quantiles w;
-# MAGIC
-# MAGIC -- =====================================================================
-# MAGIC -- PRESENTATION: Boxplot-ready stats (canonical columns, no weird aliases)
-# MAGIC -- =====================================================================
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_peak_boxplot AS
-# MAGIC SELECT
-# MAGIC   nation_id,
-# MAGIC   nation_name,
-# MAGIC   nation_name_display,
-# MAGIC   coaches_count,
-# MAGIC   value_min,
-# MAGIC   value_p25,
-# MAGIC   value_p50,
-# MAGIC   value_p75,
-# MAGIC   value_max,
-# MAGIC   load_timestamp
-# MAGIC FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles
-# MAGIC WHERE metric_type = 'PEAK';
-# MAGIC
-# MAGIC -- =====================================================================
-# MAGIC -- PRESENTATION: Long-format "card" metrics for PEAK (no dashboard unpivot)
-# MAGIC -- =====================================================================
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_peak_card_long AS
-# MAGIC SELECT
-# MAGIC   nation_id,
-# MAGIC   nation_name,
-# MAGIC   nation_name_display,
-# MAGIC   metric,
-# MAGIC   metric_sort,
-# MAGIC   value,
-# MAGIC   load_timestamp
-# MAGIC FROM (
-# MAGIC   SELECT nation_id, nation_name, nation_name_display, 'Median Peak GLO' AS metric, 1 AS metric_sort, value_p50 AS value, load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles WHERE metric_type = 'PEAK'
-# MAGIC   UNION ALL
-# MAGIC   SELECT nation_id, nation_name, nation_name_display, '25th Percentile GLO', 2, value_p25, load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles WHERE metric_type = 'PEAK'
-# MAGIC   UNION ALL
-# MAGIC   SELECT nation_id, nation_name, nation_name_display, '75th Percentile GLO', 3, value_p75, load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles WHERE metric_type = 'PEAK'
-# MAGIC   UNION ALL
-# MAGIC   SELECT nation_id, nation_name, nation_name_display, 'IQR (P75-P25)', 4, (value_p75 - value_p25), load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles WHERE metric_type = 'PEAK'
-# MAGIC   UNION ALL
-# MAGIC   SELECT nation_id, nation_name, nation_name_display, 'Number of Coaches', 5, CAST(coaches_count AS DOUBLE), load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles WHERE metric_type = 'PEAK'
-# MAGIC   UNION ALL
-# MAGIC   SELECT nation_id, nation_name, nation_name_display, 'Highest Peak GLO', 6, value_max, load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.nation_glo_metric_quantiles WHERE metric_type = 'PEAK'
-# MAGIC ) x;
-# MAGIC
+
+# NOTE: Presentation views (nation_glo_metric_quantiles, nation_glo_peak_card_long)
+# are defined in 342_NAF_gold_presentation_nation.py (correct notebook).
 
 # COMMAND ----------
 

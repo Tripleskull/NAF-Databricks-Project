@@ -709,50 +709,45 @@
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_profile_long AS
 # MAGIC WITH src AS (
 # MAGIC   SELECT
-# MAGIC     nation_id,
-# MAGIC     nation_name_display,
-# MAGIC     fifa_code,
-# MAGIC     flag_code,
-# MAGIC     coaches_count,
-# MAGIC     games_count,
-# MAGIC     tournaments_count,
-# MAGIC     glo_peak_mean,
-# MAGIC     glo_peak_max,
-# MAGIC     glo_peak_median,
-# MAGIC     coaches_global_pct,
-# MAGIC     games_global_pct,
-# MAGIC     tournaments_global_pct,
-# MAGIC     load_timestamp,
+# MAGIC     o.nation_id,
+# MAGIC     o.nation_name_display,
+# MAGIC     o.fifa_code,
+# MAGIC     o.coaches_count,
+# MAGIC     o.games_count,
+# MAGIC     o.tournaments_count,
+# MAGIC     o.glo_peak_mean,
+# MAGIC     o.glo_peak_max,
+# MAGIC     o.glo_peak_median,
+# MAGIC     o.coaches_global_pct,
+# MAGIC     o.games_global_pct,
+# MAGIC     o.tournaments_global_pct,
+# MAGIC     o.load_timestamp,
 # MAGIC
-# MAGIC     -- Flag emoji from ISO 2-letter flag_code (fallback 🌍)
-# MAGIC     CASE
-# MAGIC       WHEN flag_code IS NULL OR flag_code = '' OR length(flag_code) <> 2 THEN '🌍'
-# MAGIC       ELSE CONCAT(
-# MAGIC         CAST(unhex(CONCAT('F09F87', lpad(hex(166 + (ascii(upper(substr(flag_code, 1, 1))) - ascii('A'))), 2, '0'))) AS STRING),
-# MAGIC         CAST(unhex(CONCAT('F09F87', lpad(hex(166 + (ascii(upper(substr(flag_code, 2, 1))) - ascii('A'))), 2, '0'))) AS STRING)
-# MAGIC       )
-# MAGIC     END AS flag_emoji,
+# MAGIC     -- Flag emoji from centralised nation_identity_v (handles ISO2, GB subdivisions, fallback)
+# MAGIC     COALESCE(ni.flag_emoji, '🌐') AS flag_emoji,
 # MAGIC
 # MAGIC     -- Defensive: handle pct as either 0–1 or 0–100
 # MAGIC     CASE
-# MAGIC       WHEN coaches_global_pct IS NULL THEN NULL
-# MAGIC       WHEN coaches_global_pct > 1.5 THEN coaches_global_pct
-# MAGIC       ELSE coaches_global_pct * 100
+# MAGIC       WHEN o.coaches_global_pct IS NULL THEN NULL
+# MAGIC       WHEN o.coaches_global_pct > 1.5 THEN o.coaches_global_pct
+# MAGIC       ELSE o.coaches_global_pct * 100
 # MAGIC     END AS coaches_global_pct_0_100,
 # MAGIC
 # MAGIC     CASE
-# MAGIC       WHEN games_global_pct IS NULL THEN NULL
-# MAGIC       WHEN games_global_pct > 1.5 THEN games_global_pct
-# MAGIC       ELSE games_global_pct * 100
+# MAGIC       WHEN o.games_global_pct IS NULL THEN NULL
+# MAGIC       WHEN o.games_global_pct > 1.5 THEN o.games_global_pct
+# MAGIC       ELSE o.games_global_pct * 100
 # MAGIC     END AS games_global_pct_0_100,
 # MAGIC
 # MAGIC     CASE
-# MAGIC       WHEN tournaments_global_pct IS NULL THEN NULL
-# MAGIC       WHEN tournaments_global_pct > 1.5 THEN tournaments_global_pct
-# MAGIC       ELSE tournaments_global_pct * 100
+# MAGIC       WHEN o.tournaments_global_pct IS NULL THEN NULL
+# MAGIC       WHEN o.tournaments_global_pct > 1.5 THEN o.tournaments_global_pct
+# MAGIC       ELSE o.tournaments_global_pct * 100
 # MAGIC     END AS tournaments_global_pct_0_100
 # MAGIC
-# MAGIC   FROM naf_catalog.gold_presentation.nation_overview
+# MAGIC   FROM naf_catalog.gold_presentation.nation_overview AS o
+# MAGIC   LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
+# MAGIC     ON o.nation_id = ni.nation_id
 # MAGIC )
 # MAGIC SELECT
 # MAGIC   nation_id,
