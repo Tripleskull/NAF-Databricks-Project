@@ -350,7 +350,8 @@ Phases 0–4 are implemented. Revised execution order below.
 - Phase 1 — Opponent strength + form score
 - Phase 2 — Cumulative WDL series
 - Phase 3 — Race strength comparisons
-- Phase 4 — Home/abroad + specialist badges (code done, not yet run)
+- Phase 4 — Home/abroad + specialist badges
+- Phase 5 — Opponent-adjusted win rates (code done, not yet run)
 
 ### Next Steps (in order)
 
@@ -367,10 +368,11 @@ Step B  Run + validate Phase 4 in Databricks
         - Run: 331 → 332 → 342 → 350
         - Spot-check specialist badge counts
         │
-Step C  Phase 5 — Opponent-adjusted win rates (R6)
-        - nation_opponent_elo_bin_wdl (332)
-        - nation_game_quality_bin_wdl (332)
-        - Presentation views (342)
+Step C  ✅ Phase 5 — Opponent-adjusted win rates (R6)
+        - nation_opponent_elo_bin_wdl (332) ✅
+        - nation_game_quality_bin_wdl (332) ✅
+        - Presentation views (342) ✅
+        - Tests added to 350 ✅
         │
 Step D  Phase 6 — Team selector + nation power ranking (R7)
         - nation_team_candidate_scores (332)

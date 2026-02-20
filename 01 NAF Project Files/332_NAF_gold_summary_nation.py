@@ -1832,3 +1832,253 @@
 # MAGIC overwrote the TABLE defined above. The duplicate has been removed.
 # MAGIC The TABLE definition (above) now uses the improved two-component closeness formula
 # MAGIC (average of win-balance closeness and score-margin closeness).
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Nation-aggregate W/D/L by opponent GLO peak rating bins.
+# MAGIC --                Answers: "How does this nation perform against weak/mid/strong opponents?"
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per (nation_id, bin_scheme_id, bin_index)
+# MAGIC -- PRIMARY KEY  : (nation_id, bin_scheme_id, bin_index)
+# MAGIC -- SOURCES      : naf_catalog.gold_fact.coach_games_fact,
+# MAGIC --                naf_catalog.gold_dim.coach_dim,
+# MAGIC --                naf_catalog.gold_summary.nation_coach_glo_metrics (opponent peak),
+# MAGIC --                naf_catalog.gold_summary.global_elo_bin_scheme
+# MAGIC -- NOTES        : - Excludes intra-nation games (opponent from same nation).
+# MAGIC --                - Excludes Unknown nation (nation_id = 0).
+# MAGIC --                - Uses opponent's GLO peak for binning.
+# MAGIC --                - Spine ensures all bins present per nation (zero-filled).
+# MAGIC --                - Only includes coaches/opponents with valid GLO.
+# MAGIC -- PHASE        : 5
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH bin_spine AS (
+# MAGIC   SELECT
+# MAGIC     bin_scheme_id,
+# MAGIC     bin_index,
+# MAGIC     bin_min_global_elo,
+# MAGIC     bin_max_global_elo,
+# MAGIC     num_bins
+# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
+# MAGIC ),
+# MAGIC
+# MAGIC nation_spine AS (
+# MAGIC   SELECT DISTINCT nation_id
+# MAGIC   FROM naf_catalog.gold_dim.nation_dim
+# MAGIC   WHERE nation_id <> 0
+# MAGIC ),
+# MAGIC
+# MAGIC full_spine AS (
+# MAGIC   SELECT
+# MAGIC     ns.nation_id,
+# MAGIC     bs.bin_scheme_id,
+# MAGIC     bs.bin_index,
+# MAGIC     bs.bin_min_global_elo,
+# MAGIC     bs.bin_max_global_elo,
+# MAGIC     bs.num_bins
+# MAGIC   FROM nation_spine ns
+# MAGIC   CROSS JOIN bin_spine bs
+# MAGIC ),
+# MAGIC
+# MAGIC game_data AS (
+# MAGIC   SELECT
+# MAGIC     c.nation_id        AS coach_nation_id,
+# MAGIC     opp_c.nation_id    AS opponent_nation_id,
+# MAGIC     cgf.result_numeric,
+# MAGIC     cgf.td_for,
+# MAGIC     cgf.td_against,
+# MAGIC     opp_glo.glo_peak   AS opponent_glo_peak
+# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
+# MAGIC     ON cgf.coach_id = c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim opp_c
+# MAGIC     ON cgf.opponent_coach_id = opp_c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics opp_glo
+# MAGIC     ON cgf.opponent_coach_id = opp_glo.coach_id
+# MAGIC     AND opp_glo.is_valid_glo = TRUE
+# MAGIC   WHERE c.nation_id <> 0
+# MAGIC     AND opp_c.nation_id <> 0
+# MAGIC     AND c.nation_id <> opp_c.nation_id  -- exclude intra-nation
+# MAGIC ),
+# MAGIC
+# MAGIC bucketed AS (
+# MAGIC   SELECT
+# MAGIC     gd.coach_nation_id AS nation_id,
+# MAGIC     bs.bin_scheme_id,
+# MAGIC     bs.bin_index,
+# MAGIC     gd.result_numeric,
+# MAGIC     gd.td_for,
+# MAGIC     gd.td_against
+# MAGIC   FROM game_data gd
+# MAGIC   INNER JOIN bin_spine bs
+# MAGIC     ON gd.opponent_glo_peak >= bs.bin_min_global_elo
+# MAGIC     AND gd.opponent_glo_peak < bs.bin_max_global_elo
+# MAGIC ),
+# MAGIC
+# MAGIC agg AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     bin_scheme_id,
+# MAGIC     bin_index,
+# MAGIC     CAST(COUNT(*) AS INT) AS games,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END) AS INT)   AS wins,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.5 THEN 1 ELSE 0 END) AS INT)   AS draws,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END) AS INT)   AS losses,
+# MAGIC     CAST(SUM(result_numeric) AS DOUBLE) / NULLIF(COUNT(*), 0)             AS win_frac,
+# MAGIC     CAST(SUM(td_for - td_against) AS DOUBLE) / NULLIF(COUNT(*), 0)        AS avg_td_diff
+# MAGIC   FROM bucketed
+# MAGIC   GROUP BY nation_id, bin_scheme_id, bin_index
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   sp.nation_id,
+# MAGIC   sp.bin_scheme_id,
+# MAGIC   sp.bin_index,
+# MAGIC   sp.bin_min_global_elo,
+# MAGIC   sp.bin_max_global_elo,
+# MAGIC   COALESCE(a.games, 0)    AS games,
+# MAGIC   COALESCE(a.wins, 0)     AS wins,
+# MAGIC   COALESCE(a.draws, 0)    AS draws,
+# MAGIC   COALESCE(a.losses, 0)   AS losses,
+# MAGIC   a.win_frac,
+# MAGIC   a.avg_td_diff,
+# MAGIC   CURRENT_TIMESTAMP()     AS load_timestamp
+# MAGIC FROM full_spine sp
+# MAGIC LEFT JOIN agg a
+# MAGIC   ON sp.nation_id = a.nation_id
+# MAGIC   AND sp.bin_scheme_id = a.bin_scheme_id
+# MAGIC   AND sp.bin_index = a.bin_index;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_game_quality_bin_wdl
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Nation-aggregate W/D/L by game quality bins.
+# MAGIC --                Game quality = average of coach's and opponent's GLO peak.
+# MAGIC --                Answers: "How does this nation do in high-quality vs low-quality matches?"
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per (nation_id, bin_scheme_id, bin_index)
+# MAGIC -- PRIMARY KEY  : (nation_id, bin_scheme_id, bin_index)
+# MAGIC -- SOURCES      : naf_catalog.gold_fact.coach_games_fact,
+# MAGIC --                naf_catalog.gold_dim.coach_dim,
+# MAGIC --                naf_catalog.gold_summary.nation_coach_glo_metrics (both sides),
+# MAGIC --                naf_catalog.gold_summary.global_elo_bin_scheme
+# MAGIC -- NOTES        : - Same bin scheme as opponent bins (same scale, same edges).
+# MAGIC --                - Excludes intra-nation games.
+# MAGIC --                - Excludes Unknown nation.
+# MAGIC --                - Spine ensures all bins present per nation (zero-filled).
+# MAGIC --                - Both coach and opponent must have valid GLO.
+# MAGIC -- PHASE        : 5
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_game_quality_bin_wdl
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH bin_spine AS (
+# MAGIC   SELECT
+# MAGIC     bin_scheme_id,
+# MAGIC     bin_index,
+# MAGIC     bin_min_global_elo,
+# MAGIC     bin_max_global_elo,
+# MAGIC     num_bins
+# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
+# MAGIC ),
+# MAGIC
+# MAGIC nation_spine AS (
+# MAGIC   SELECT DISTINCT nation_id
+# MAGIC   FROM naf_catalog.gold_dim.nation_dim
+# MAGIC   WHERE nation_id <> 0
+# MAGIC ),
+# MAGIC
+# MAGIC full_spine AS (
+# MAGIC   SELECT
+# MAGIC     ns.nation_id,
+# MAGIC     bs.bin_scheme_id,
+# MAGIC     bs.bin_index,
+# MAGIC     bs.bin_min_global_elo,
+# MAGIC     bs.bin_max_global_elo,
+# MAGIC     bs.num_bins
+# MAGIC   FROM nation_spine ns
+# MAGIC   CROSS JOIN bin_spine bs
+# MAGIC ),
+# MAGIC
+# MAGIC game_data AS (
+# MAGIC   SELECT
+# MAGIC     c.nation_id         AS coach_nation_id,
+# MAGIC     opp_c.nation_id     AS opponent_nation_id,
+# MAGIC     cgf.result_numeric,
+# MAGIC     cgf.td_for,
+# MAGIC     cgf.td_against,
+# MAGIC     (coach_glo.glo_peak + opp_glo.glo_peak) / 2.0 AS game_quality
+# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
+# MAGIC     ON cgf.coach_id = c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim opp_c
+# MAGIC     ON cgf.opponent_coach_id = opp_c.coach_id
+# MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics coach_glo
+# MAGIC     ON cgf.coach_id = coach_glo.coach_id
+# MAGIC     AND coach_glo.is_valid_glo = TRUE
+# MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics opp_glo
+# MAGIC     ON cgf.opponent_coach_id = opp_glo.coach_id
+# MAGIC     AND opp_glo.is_valid_glo = TRUE
+# MAGIC   WHERE c.nation_id <> 0
+# MAGIC     AND opp_c.nation_id <> 0
+# MAGIC     AND c.nation_id <> opp_c.nation_id  -- exclude intra-nation
+# MAGIC ),
+# MAGIC
+# MAGIC bucketed AS (
+# MAGIC   SELECT
+# MAGIC     gd.coach_nation_id AS nation_id,
+# MAGIC     bs.bin_scheme_id,
+# MAGIC     bs.bin_index,
+# MAGIC     gd.result_numeric,
+# MAGIC     gd.td_for,
+# MAGIC     gd.td_against
+# MAGIC   FROM game_data gd
+# MAGIC   INNER JOIN bin_spine bs
+# MAGIC     ON gd.game_quality >= bs.bin_min_global_elo
+# MAGIC     AND gd.game_quality < bs.bin_max_global_elo
+# MAGIC ),
+# MAGIC
+# MAGIC agg AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     bin_scheme_id,
+# MAGIC     bin_index,
+# MAGIC     CAST(COUNT(*) AS INT) AS games,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END) AS INT)   AS wins,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.5 THEN 1 ELSE 0 END) AS INT)   AS draws,
+# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END) AS INT)   AS losses,
+# MAGIC     CAST(SUM(result_numeric) AS DOUBLE) / NULLIF(COUNT(*), 0)             AS win_frac,
+# MAGIC     CAST(SUM(td_for - td_against) AS DOUBLE) / NULLIF(COUNT(*), 0)        AS avg_td_diff
+# MAGIC   FROM bucketed
+# MAGIC   GROUP BY nation_id, bin_scheme_id, bin_index
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   sp.nation_id,
+# MAGIC   sp.bin_scheme_id,
+# MAGIC   sp.bin_index,
+# MAGIC   sp.bin_min_global_elo,
+# MAGIC   sp.bin_max_global_elo,
+# MAGIC   COALESCE(a.games, 0)    AS games,
+# MAGIC   COALESCE(a.wins, 0)     AS wins,
+# MAGIC   COALESCE(a.draws, 0)    AS draws,
+# MAGIC   COALESCE(a.losses, 0)   AS losses,
+# MAGIC   a.win_frac,
+# MAGIC   a.avg_td_diff,
+# MAGIC   CURRENT_TIMESTAMP()     AS load_timestamp
+# MAGIC FROM full_spine sp
+# MAGIC LEFT JOIN agg a
+# MAGIC   ON sp.nation_id = a.nation_id
+# MAGIC   AND sp.bin_scheme_id = a.bin_scheme_id
+# MAGIC   AND sp.bin_index = a.bin_index;
+# MAGIC
