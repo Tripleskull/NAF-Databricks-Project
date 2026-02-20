@@ -341,32 +341,58 @@ For distribution baselines (boxplots, quantiles), use WORLD (all coaches globall
 
 ---
 
-## Execution Order
+## Execution Order (Updated 2026-02-20)
+
+Phases 0–4 are implemented. Revised execution order below.
+
+### ✅ Complete
+- Phase 0 — Cleanup
+- Phase 1 — Opponent strength + form score
+- Phase 2 — Cumulative WDL series
+- Phase 3 — Race strength comparisons
+- Phase 4 — Home/abroad + specialist badges (code done, not yet run)
+
+### Next Steps (in order)
 
 ```
-Phase 0  (cleanup)
-  │
-Phase 1  (opponent strength context)
-  │
-  ├── Phase 2  (comparison framework + cumulative WDL)
-  │
-  ├── Phase 3  (race strength boxplots)
-  │     │
-  │     └── Phase 4  (home/abroad + specialist badges)
-  │           │
-  │           └── Phase 6  (team selector + nation power ranking)
-  │
-  └── Phase 5  (opponent-strength-adjusted WDL + game-quality bins)
-
-Phase 7  (global status report) — after Phase 6
-Phase 8  (coach dashboard updates) — after Phases 1 + 4
-Phase 9  (testing + docs) — after everything
-
-Phases 2, 3, 5 can run in parallel after Phase 1.
-Phase 4 needs Phase 3.
-Phase 6 needs Phases 1 + 4.
-Phase 7 needs Phase 6 (for nation power ranking).
-Phase 8 needs Phases 1 + 4 (for badges).
+Step A  Fix critical issues from code review
+        - 331: rating_system 'ELO' → 'NAF_ELO' (2 tables)
+        - 341: remove duplicate global_elo_bin_scheme view
+        - 341: rename flag_emoji mislabeled as *_flag_code (5 places)
+        - 342: switch to flag_emoji via nation_identity_v
+        - 350: add rating_system allowed-values test
+        │
+Step B  Run + validate Phase 4 in Databricks
+        - Commit, push, pull in Databricks
+        - Run: 331 → 332 → 342 → 350
+        - Spot-check specialist badge counts
+        │
+Step C  Phase 5 — Opponent-adjusted win rates (R6)
+        - nation_opponent_elo_bin_wdl (332)
+        - nation_game_quality_bin_wdl (332)
+        - Presentation views (342)
+        │
+Step D  Phase 6 — Team selector + nation power ranking (R7)
+        - nation_team_candidate_scores (332)
+        - nation_power_ranking (332)
+        - Config params in 310
+        - Presentation views (342)
+        │
+Step E  Dashboard overhaul
+        - Cell-by-cell review of Coach Dashboard
+        - Cell-by-cell review of Nation Dashboard
+        - Multi-page restructuring for both
+        - Wire up all new Phase 1–6 data
+        │
+Step F  Phase 7 — Global status report (R10) [nice-to-have]
+        - New notebooks 335 + 345
+        - New dashboard
+        │
+Step G  Phase 8 — Coach dashboard updates (R2, R9) [nice-to-have]
+        - Specialist badges on coach profile
+        - Tournament wins (requires Phase 7)
+        │
+Step H  Phase 9 — Final testing + documentation [nice-to-have]
 ```
 
 ---

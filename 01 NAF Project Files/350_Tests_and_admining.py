@@ -800,6 +800,27 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Rating system allowed-values test
+# MAGIC %sql
+# MAGIC -- =====================================================================
+# MAGIC -- RATING SYSTEM ALLOWED VALUES
+# MAGIC -- =====================================================================
+# MAGIC -- Ensures no drift from the canonical 'NAF_ELO' value.
+# MAGIC -- Returns ONLY failing checks. Empty result = all pass.
+# MAGIC
+# MAGIC SELECT 'rating_history_fact: unexpected rating_system value' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT DISTINCT rating_system FROM naf_catalog.gold_fact.rating_history_fact WHERE rating_system <> 'NAF_ELO')
+# MAGIC UNION ALL
+# MAGIC SELECT 'coach_rating_race_summary: unexpected rating_system value' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT DISTINCT rating_system FROM naf_catalog.gold_summary.coach_rating_race_summary WHERE rating_system <> 'NAF_ELO')
+# MAGIC UNION ALL
+# MAGIC SELECT 'coach_rating_global_elo_summary: unexpected rating_system value' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT DISTINCT rating_system FROM naf_catalog.gold_summary.coach_rating_global_elo_summary WHERE rating_system <> 'NAF_ELO')
+# MAGIC
+# MAGIC HAVING fail_rows > 0;
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC -- ============================================================
 # MAGIC -- SILVER invariants

@@ -877,7 +877,7 @@
 # MAGIC --   One row per (nation_id, game_sequence_number)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_results_cumulative_series
-# MAGIC --   - naf_catalog.gold_dim.nation_dim (x2: nation + opponent)
+# MAGIC --   - naf_catalog.gold_presentation.nation_identity_v (x2: nation + opponent)
 # MAGIC --   - naf_catalog.gold_dim.date_dim
 # MAGIC -- =====================================================================
 # MAGIC
@@ -885,9 +885,8 @@
 # MAGIC SELECT
 # MAGIC   -- Nation identity
 # MAGIC   s.nation_id,
-# MAGIC   n.nation_name,
-# MAGIC   n.nation_name_display,
-# MAGIC   n.flag_code AS nation_flag_code,
+# MAGIC   ni.nation_name_display,
+# MAGIC   ni.flag_emoji AS nation_flag_emoji,
 # MAGIC
 # MAGIC   -- Game-level context
 # MAGIC   s.game_sequence_number,
@@ -901,9 +900,8 @@
 # MAGIC
 # MAGIC   -- Opponent nation
 # MAGIC   s.opponent_nation_id,
-# MAGIC   opp.nation_name           AS opponent_nation_name,
-# MAGIC   opp.nation_name_display   AS opponent_nation_name_display,
-# MAGIC   opp.flag_code             AS opponent_flag_code,
+# MAGIC   opp_ni.nation_name_display AS opponent_nation_name_display,
+# MAGIC   opp_ni.flag_emoji          AS opponent_flag_emoji,
 # MAGIC
 # MAGIC   -- Cumulative aggregates
 # MAGIC   s.cum_wins,
@@ -915,10 +913,10 @@
 # MAGIC
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_results_cumulative_series AS s
-# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
-# MAGIC   ON s.nation_id = n.nation_id
-# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS opp
-# MAGIC   ON s.opponent_nation_id = opp.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
+# MAGIC   ON s.nation_id = ni.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS opp_ni
+# MAGIC   ON s.opponent_nation_id = opp_ni.nation_id
 # MAGIC LEFT JOIN naf_catalog.gold_dim.date_dim AS d
 # MAGIC   ON s.date_id = d.date_id;
 # MAGIC
@@ -937,15 +935,14 @@
 # MAGIC --   1 row per nation_id
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_domestic_summary
-# MAGIC --   - naf_catalog.gold_dim.nation_dim
+# MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_domestic_performance_display AS
 # MAGIC SELECT
 # MAGIC   s.nation_id,
-# MAGIC   n.nation_name,
-# MAGIC   n.nation_name_display,
-# MAGIC   n.flag_code AS nation_flag_code,
+# MAGIC   ni.nation_name_display,
+# MAGIC   ni.flag_emoji,
 # MAGIC
 # MAGIC   -- Tournament location dimension
 # MAGIC   s.games_home,
@@ -961,6 +958,6 @@
 # MAGIC
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary AS s
-# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
-# MAGIC   ON s.nation_id = n.nation_id;
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
+# MAGIC   ON s.nation_id = ni.nation_id;
 # MAGIC

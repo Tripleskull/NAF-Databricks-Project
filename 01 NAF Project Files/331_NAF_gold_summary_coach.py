@@ -688,7 +688,7 @@
 # MAGIC   FROM naf_catalog.gold_summary.coach_rating_race_summary crr
 # MAGIC   INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles w
 # MAGIC     ON crr.race_id = w.race_id
-# MAGIC   WHERE crr.rating_system = 'ELO'
+# MAGIC   WHERE crr.rating_system = 'NAF_ELO'
 # MAGIC     AND crr.games_with_race >= 25
 # MAGIC     AND crr.elo_peak_post_threshold IS NOT NULL
 # MAGIC ),
@@ -763,7 +763,7 @@
 # MAGIC     ON crr.coach_id = c.coach_id
 # MAGIC   INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles w
 # MAGIC     ON crr.race_id = w.race_id
-# MAGIC   WHERE crr.rating_system = 'ELO'
+# MAGIC   WHERE crr.rating_system = 'NAF_ELO'
 # MAGIC     AND crr.games_with_race >= 25
 # MAGIC     AND crr.elo_peak_post_threshold IS NOT NULL
 # MAGIC     AND c.nation_id <> 0

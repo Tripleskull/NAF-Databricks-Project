@@ -347,7 +347,7 @@
 # MAGIC
 # MAGIC     oi.coach_name          AS opponent_coach_name,
 # MAGIC     oi.nation_name_display AS opponent_nation_name_display,
-# MAGIC     oi.flag_emoji           AS opponent_flag_code,
+# MAGIC     oi.flag_emoji           AS opponent_flag_emoji,
 # MAGIC
 # MAGIC     s.games_played,
 # MAGIC     s.wins,
@@ -393,7 +393,7 @@
 # MAGIC         'opponent_coach_id', opponent_coach_id,
 # MAGIC         'opponent_coach_name', opponent_coach_name,
 # MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
-# MAGIC         'opponent_flag_code', opponent_flag_code,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
 # MAGIC         'games_played', games_played,
 # MAGIC         'wins', wins,
 # MAGIC         'draws', draws,
@@ -418,7 +418,7 @@
 # MAGIC         'opponent_coach_id', opponent_coach_id,
 # MAGIC         'opponent_coach_name', opponent_coach_name,
 # MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
-# MAGIC         'opponent_flag_code', opponent_flag_code,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
 # MAGIC         'games_played', games_played,
 # MAGIC         'wins', wins,
 # MAGIC         'draws', draws,
@@ -443,7 +443,7 @@
 # MAGIC         'opponent_coach_id', opponent_coach_id,
 # MAGIC         'opponent_coach_name', opponent_coach_name,
 # MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
-# MAGIC         'opponent_flag_code', opponent_flag_code,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
 # MAGIC         'games_played', games_played,
 # MAGIC         'wins', wins,
 # MAGIC         'draws', draws,
@@ -474,7 +474,7 @@
 # MAGIC   p.by_games.opponent_coach_id            AS top_opp_by_games_id,
 # MAGIC   p.by_games.opponent_coach_name          AS top_opp_by_games_name,
 # MAGIC   p.by_games.opponent_nation_name_display AS top_opp_by_games_nation_name,
-# MAGIC   p.by_games.opponent_flag_code           AS top_opp_by_games_flag_code,
+# MAGIC   p.by_games.opponent_flag_emoji           AS top_opp_by_games_flag_code,
 # MAGIC   p.by_games.games_played                 AS top_opp_by_games_games,
 # MAGIC   p.by_games.wins                         AS top_opp_by_games_wins,
 # MAGIC   p.by_games.draws                        AS top_opp_by_games_draws,
@@ -488,14 +488,14 @@
 # MAGIC   p.by_rank.opponent_coach_id             AS top_opp_by_rank_id,
 # MAGIC   p.by_rank.opponent_coach_name           AS top_opp_by_rank_name,
 # MAGIC   p.by_rank.opponent_nation_name_display  AS top_opp_by_rank_nation_name,
-# MAGIC   p.by_rank.opponent_flag_code            AS top_opp_by_rank_flag_code,
+# MAGIC   p.by_rank.opponent_flag_emoji            AS top_opp_by_rank_flag_code,
 # MAGIC   p.by_rank.opponent_global_elo_current   AS top_opp_by_rank_global_elo_current,
 # MAGIC   p.by_rank.opponent_global_elo_peak_all  AS top_opp_by_rank_global_elo_peak_all,
 # MAGIC
 # MAGIC   p.by_rank_beaten.opponent_coach_id            AS top_win_opponent_id,
 # MAGIC   p.by_rank_beaten.opponent_coach_name          AS top_win_opponent_name,
 # MAGIC   p.by_rank_beaten.opponent_nation_name_display AS top_win_opponent_nation_name,
-# MAGIC   p.by_rank_beaten.opponent_flag_code           AS top_win_opponent_flag_code,
+# MAGIC   p.by_rank_beaten.opponent_flag_emoji           AS top_win_opponent_flag_emoji,
 # MAGIC   p.by_rank_beaten.opponent_global_elo_current  AS top_win_opponent_global_elo_current,
 # MAGIC   p.by_rank_beaten.opponent_global_elo_peak_all AS top_win_opponent_global_elo_peak_all,
 # MAGIC
@@ -549,7 +549,7 @@
 # MAGIC   oi.coach_name           AS opponent_coach_name,
 # MAGIC   oi.nation_id            AS opponent_nation_id,
 # MAGIC   oi.nation_name_display  AS opponent_nation_name_display,
-# MAGIC   oi.flag_emoji            AS opponent_flag_code,
+# MAGIC   oi.flag_emoji            AS opponent_flag_emoji,
 # MAGIC
 # MAGIC   s.games_played,
 # MAGIC   s.wins,
@@ -729,51 +729,8 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- VIEW: naf_catalog.gold_presentation.global_elo_bin_scheme
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Dashboard-facing Elo bin scheme lookup with stable display labels.
-# MAGIC -- LAYER        : GOLD_PRESENTATION
-# MAGIC -- GRAIN        : 1 row per (bin_scheme_id, bin_index)
-# MAGIC -- PRIMARY KEY  : (bin_scheme_id, bin_index)
-# MAGIC -- SOURCES      : naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC -- NOTES        : - Presentation adds UI-friendly labels only.
-# MAGIC --               - Summary remains numeric/ID-only (no display attributes).
-# MAGIC --               - target_num_bins is a target; actual bin count is num_bins (may differ due to step snapping).
-# MAGIC --               - bin_scheme_name_display uses the actual num_bins to avoid UI mismatch.
-# MAGIC --               - Uses explicit column list (no SELECT *) to prevent silent schema drift.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
-# MAGIC
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.global_elo_bin_scheme AS
-# MAGIC SELECT
-# MAGIC   s.bin_scheme_id,
-# MAGIC   s.scheme_type,
-# MAGIC   s.target_num_bins,
-# MAGIC   s.bin_index,
-# MAGIC
-# MAGIC   s.bin_min_global_elo,
-# MAGIC   s.bin_max_global_elo,
-# MAGIC
-# MAGIC   s.num_bins,
-# MAGIC   s.step_size,
-# MAGIC   s.min_global_elo,
-# MAGIC   s.max_global_elo,
-# MAGIC
-# MAGIC   (s.num_bins = s.target_num_bins) AS is_target_num_bins_met,
-# MAGIC
-# MAGIC   CONCAT(INITCAP(s.scheme_type), ' (', CAST(s.num_bins AS STRING), ' bins)') AS bin_scheme_name_display,
-# MAGIC
-# MAGIC   CASE
-# MAGIC     WHEN s.bin_index = s.num_bins THEN CONCAT(CAST(ROUND(s.bin_min_global_elo) AS INT), '+')
-# MAGIC     ELSE CONCAT(
-# MAGIC       CAST(ROUND(s.bin_min_global_elo) AS INT),
-# MAGIC       '–',
-# MAGIC       CAST(ROUND(s.bin_max_global_elo) AS INT)
-# MAGIC     )
-# MAGIC   END AS bin_label_display
-# MAGIC FROM naf_catalog.gold_summary.global_elo_bin_scheme s;
-# MAGIC
+# MAGIC -- NOTE: global_elo_bin_scheme is defined in 340_gold_presentation_core.py (single source of truth).
+# MAGIC -- Duplicate definition removed from this notebook (2026-02-20).
 
 # COMMAND ----------
 
@@ -1233,12 +1190,12 @@
 # MAGIC     o.coach_name,
 # MAGIC     o.nation_id AS coach_nation_id,
 # MAGIC     o.nation_name_display AS coach_nation_name_display,
-# MAGIC     o.flag_emoji AS coach_flag_code,
+# MAGIC     o.flag_emoji AS coach_flag_emoji,
 # MAGIC
 # MAGIC     o.opponent_coach_name,
 # MAGIC     o.opponent_nation_id,
 # MAGIC     o.opponent_nation_name_display,
-# MAGIC     o.opponent_flag_code,
+# MAGIC     o.opponent_flag_emoji,
 # MAGIC
 # MAGIC     o.games_played,
 # MAGIC     o.wins,
@@ -1263,12 +1220,12 @@
 # MAGIC   r.coach_name,
 # MAGIC   r.coach_nation_id,
 # MAGIC   r.coach_nation_name_display,
-# MAGIC   r.coach_flag_code,
+# MAGIC   r.coach_flag_emoji,
 # MAGIC
 # MAGIC   r.opponent_coach_name,
 # MAGIC   r.opponent_nation_id,
 # MAGIC   r.opponent_nation_name_display,
-# MAGIC   r.opponent_flag_code,
+# MAGIC   r.opponent_flag_emoji,
 # MAGIC
 # MAGIC   r.games_played,
 # MAGIC   r.wins,
@@ -1322,7 +1279,7 @@
 # MAGIC     o.opponent_coach_id,
 # MAGIC     o.opponent_coach_name,
 # MAGIC     o.opponent_nation_name_display,
-# MAGIC     o.opponent_flag_code,
+# MAGIC     o.opponent_flag_emoji,
 # MAGIC
 # MAGIC     CAST(o.games_played AS BIGINT) AS games_played,
 # MAGIC     CAST(o.wins        AS BIGINT) AS wins,
@@ -1383,7 +1340,7 @@
 # MAGIC         'opponent_coach_id', opponent_coach_id,
 # MAGIC         'opponent_coach_name', opponent_coach_name,
 # MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
-# MAGIC         'opponent_flag_code', opponent_flag_code,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
 # MAGIC         'games_played', games_played,
 # MAGIC         'wins', wins,
 # MAGIC         'draws', draws,
@@ -1410,7 +1367,7 @@
 # MAGIC         'opponent_coach_id', opponent_coach_id,
 # MAGIC         'opponent_coach_name', opponent_coach_name,
 # MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
-# MAGIC         'opponent_flag_code', opponent_flag_code,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
 # MAGIC         'games_played', games_played,
 # MAGIC         'wins', wins,
 # MAGIC         'draws', draws,
@@ -1440,7 +1397,7 @@
 # MAGIC         'opponent_coach_id', opponent_coach_id,
 # MAGIC         'opponent_coach_name', opponent_coach_name,
 # MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
-# MAGIC         'opponent_flag_code', opponent_flag_code,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
 # MAGIC         'games_played', games_played,
 # MAGIC         'wins', wins,
 # MAGIC         'draws', draws,
@@ -1474,7 +1431,7 @@
 # MAGIC     opponent_coach_id,
 # MAGIC     opponent_coach_name,
 # MAGIC     opponent_nation_name_display,
-# MAGIC     opponent_flag_code,
+# MAGIC     opponent_flag_emoji,
 # MAGIC
 # MAGIC     games_played,
 # MAGIC     wins,
@@ -1502,7 +1459,7 @@
 # MAGIC     s.opponent_coach_id,
 # MAGIC     s.opponent_coach_name,
 # MAGIC     s.opponent_nation_name_display,
-# MAGIC     s.opponent_flag_code,
+# MAGIC     s.opponent_flag_emoji,
 # MAGIC     s.games_played,
 # MAGIC     s.wins,
 # MAGIC     s.draws,
@@ -1525,7 +1482,7 @@
 # MAGIC     s.opponent_coach_id,
 # MAGIC     s.opponent_coach_name,
 # MAGIC     s.opponent_nation_name_display,
-# MAGIC     s.opponent_flag_code,
+# MAGIC     s.opponent_flag_emoji,
 # MAGIC     s.games_played,
 # MAGIC     s.wins,
 # MAGIC     s.draws,
@@ -1547,7 +1504,7 @@
 # MAGIC   opponent_coach_id,
 # MAGIC   opponent_coach_name,
 # MAGIC   opponent_nation_name_display,
-# MAGIC   opponent_flag_code,
+# MAGIC   opponent_flag_emoji,
 # MAGIC
 # MAGIC   games_played,
 # MAGIC   wins,
@@ -1929,7 +1886,7 @@
 # MAGIC   h.opponent_coach_id,
 # MAGIC   oi.coach_name          AS opponent_coach_name,
 # MAGIC   oi.nation_name_display AS opponent_nation_name_display,
-# MAGIC   oi.flag_emoji           AS opponent_flag_code,
+# MAGIC   oi.flag_emoji           AS opponent_flag_emoji,
 # MAGIC   
 # MAGIC   h.game_id,
 # MAGIC
@@ -1990,7 +1947,7 @@
 # MAGIC   h.opponent_coach_id,
 # MAGIC   oi.coach_name          AS opponent_coach_name,
 # MAGIC   oi.nation_name_display AS opponent_nation_name_display,
-# MAGIC   oi.flag_emoji           AS opponent_flag_code,
+# MAGIC   oi.flag_emoji           AS opponent_flag_emoji,
 # MAGIC
 # MAGIC   h.game_id,
 # MAGIC
