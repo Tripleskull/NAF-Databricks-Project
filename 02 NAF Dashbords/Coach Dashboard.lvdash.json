@@ -673,6 +673,14 @@
                       "expression": "`race_name`"
                     },
                     {
+                      "name": "flag_emoji",
+                      "expression": "`flag_emoji`"
+                    },
+                    {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
+                    },
+                    {
                       "name": "wins",
                       "expression": "`wins`"
                     },
@@ -1034,9 +1042,10 @@
                   "linkTextTemplate": "{{ @ }}",
                   "linkTitleTemplate": "{{ @ }}",
                   "linkOpenInNewTab": true,
-                  "name": "nation_name_display",
+                  "fieldName": "nation_name_display",
                   "type": "string",
                   "displayAs": "string",
+                  "visible": true,
                   "order": 7,
                   "title": "nation_name_display",
                   "allowSearch": false,
@@ -1059,9 +1068,10 @@
                   "linkTextTemplate": "{{ @ }}",
                   "linkTitleTemplate": "{{ @ }}",
                   "linkOpenInNewTab": true,
-                  "name": "flag_emoji",
+                  "fieldName": "flag_emoji",
                   "type": "string",
                   "displayAs": "string",
+                  "visible": true,
                   "order": 8,
                   "title": "Flag",
                   "allowSearch": false,
