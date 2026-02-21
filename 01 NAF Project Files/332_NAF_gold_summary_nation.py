@@ -1607,6 +1607,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Cell 17
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- SUMMARY: World quantiles (so dashboards don't fake "World" rows)
@@ -1639,9 +1640,10 @@
 # MAGIC WHERE metric_value IS NOT NULL
 # MAGIC GROUP BY metric_type;
 # MAGIC
-
-# NOTE: Presentation views (nation_glo_metric_quantiles, nation_glo_peak_card_long)
-# are defined in 342_NAF_gold_presentation_nation.py (correct notebook).
+# MAGIC
+# MAGIC -- NOTE: Presentation views (nation_glo_metric_quantiles, nation_glo_peak_card_long)
+# MAGIC -- are defined in 342_NAF_gold_presentation_nation.py (correct notebook).
+# MAGIC
 
 # COMMAND ----------
 
