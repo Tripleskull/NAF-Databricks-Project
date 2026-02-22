@@ -138,6 +138,18 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `load_datetime` vs `load_timestamp` inconsistencies
 - `flag_code` vs `flag_emoji` mismatches
 
+### Flag Emoji Rendering (Windows Limitation)
+- **Root cause**: Windows does not render Unicode Regional Indicator Symbol flag emojis (e.g. 🇩🇰). Instead it displays the two-letter code (e.g. "DK") in a styled font. macOS and Linux render flags correctly.
+- **Data is correct**: The pipeline produces proper UTF-8 bytes (`F09F87A9F09F87B0` for Denmark). The issue is purely client-side rendering.
+- **Databricks dashboards**: Flags render on macOS/Linux browsers but NOT on Windows (any browser). Exports and screenshots should be done from macOS/Linux.
+- **Flag architecture**: Centralised in `nation_flag_emoji_v` (340) using `decode(unhex(...), 'UTF-8')` with special cases for GB subdivisions. All views consume flags via `nation_identity_v` / `coach_identity_v` — never inline hex conversions.
+- **Future HTML/Streamlit dashboards**: Do NOT rely on Unicode flag emojis if Windows users are a target audience. Use one of:
+  - CSS-based flags (e.g. `flag-icons` library: `<span class="fi fi-dk"></span>`)
+  - Image-based flags (e.g. `flagcdn.com`: `<img src="https://flagcdn.com/16x12/dk.png">`)
+  - SVG flag sprites
+  - These approaches render identically on all platforms.
+- **Dashboard JSON gotcha**: Databricks AI/BI table widgets have two column arrays: `spec.encodings.columns` (visible) and `spec.invisibleColumns` (hidden). When importing/editing dashboards, columns can silently move to `invisibleColumns`. Always verify flag columns are in `encodings.columns`.
+
 ### Line Endings
 - No `.gitattributes` file exists yet — Windows CRLF vs Linux LF causes all files to appear modified
 - Fix: add `.gitattributes` with `* text=auto` and normalize (run `git add --renormalize .`)

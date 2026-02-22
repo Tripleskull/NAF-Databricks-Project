@@ -1016,7 +1016,11 @@
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
-              "values": [{ "value": "Denmark" }]
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
             }
           }
         }
@@ -1048,7 +1052,11 @@
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
-              "values": [{ "value": "Denmark" }]
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
             }
           }
         }
@@ -1080,7 +1088,11 @@
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
-              "values": [{ "value": "Denmark" }]
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
             }
           }
         }
@@ -1132,7 +1144,11 @@
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
-              "values": [{ "value": "Denmark" }]
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
             }
           }
         }
@@ -2577,15 +2593,42 @@
                 "query": {
                   "datasetName": "ph5_domestic_perf",
                   "fields": [
-                    { "name": "flag_emoji",           "expression": "`flag_emoji`" },
-                    { "name": "games_home",            "expression": "`games_home`" },
-                    { "name": "games_away",            "expression": "`games_away`" },
-                    { "name": "win_pct_home",          "expression": "`win_pct_home`" },
-                    { "name": "win_pct_away",          "expression": "`win_pct_away`" },
-                    { "name": "games_vs_domestic",     "expression": "`games_vs_domestic`" },
-                    { "name": "games_vs_foreign",      "expression": "`games_vs_foreign`" },
-                    { "name": "win_pct_vs_domestic",   "expression": "`win_pct_vs_domestic`" },
-                    { "name": "win_pct_vs_foreign",    "expression": "`win_pct_vs_foreign`" }
+                    {
+                      "name": "flag_emoji",
+                      "expression": "`flag_emoji`"
+                    },
+                    {
+                      "name": "games_home",
+                      "expression": "`games_home`"
+                    },
+                    {
+                      "name": "games_away",
+                      "expression": "`games_away`"
+                    },
+                    {
+                      "name": "win_pct_home",
+                      "expression": "`win_pct_home`"
+                    },
+                    {
+                      "name": "win_pct_away",
+                      "expression": "`win_pct_away`"
+                    },
+                    {
+                      "name": "games_vs_domestic",
+                      "expression": "`games_vs_domestic`"
+                    },
+                    {
+                      "name": "games_vs_foreign",
+                      "expression": "`games_vs_foreign`"
+                    },
+                    {
+                      "name": "win_pct_vs_domestic",
+                      "expression": "`win_pct_vs_domestic`"
+                    },
+                    {
+                      "name": "win_pct_vs_foreign",
+                      "expression": "`win_pct_vs_foreign`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -2596,23 +2639,85 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  { "fieldName": "flag_emoji",         "title": "Flag",            "type": "string", "displayAs": "string", "order": 0 },
-                  { "fieldName": "games_home",          "title": "Games (Home)",    "type": "integer", "displayAs": "number", "order": 1 },
-                  { "fieldName": "games_away",          "title": "Games (Away)",    "type": "integer", "displayAs": "number", "order": 2 },
-                  { "fieldName": "win_pct_home",        "title": "Win% Home",       "type": "float",   "displayAs": "number", "order": 3 },
-                  { "fieldName": "win_pct_away",        "title": "Win% Away",       "type": "float",   "displayAs": "number", "order": 4 },
-                  { "fieldName": "games_vs_domestic",   "title": "vs Domestic",     "type": "integer", "displayAs": "number", "order": 5 },
-                  { "fieldName": "games_vs_foreign",    "title": "vs Foreign",      "type": "integer", "displayAs": "number", "order": 6 },
-                  { "fieldName": "win_pct_vs_domestic", "title": "Win% Domestic",   "type": "float",   "displayAs": "number", "order": 7 },
-                  { "fieldName": "win_pct_vs_foreign",  "title": "Win% Foreign",    "type": "float",   "displayAs": "number", "order": 8 }
+                  {
+                    "fieldName": "flag_emoji",
+                    "title": "Flag",
+                    "type": "string",
+                    "displayAs": "string",
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "games_home",
+                    "title": "Games (Home)",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "games_away",
+                    "title": "Games (Away)",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "win_pct_home",
+                    "title": "Win% Home",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "win_pct_away",
+                    "title": "Win% Away",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "games_vs_domestic",
+                    "title": "vs Domestic",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "games_vs_foreign",
+                    "title": "vs Foreign",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 6
+                  },
+                  {
+                    "fieldName": "win_pct_vs_domestic",
+                    "title": "Win% Domestic",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 7
+                  },
+                  {
+                    "fieldName": "win_pct_vs_foreign",
+                    "title": "Win% Foreign",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 8
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Home / Away & Domestic / International" },
+              "frame": {
+                "showTitle": true,
+                "title": "Home / Away & Domestic / International"
+              },
               "itemsPerPage": 5,
               "condensed": true
             }
           },
-          "position": { "x": 0, "y": 34, "width": 12, "height": 5 }
+          "position": {
+            "x": 0,
+            "y": 34,
+            "width": 12,
+            "height": 5
+          }
         },
         {
           "widget": {
@@ -2623,13 +2728,34 @@
                 "query": {
                   "datasetName": "ph5_opp_bin_wdl",
                   "fields": [
-                    { "name": "bin_label_display", "expression": "`bin_label_display`" },
-                    { "name": "games",             "expression": "`games`" },
-                    { "name": "wins",              "expression": "`wins`" },
-                    { "name": "draws",             "expression": "`draws`" },
-                    { "name": "losses",            "expression": "`losses`" },
-                    { "name": "win_pct",           "expression": "`win_pct`" },
-                    { "name": "avg_td_diff",       "expression": "`avg_td_diff`" }
+                    {
+                      "name": "bin_label_display",
+                      "expression": "`bin_label_display`"
+                    },
+                    {
+                      "name": "games",
+                      "expression": "`games`"
+                    },
+                    {
+                      "name": "wins",
+                      "expression": "`wins`"
+                    },
+                    {
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    },
+                    {
+                      "name": "win_pct",
+                      "expression": "`win_pct`"
+                    },
+                    {
+                      "name": "avg_td_diff",
+                      "expression": "`avg_td_diff`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -2640,21 +2766,71 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  { "fieldName": "bin_label_display", "title": "Opponent GLO Bin", "type": "string",  "displayAs": "string", "order": 0 },
-                  { "fieldName": "games",             "title": "Games",            "type": "integer", "displayAs": "number", "order": 1 },
-                  { "fieldName": "wins",              "title": "Wins",             "type": "integer", "displayAs": "number", "order": 2 },
-                  { "fieldName": "draws",             "title": "Draws",            "type": "integer", "displayAs": "number", "order": 3 },
-                  { "fieldName": "losses",            "title": "Losses",           "type": "integer", "displayAs": "number", "order": 4 },
-                  { "fieldName": "win_pct",           "title": "Win %",            "type": "float",   "displayAs": "number", "order": 5 },
-                  { "fieldName": "avg_td_diff",       "title": "Avg TD Diff",      "type": "float",   "displayAs": "number", "order": 6 }
+                  {
+                    "fieldName": "bin_label_display",
+                    "title": "Opponent GLO Bin",
+                    "type": "string",
+                    "displayAs": "string",
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "games",
+                    "title": "Games",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "wins",
+                    "title": "Wins",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "draws",
+                    "title": "Draws",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "losses",
+                    "title": "Losses",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "win_pct",
+                    "title": "Win %",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "avg_td_diff",
+                    "title": "Avg TD Diff",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 6
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "W/D/L by Opponent Rating Bin" },
+              "frame": {
+                "showTitle": true,
+                "title": "W/D/L by Opponent Rating Bin"
+              },
               "itemsPerPage": 10,
               "condensed": true
             }
           },
-          "position": { "x": 0, "y": 39, "width": 6, "height": 7 }
+          "position": {
+            "x": 0,
+            "y": 39,
+            "width": 6,
+            "height": 7
+          }
         },
         {
           "widget": {
@@ -2665,13 +2841,34 @@
                 "query": {
                   "datasetName": "ph5_gq_bin_wdl",
                   "fields": [
-                    { "name": "bin_label_display", "expression": "`bin_label_display`" },
-                    { "name": "games",             "expression": "`games`" },
-                    { "name": "wins",              "expression": "`wins`" },
-                    { "name": "draws",             "expression": "`draws`" },
-                    { "name": "losses",            "expression": "`losses`" },
-                    { "name": "win_pct",           "expression": "`win_pct`" },
-                    { "name": "avg_td_diff",       "expression": "`avg_td_diff`" }
+                    {
+                      "name": "bin_label_display",
+                      "expression": "`bin_label_display`"
+                    },
+                    {
+                      "name": "games",
+                      "expression": "`games`"
+                    },
+                    {
+                      "name": "wins",
+                      "expression": "`wins`"
+                    },
+                    {
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    },
+                    {
+                      "name": "win_pct",
+                      "expression": "`win_pct`"
+                    },
+                    {
+                      "name": "avg_td_diff",
+                      "expression": "`avg_td_diff`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -2682,21 +2879,71 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  { "fieldName": "bin_label_display", "title": "Game Quality Bin", "type": "string",  "displayAs": "string", "order": 0 },
-                  { "fieldName": "games",             "title": "Games",            "type": "integer", "displayAs": "number", "order": 1 },
-                  { "fieldName": "wins",              "title": "Wins",             "type": "integer", "displayAs": "number", "order": 2 },
-                  { "fieldName": "draws",             "title": "Draws",            "type": "integer", "displayAs": "number", "order": 3 },
-                  { "fieldName": "losses",            "title": "Losses",           "type": "integer", "displayAs": "number", "order": 4 },
-                  { "fieldName": "win_pct",           "title": "Win %",            "type": "float",   "displayAs": "number", "order": 5 },
-                  { "fieldName": "avg_td_diff",       "title": "Avg TD Diff",      "type": "float",   "displayAs": "number", "order": 6 }
+                  {
+                    "fieldName": "bin_label_display",
+                    "title": "Game Quality Bin",
+                    "type": "string",
+                    "displayAs": "string",
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "games",
+                    "title": "Games",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "wins",
+                    "title": "Wins",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "draws",
+                    "title": "Draws",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "losses",
+                    "title": "Losses",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "win_pct",
+                    "title": "Win %",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "avg_td_diff",
+                    "title": "Avg TD Diff",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 6
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "W/D/L by Game Quality Bin" },
+              "frame": {
+                "showTitle": true,
+                "title": "W/D/L by Game Quality Bin"
+              },
               "itemsPerPage": 10,
               "condensed": true
             }
           },
-          "position": { "x": 6, "y": 39, "width": 6, "height": 7 }
+          "position": {
+            "x": 6,
+            "y": 39,
+            "width": 6,
+            "height": 7
+          }
         },
         {
           "widget": {
@@ -2707,19 +2954,58 @@
                 "query": {
                   "datasetName": "ph6_team_candidates",
                   "fields": [
-                    { "name": "selector_rank",           "expression": "`selector_rank`" },
-                    { "name": "coach_name",              "expression": "`coach_name`" },
-                    { "name": "selector_score",          "expression": "`selector_score`" },
-                    { "name": "rating_pctl",             "expression": "`rating_pctl`" },
-                    { "name": "form_pctl",               "expression": "`form_pctl`" },
-                    { "name": "opp_strength_pctl",       "expression": "`opp_strength_pctl`" },
-                    { "name": "versatility_pctl",        "expression": "`versatility_pctl`" },
-                    { "name": "intl_pctl",               "expression": "`intl_pctl`" },
-                    { "name": "glo_peak",                "expression": "`glo_peak`" },
-                    { "name": "intl_win_pct",            "expression": "`intl_win_pct`" },
-                    { "name": "races_above_world_median","expression": "`races_above_world_median`" },
-                    { "name": "world_specialist_count",  "expression": "`world_specialist_count`" },
-                    { "name": "national_specialist_count","expression": "`national_specialist_count`" }
+                    {
+                      "name": "selector_rank",
+                      "expression": "`selector_rank`"
+                    },
+                    {
+                      "name": "coach_name",
+                      "expression": "`coach_name`"
+                    },
+                    {
+                      "name": "selector_score",
+                      "expression": "`selector_score`"
+                    },
+                    {
+                      "name": "rating_pctl",
+                      "expression": "`rating_pctl`"
+                    },
+                    {
+                      "name": "form_pctl",
+                      "expression": "`form_pctl`"
+                    },
+                    {
+                      "name": "opp_strength_pctl",
+                      "expression": "`opp_strength_pctl`"
+                    },
+                    {
+                      "name": "versatility_pctl",
+                      "expression": "`versatility_pctl`"
+                    },
+                    {
+                      "name": "intl_pctl",
+                      "expression": "`intl_pctl`"
+                    },
+                    {
+                      "name": "glo_peak",
+                      "expression": "`glo_peak`"
+                    },
+                    {
+                      "name": "intl_win_pct",
+                      "expression": "`intl_win_pct`"
+                    },
+                    {
+                      "name": "races_above_world_median",
+                      "expression": "`races_above_world_median`"
+                    },
+                    {
+                      "name": "world_specialist_count",
+                      "expression": "`world_specialist_count`"
+                    },
+                    {
+                      "name": "national_specialist_count",
+                      "expression": "`national_specialist_count`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -2730,27 +3016,113 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  { "fieldName": "selector_rank",            "title": "Rank",           "type": "integer", "displayAs": "number", "order": 0 },
-                  { "fieldName": "coach_name",               "title": "Coach",          "type": "string",  "displayAs": "string", "order": 1 },
-                  { "fieldName": "selector_score",           "title": "Score",          "type": "float",   "displayAs": "number", "order": 2 },
-                  { "fieldName": "glo_peak",                 "title": "GLO Peak",       "type": "float",   "displayAs": "number", "order": 3 },
-                  { "fieldName": "rating_pctl",              "title": "Rating %ile",    "type": "float",   "displayAs": "number", "order": 4 },
-                  { "fieldName": "form_pctl",                "title": "Form %ile",      "type": "float",   "displayAs": "number", "order": 5 },
-                  { "fieldName": "opp_strength_pctl",        "title": "Opp %ile",       "type": "float",   "displayAs": "number", "order": 6 },
-                  { "fieldName": "versatility_pctl",         "title": "Versatility %ile","type": "float",  "displayAs": "number", "order": 7 },
-                  { "fieldName": "intl_pctl",                "title": "Intl %ile",      "type": "float",   "displayAs": "number", "order": 8 },
-                  { "fieldName": "intl_win_pct",             "title": "Intl Win%",      "type": "float",   "displayAs": "number", "order": 9 },
-                  { "fieldName": "races_above_world_median", "title": "Races above median","type": "integer","displayAs": "number","order": 10 },
-                  { "fieldName": "world_specialist_count",   "title": "World spec.",    "type": "integer", "displayAs": "number", "order": 11 },
-                  { "fieldName": "national_specialist_count","title": "Nat. spec.",     "type": "integer", "displayAs": "number", "order": 12 }
+                  {
+                    "fieldName": "selector_rank",
+                    "title": "Rank",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "coach_name",
+                    "title": "Coach",
+                    "type": "string",
+                    "displayAs": "string",
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "selector_score",
+                    "title": "Score",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "glo_peak",
+                    "title": "GLO Peak",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "rating_pctl",
+                    "title": "Rating %ile",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "form_pctl",
+                    "title": "Form %ile",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "opp_strength_pctl",
+                    "title": "Opp %ile",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 6
+                  },
+                  {
+                    "fieldName": "versatility_pctl",
+                    "title": "Versatility %ile",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 7
+                  },
+                  {
+                    "fieldName": "intl_pctl",
+                    "title": "Intl %ile",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 8
+                  },
+                  {
+                    "fieldName": "intl_win_pct",
+                    "title": "Intl Win%",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 9
+                  },
+                  {
+                    "fieldName": "races_above_world_median",
+                    "title": "Races above median",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 10
+                  },
+                  {
+                    "fieldName": "world_specialist_count",
+                    "title": "World spec.",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 11
+                  },
+                  {
+                    "fieldName": "national_specialist_count",
+                    "title": "Nat. spec.",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 12
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "National Team Candidates (Phase 6)" },
+              "frame": {
+                "showTitle": true,
+                "title": "National Team Candidates (Phase 6)"
+              },
               "itemsPerPage": 15,
               "condensed": true
             }
           },
-          "position": { "x": 0, "y": 46, "width": 12, "height": 10 }
+          "position": {
+            "x": 0,
+            "y": 46,
+            "width": 12,
+            "height": 10
+          }
         },
         {
           "widget": {
@@ -2761,13 +3133,34 @@
                 "query": {
                   "datasetName": "ph6_power_ranking",
                   "fields": [
-                    { "name": "power_rank",              "expression": "`power_rank`" },
-                    { "name": "flag_emoji",              "expression": "`flag_emoji`" },
-                    { "name": "nation_name_display",     "expression": "`nation_name_display`" },
-                    { "name": "top_8_avg_selector_score","expression": "`top_8_avg_selector_score`" },
-                    { "name": "top_8_avg_glo_peak",      "expression": "`top_8_avg_glo_peak`" },
-                    { "name": "coaches_in_top_8",        "expression": "`coaches_in_top_8`" },
-                    { "name": "coaches_eligible",        "expression": "`coaches_eligible`" }
+                    {
+                      "name": "power_rank",
+                      "expression": "`power_rank`"
+                    },
+                    {
+                      "name": "flag_emoji",
+                      "expression": "`flag_emoji`"
+                    },
+                    {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
+                    },
+                    {
+                      "name": "top_8_avg_selector_score",
+                      "expression": "`top_8_avg_selector_score`"
+                    },
+                    {
+                      "name": "top_8_avg_glo_peak",
+                      "expression": "`top_8_avg_glo_peak`"
+                    },
+                    {
+                      "name": "coaches_in_top_8",
+                      "expression": "`coaches_in_top_8`"
+                    },
+                    {
+                      "name": "coaches_eligible",
+                      "expression": "`coaches_eligible`"
+                    }
                   ],
                   "disaggregated": true
                 }
@@ -2778,21 +3171,71 @@
               "widgetType": "table",
               "encodings": {
                 "columns": [
-                  { "fieldName": "power_rank",              "title": "Rank",          "type": "integer", "displayAs": "number", "order": 0 },
-                  { "fieldName": "flag_emoji",              "title": "Flag",          "type": "string",  "displayAs": "string", "order": 1 },
-                  { "fieldName": "nation_name_display",     "title": "Nation",        "type": "string",  "displayAs": "string", "order": 2 },
-                  { "fieldName": "top_8_avg_selector_score","title": "Top-8 Score",   "type": "float",   "displayAs": "number", "order": 3 },
-                  { "fieldName": "top_8_avg_glo_peak",      "title": "Avg GLO Peak",  "type": "float",   "displayAs": "number", "order": 4 },
-                  { "fieldName": "coaches_in_top_8",        "title": "In Top 8",      "type": "integer", "displayAs": "number", "order": 5 },
-                  { "fieldName": "coaches_eligible",        "title": "Eligible",      "type": "integer", "displayAs": "number", "order": 6 }
+                  {
+                    "fieldName": "power_rank",
+                    "title": "Rank",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 0
+                  },
+                  {
+                    "fieldName": "flag_emoji",
+                    "title": "Flag",
+                    "type": "string",
+                    "displayAs": "string",
+                    "order": 1
+                  },
+                  {
+                    "fieldName": "nation_name_display",
+                    "title": "Nation",
+                    "type": "string",
+                    "displayAs": "string",
+                    "order": 2
+                  },
+                  {
+                    "fieldName": "top_8_avg_selector_score",
+                    "title": "Top-8 Score",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 3
+                  },
+                  {
+                    "fieldName": "top_8_avg_glo_peak",
+                    "title": "Avg GLO Peak",
+                    "type": "float",
+                    "displayAs": "number",
+                    "order": 4
+                  },
+                  {
+                    "fieldName": "coaches_in_top_8",
+                    "title": "In Top 8",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 5
+                  },
+                  {
+                    "fieldName": "coaches_eligible",
+                    "title": "Eligible",
+                    "type": "integer",
+                    "displayAs": "number",
+                    "order": 6
+                  }
                 ]
               },
-              "frame": { "showTitle": true, "title": "Nation Power Ranking (Phase 6)" },
+              "frame": {
+                "showTitle": true,
+                "title": "Nation Power Ranking (Phase 6)"
+              },
               "itemsPerPage": 25,
               "condensed": true
             }
           },
-          "position": { "x": 0, "y": 56, "width": 12, "height": 10 }
+          "position": {
+            "x": 0,
+            "y": 56,
+            "width": 12,
+            "height": 10
+          }
         }
       ],
       "pageType": "PAGE_TYPE_CANVAS"

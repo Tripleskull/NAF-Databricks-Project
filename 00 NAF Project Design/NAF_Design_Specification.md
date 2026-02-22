@@ -280,11 +280,14 @@ The presentation layer uses identity views as a DRY pattern for display attribut
 | Shim | Purpose | Key columns |
 |---|---|---|
 | `coach_identity_v` | Coach display name + nation display | `coach_id`, `coach_name`, `nation_name_display` |
-| `nation_identity_v` | Nation display + flag | `nation_id`, `nation_name_display`, `flag_code` |
+| `nation_flag_emoji_v` | Flag emoji generation (ISO2 → Regional Indicator Symbols + GB subdivision special cases) | `nation_id`, `flag_code`, `iso2`, `flag_emoji` |
+| `nation_identity_v` | Nation display + flag | `nation_id`, `nation_name_display`, `flag_emoji` |
 | `tournament_identity_v` | Tournament display + dates | `tournament_id`, `tournament_name`, dates |
 | `race_identity_v` | Race display name | `race_id`, `race_name` |
 
 These are views (not tables) and are internal to the presentation layer. They are not stable contracts for external consumption.
+
+**Flag emoji rendering caveat**: `flag_emoji` uses Unicode Regional Indicator Symbols (e.g. U+1F1E9 U+1F1F0 for 🇩🇰). These render as graphical flags on macOS and Linux, but Windows displays them as two-letter codes (e.g. "DK"). The underlying UTF-8 bytes are correct on all platforms — this is a client-side rendering limitation. For future HTML/Streamlit dashboards targeting Windows users, use CSS flag libraries (`flag-icons`) or image-based flags (`flagcdn.com`) instead of Unicode emoji.
 
 ---
 
