@@ -78,6 +78,7 @@
 # MAGIC     rd.race_name,
 # MAGIC     cr.games_played,
 # MAGIC     cr.win_frac,
+# MAGIC     cr.points_per_game,
 # MAGIC     cr.min_games_threshold_race_performance,
 # MAGIC     cr.is_valid_min_games_race_performance,
 # MAGIC     cr.load_timestamp AS race_load_timestamp,
@@ -103,6 +104,7 @@
 # MAGIC     MAX(CASE WHEN rn = 1 THEN race_name END)      AS race_1_name,
 # MAGIC     MAX(CASE WHEN rn = 1 THEN games_played END)   AS race_1_games_played,
 # MAGIC     MAX(CASE WHEN rn = 1 THEN win_frac END)       AS race_1_win_frac,
+# MAGIC     MAX(CASE WHEN rn = 1 THEN points_per_game END) AS race_1_points_per_game,
 # MAGIC     MAX(CASE WHEN rn = 1 THEN is_valid_min_games_race_performance END)      AS race_1_is_valid_min_games,
 # MAGIC     MAX(CASE WHEN rn = 1 THEN min_games_threshold_race_performance END)     AS race_1_min_games_threshold,
 # MAGIC
@@ -126,7 +128,8 @@
 # MAGIC   SELECT
 # MAGIC     coach_id,
 # MAGIC     CAST(COUNT(DISTINCT race_id) AS INT) AS distinct_races_played,
-# MAGIC     MAX(CASE WHEN is_valid_min_games_race_performance THEN win_frac END) AS best_race_win_frac
+# MAGIC     MAX(CASE WHEN is_valid_min_games_race_performance THEN win_frac END) AS best_race_win_frac,
+# MAGIC     PERCENTILE_APPROX(points_per_game, 0.5) AS median_race_ppg
 # MAGIC   FROM race_ranked
 # MAGIC   WHERE games_played > 0
 # MAGIC   GROUP BY coach_id
@@ -143,6 +146,29 @@
 # MAGIC   FROM naf_catalog.gold_summary.coach_streak_summary
 # MAGIC   WHERE scope = 'GLOBAL'
 # MAGIC     AND scope_race_id = 0
+# MAGIC ),
+# MAGIC
+# MAGIC glo_ranks AS (
+# MAGIC   SELECT
+# MAGIC     rg.coach_id,
+# MAGIC     ci.nation_id,
+# MAGIC     rg.global_elo_current,
+# MAGIC     rg.global_elo_peak_last_50,
+# MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_current DESC)   AS world_rank_current,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY rg.global_elo_current DESC
+# MAGIC     ) AS nation_rank_current,
+# MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_peak_last_50 DESC) AS world_rank_peak,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY rg.global_elo_peak_last_50 DESC
+# MAGIC     ) AS nation_rank_peak
+# MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary AS rg
+# MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
+# MAGIC     ON rg.coach_id = ci.coach_id
+# MAGIC   WHERE rg.rating_system = 'NAF_ELO'
+# MAGIC     AND rg.global_elo_current IS NOT NULL
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -181,6 +207,8 @@
 # MAGIC   p.date_first_game_id,
 # MAGIC   p.date_last_game_id,
 # MAGIC   p.last_game_event_timestamp,
+# MAGIC   YEAR(TO_DATE(CAST(p.date_first_game_id AS STRING), 'yyyyMMdd')) AS active_since_year,
+# MAGIC   YEAR(TO_DATE(CAST(p.date_last_game_id AS STRING), 'yyyyMMdd')) AS last_active_year,
 # MAGIC
 # MAGIC   -- Global rating snapshot (rated games universe; aligned to summary contract)
 # MAGIC   rg.global_elo_current,
@@ -231,8 +259,14 @@
 # MAGIC     ELSE 0.0
 # MAGIC   END AS rated_games_pct,
 # MAGIC
-# MAGIC   -- Opponent strength (coverage diagnostics)
-# MAGIC   og.opponent_global_elo_mean_weighted,
+# MAGIC   -- GLO ranks (world and nation, current and peak)
+# MAGIC   gr.world_rank_current,
+# MAGIC   gr.nation_rank_current,
+# MAGIC   gr.world_rank_peak,
+# MAGIC   gr.nation_rank_peak,
+# MAGIC
+# MAGIC   -- Opponent strength (weighted mean of opponent median GLO)
+# MAGIC   og.opponent_global_elo_median_weighted,
 # MAGIC   og.opponents_count,
 # MAGIC   og.opponent_games_weight,
 # MAGIC   og.opponent_games_rated,
@@ -254,6 +288,7 @@
 # MAGIC   tr.race_1_games_played  AS main_race_games_played,
 # MAGIC   COALESCE(tr.race_1_win_frac, 0.0) AS main_race_win_frac,
 # MAGIC   (100.0D * COALESCE(tr.race_1_win_frac, 0.0)) AS main_race_win_pct,
+# MAGIC   COALESCE(tr.race_1_points_per_game, 0.0) AS main_race_ppg,
 # MAGIC   tr.race_1_is_valid_min_games AS main_race_is_valid_min_games,
 # MAGIC   tr.race_1_min_games_threshold AS main_race_min_games_threshold,
 # MAGIC
@@ -273,6 +308,7 @@
 # MAGIC   COALESCE(ra.distinct_races_played, 0)            AS distinct_races_played,
 # MAGIC   COALESCE(ra.best_race_win_frac, 0.0)             AS best_race_win_frac,
 # MAGIC   (100.0D * COALESCE(ra.best_race_win_frac, 0.0))  AS best_race_win_pct,
+# MAGIC   COALESCE(ra.median_race_ppg, 0.0)               AS median_race_ppg,
 # MAGIC
 # MAGIC   -- Streaks
 # MAGIC   sg.best_win_streak,
@@ -307,6 +343,8 @@
 # MAGIC   ON ci.coach_id = sg.coach_id
 # MAGIC LEFT JOIN naf_catalog.gold_summary.coach_form_summary AS fs
 # MAGIC   ON ci.coach_id = fs.coach_id
+# MAGIC LEFT JOIN glo_ranks AS gr
+# MAGIC   ON ci.coach_id = gr.coach_id
 # MAGIC ;
 # MAGIC
 
@@ -1420,6 +1458,96 @@
 # MAGIC   GROUP BY coach_id
 # MAGIC ),
 # MAGIC
+# MAGIC -- Nemesis: opponent with worst record against (most losses minus wins)
+# MAGIC nemesis AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     MAX_BY(
+# MAGIC       NAMED_STRUCT(
+# MAGIC         'opponent_coach_id', opponent_coach_id,
+# MAGIC         'opponent_coach_name', opponent_coach_name,
+# MAGIC         'opponent_nation_name_display', opponent_nation_name_display,
+# MAGIC         'opponent_flag_emoji', opponent_flag_emoji,
+# MAGIC         'games_played', games_played,
+# MAGIC         'wins', wins,
+# MAGIC         'draws', draws,
+# MAGIC         'losses', losses,
+# MAGIC         'global_elo_current_or_peak_all', global_elo_current_or_peak_all,
+# MAGIC         'global_elo_current', global_elo_current,
+# MAGIC         'global_elo_peak_all', global_elo_peak_all,
+# MAGIC         'win_pct', win_pct,
+# MAGIC         'win_points', win_points,
+# MAGIC         'win_points_per_game', win_points_per_game,
+# MAGIC         'load_timestamp', load_timestamp_enriched
+# MAGIC       ),
+# MAGIC       NAMED_STRUCT(
+# MAGIC         'deficit', CAST(losses - wins AS BIGINT),
+# MAGIC         'games_played', games_played,
+# MAGIC         'opponent_coach_id', opponent_coach_id
+# MAGIC       )
+# MAGIC     ) AS s
+# MAGIC   FROM opp_enriched
+# MAGIC   WHERE COALESCE(losses, 0) > COALESCE(wins, 0)
+# MAGIC   GROUP BY coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Biggest upsets: from rating_history_fact (has opponent_rating_before)
+# MAGIC upset_base AS (
+# MAGIC   SELECT
+# MAGIC     f.coach_id,
+# MAGIC     f.opponent_coach_id,
+# MAGIC     f.game_id,
+# MAGIC     f.date_id,
+# MAGIC     f.result_numeric,
+# MAGIC     f.rating_before,
+# MAGIC     f.opponent_rating_before,
+# MAGIC     (f.opponent_rating_before - f.rating_before) AS rating_gap
+# MAGIC   FROM naf_catalog.gold_fact.rating_history_fact f
+# MAGIC   WHERE f.scope = 'GLOBAL'
+# MAGIC     AND f.rating_system = 'NAF_ELO'
+# MAGIC     AND f.opponent_rating_before IS NOT NULL
+# MAGIC ),
+# MAGIC
+# MAGIC -- Biggest upset done: coach won against higher-rated opponent (max positive rating_gap where win)
+# MAGIC biggest_upset_done AS (
+# MAGIC   SELECT
+# MAGIC     u.coach_id,
+# MAGIC     MAX_BY(
+# MAGIC       NAMED_STRUCT(
+# MAGIC         'opponent_coach_id', u.opponent_coach_id,
+# MAGIC         'game_id', u.game_id,
+# MAGIC         'date_id', u.date_id,
+# MAGIC         'coach_rating', u.rating_before,
+# MAGIC         'opponent_rating', u.opponent_rating_before,
+# MAGIC         'rating_gap', u.rating_gap
+# MAGIC       ),
+# MAGIC       u.rating_gap
+# MAGIC     ) AS s
+# MAGIC   FROM upset_base u
+# MAGIC   WHERE u.result_numeric = 1.0 AND u.rating_gap > 0
+# MAGIC   GROUP BY u.coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Biggest upset received: coach lost to lower-rated opponent (max negative rating_gap where loss)
+# MAGIC biggest_upset_received AS (
+# MAGIC   SELECT
+# MAGIC     u.coach_id,
+# MAGIC     MAX_BY(
+# MAGIC       NAMED_STRUCT(
+# MAGIC         'opponent_coach_id', u.opponent_coach_id,
+# MAGIC         'game_id', u.game_id,
+# MAGIC         'date_id', u.date_id,
+# MAGIC         'coach_rating', u.rating_before,
+# MAGIC         'opponent_rating', u.opponent_rating_before,
+# MAGIC         'rating_gap', u.rating_gap
+# MAGIC       ),
+# MAGIC       -u.rating_gap   -- largest gap where coach was higher rated but lost
+# MAGIC     ) AS s
+# MAGIC   FROM upset_base u
+# MAGIC   WHERE u.result_numeric = 0.0 AND u.rating_gap < 0
+# MAGIC   GROUP BY u.coach_id
+# MAGIC ),
+# MAGIC
 # MAGIC rows AS (
 # MAGIC   -- 1) Top 5 rivals
 # MAGIC   SELECT
@@ -1446,7 +1574,10 @@
 # MAGIC     win_points,
 # MAGIC     win_points_per_game,
 # MAGIC
-# MAGIC     load_timestamp_enriched AS load_timestamp
+# MAGIC     load_timestamp_enriched AS load_timestamp,
+# MAGIC     CAST(NULL AS DOUBLE) AS rating_gap,
+# MAGIC     CAST(NULL AS DOUBLE) AS coach_rating_at_game,
+# MAGIC     CAST(NULL AS DOUBLE) AS opponent_rating_at_game
 # MAGIC   FROM top5
 # MAGIC   WHERE rivalry_rank <= 5
 # MAGIC
@@ -1470,7 +1601,10 @@
 # MAGIC     ROUND(COALESCE(s.win_pct, 0.0), 1),
 # MAGIC     s.win_points,
 # MAGIC     s.win_points_per_game,
-# MAGIC     s.load_timestamp
+# MAGIC     s.load_timestamp,
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE)
 # MAGIC   FROM big_rank
 # MAGIC
 # MAGIC   UNION ALL
@@ -1493,8 +1627,93 @@
 # MAGIC     ROUND(COALESCE(s.win_pct, 0.0), 1),
 # MAGIC     s.win_points,
 # MAGIC     s.win_points_per_game,
-# MAGIC     s.load_timestamp
+# MAGIC     s.load_timestamp,
+# MAGIC     CAST(NULL AS DOUBLE) AS rating_gap,
+# MAGIC     CAST(NULL AS DOUBLE) AS coach_rating_at_game,
+# MAGIC     CAST(NULL AS DOUBLE) AS opponent_rating_at_game
 # MAGIC   FROM big_beaten
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC
+# MAGIC   -- 3) Nemesis: opponent with worst record against
+# MAGIC   SELECT
+# MAGIC     coach_id, 3, 1,
+# MAGIC     'Nemesis',
+# MAGIC     s.opponent_coach_id,
+# MAGIC     s.opponent_coach_name,
+# MAGIC     s.opponent_nation_name_display,
+# MAGIC     s.opponent_flag_emoji,
+# MAGIC     s.games_played,
+# MAGIC     s.wins,
+# MAGIC     s.draws,
+# MAGIC     s.losses,
+# MAGIC     s.global_elo_current_or_peak_all,
+# MAGIC     s.global_elo_current,
+# MAGIC     s.global_elo_peak_all,
+# MAGIC     ROUND(COALESCE(s.win_pct, 0.0), 1),
+# MAGIC     s.win_points,
+# MAGIC     s.win_points_per_game,
+# MAGIC     s.load_timestamp,
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE)
+# MAGIC   FROM nemesis
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC
+# MAGIC   -- 4) Biggest upset done: won against highest-rated opponent
+# MAGIC   SELECT
+# MAGIC     ud.coach_id, 4, 1,
+# MAGIC     'Biggest upset: done',
+# MAGIC     ud.s.opponent_coach_id,
+# MAGIC     oi_ud.coach_name,
+# MAGIC     oi_ud.nation_name_display,
+# MAGIC     oi_ud.flag_emoji,
+# MAGIC     CAST(NULL AS BIGINT),   -- no h2h games_played for single game
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CURRENT_TIMESTAMP(),
+# MAGIC     ud.s.rating_gap,
+# MAGIC     ud.s.coach_rating,
+# MAGIC     ud.s.opponent_rating
+# MAGIC   FROM biggest_upset_done ud
+# MAGIC   LEFT JOIN naf_catalog.gold_presentation.coach_identity_v oi_ud
+# MAGIC     ON ud.s.opponent_coach_id = oi_ud.coach_id
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC
+# MAGIC   -- 5) Biggest upset received: lost to lowest-rated opponent
+# MAGIC   SELECT
+# MAGIC     ur.coach_id, 4, 2,
+# MAGIC     'Biggest upset: received',
+# MAGIC     ur.s.opponent_coach_id,
+# MAGIC     oi_ur.coach_name,
+# MAGIC     oi_ur.nation_name_display,
+# MAGIC     oi_ur.flag_emoji,
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS BIGINT),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CURRENT_TIMESTAMP(),
+# MAGIC     ur.s.rating_gap,
+# MAGIC     ur.s.coach_rating,
+# MAGIC     ur.s.opponent_rating
+# MAGIC   FROM biggest_upset_received ur
+# MAGIC   LEFT JOIN naf_catalog.gold_presentation.coach_identity_v oi_ur
+# MAGIC     ON ur.s.opponent_coach_id = oi_ur.coach_id
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -1518,6 +1737,10 @@
 # MAGIC   win_pct,
 # MAGIC   win_points,
 # MAGIC   win_points_per_game,
+# MAGIC
+# MAGIC   rating_gap,
+# MAGIC   coach_rating_at_game,
+# MAGIC   opponent_rating_at_game,
 # MAGIC
 # MAGIC   group_order,
 # MAGIC   row_order,
@@ -1985,6 +2208,251 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_global_elo_rating_daily_series
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Daily-smoothed GLOBAL GLO rating history with running peak
+# MAGIC --                and running median lines for dashboard charts.
+# MAGIC -- LAYER        : GOLD_PRESENTATION
+# MAGIC -- CONTRACT TYPE: Timeseries (1 row per coach per day), for line charts.
+# MAGIC --
+# MAGIC -- GRAIN        : 1 row per (rating_system, coach_id, game_date)
+# MAGIC -- PRIMARY KEY  : (rating_system, coach_id, game_date)
+# MAGIC --
+# MAGIC -- LOGIC
+# MAGIC --   - Picks the LAST game of each day (max game_index per date_id).
+# MAGIC --   - Computes running peak GLO (all-time max up to that day).
+# MAGIC --   - Computes running median GLO (median of all daily-closing values up to that day).
+# MAGIC --
+# MAGIC -- SOURCES
+# MAGIC --   - naf_catalog.gold_presentation.coach_global_elo_rating_history (per-game)
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_global_elo_rating_daily_series AS
+# MAGIC WITH last_game_of_day AS (
+# MAGIC   SELECT
+# MAGIC     rating_system,
+# MAGIC     coach_id,
+# MAGIC     coach_name,
+# MAGIC     nation_id,
+# MAGIC     nation_name_display,
+# MAGIC     flag_emoji,
+# MAGIC     game_date,
+# MAGIC     glo_rating_after,
+# MAGIC     game_index,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY rating_system, coach_id, game_date
+# MAGIC       ORDER BY game_index DESC
+# MAGIC     ) AS rn
+# MAGIC   FROM naf_catalog.gold_presentation.coach_global_elo_rating_history
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   rating_system,
+# MAGIC   coach_id,
+# MAGIC   coach_name,
+# MAGIC   nation_id,
+# MAGIC   nation_name_display,
+# MAGIC   flag_emoji,
+# MAGIC   game_date,
+# MAGIC   glo_rating_after                                                          AS glo_daily,
+# MAGIC   MAX(glo_rating_after) OVER (
+# MAGIC     PARTITION BY rating_system, coach_id
+# MAGIC     ORDER BY game_date
+# MAGIC     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+# MAGIC   )                                                                         AS glo_running_peak,
+# MAGIC   PERCENTILE_APPROX(glo_rating_after, 0.5) OVER (
+# MAGIC     PARTITION BY rating_system, coach_id
+# MAGIC     ORDER BY game_date
+# MAGIC     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+# MAGIC   )                                                                         AS glo_running_median,
+# MAGIC   game_index                                                                AS last_game_index_of_day
+# MAGIC FROM last_game_of_day
+# MAGIC WHERE rn = 1;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_elo_rating_daily_series
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Daily-smoothed RACE Elo rating history with race rank
+# MAGIC --                by total games played (for default top-6 filtering).
+# MAGIC -- LAYER        : GOLD_PRESENTATION
+# MAGIC -- CONTRACT TYPE: Timeseries (1 row per coach per race per day), for line charts.
+# MAGIC --
+# MAGIC -- GRAIN        : 1 row per (rating_system, coach_id, race_id, game_date)
+# MAGIC -- PRIMARY KEY  : (rating_system, coach_id, race_id, game_date)
+# MAGIC --
+# MAGIC -- LOGIC
+# MAGIC --   - Picks the LAST game of each day per race.
+# MAGIC --   - Adds race_rank_by_games: DENSE_RANK by total games played per race
+# MAGIC --     (most played race = 1). Used by dashboard to default to top 6.
+# MAGIC --
+# MAGIC -- SOURCES
+# MAGIC --   - naf_catalog.gold_presentation.coach_race_elo_rating_history (per-game)
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_race_elo_rating_daily_series AS
+# MAGIC WITH last_game_of_day AS (
+# MAGIC   SELECT
+# MAGIC     rating_system,
+# MAGIC     coach_id,
+# MAGIC     coach_name,
+# MAGIC     race_id,
+# MAGIC     race_name,
+# MAGIC     game_date,
+# MAGIC     elo_rating_after,
+# MAGIC     game_index,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY rating_system, coach_id, race_id, game_date
+# MAGIC       ORDER BY game_index DESC
+# MAGIC     ) AS rn
+# MAGIC   FROM naf_catalog.gold_presentation.coach_race_elo_rating_history
+# MAGIC ),
+# MAGIC daily AS (
+# MAGIC   SELECT
+# MAGIC     rating_system,
+# MAGIC     coach_id,
+# MAGIC     coach_name,
+# MAGIC     race_id,
+# MAGIC     race_name,
+# MAGIC     game_date,
+# MAGIC     elo_rating_after    AS elo_daily,
+# MAGIC     game_index          AS last_game_index_of_day
+# MAGIC   FROM last_game_of_day
+# MAGIC   WHERE rn = 1
+# MAGIC ),
+# MAGIC race_game_counts AS (
+# MAGIC   SELECT
+# MAGIC     rating_system,
+# MAGIC     coach_id,
+# MAGIC     race_id,
+# MAGIC     COUNT(*) AS total_race_days
+# MAGIC   FROM daily
+# MAGIC   GROUP BY rating_system, coach_id, race_id
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   d.rating_system,
+# MAGIC   d.coach_id,
+# MAGIC   d.coach_name,
+# MAGIC   d.race_id,
+# MAGIC   d.race_name,
+# MAGIC   d.game_date,
+# MAGIC   d.elo_daily,
+# MAGIC   d.last_game_index_of_day,
+# MAGIC   DENSE_RANK() OVER (
+# MAGIC     PARTITION BY d.rating_system, d.coach_id
+# MAGIC     ORDER BY rc.total_race_days DESC, d.race_id ASC
+# MAGIC   ) AS race_rank_by_games
+# MAGIC FROM daily d
+# MAGIC JOIN race_game_counts rc
+# MAGIC   ON d.rating_system = rc.rating_system
+# MAGIC  AND d.coach_id = rc.coach_id
+# MAGIC  AND d.race_id = rc.race_id;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Cumulative W/D/L for the LAST N games only, re-cumulated
+# MAGIC --                from zero. For "recent form" cumulative charts.
+# MAGIC -- LAYER        : GOLD_PRESENTATION
+# MAGIC -- CONTRACT TYPE: Timeseries (1 row per coach per day per result), for stacked area.
+# MAGIC --
+# MAGIC -- GRAIN        : (coach_id, event_day, result_order)
+# MAGIC -- PRIMARY KEY  : (coach_id, event_day, result_order)
+# MAGIC --
+# MAGIC -- LOGIC
+# MAGIC --   - Takes the last N rated games (from global elo history).
+# MAGIC --   - N is read from analytical_config (last_n_games_window, default 50).
+# MAGIC --   - Only produced for coaches with >= 2*N total games.
+# MAGIC --   - Re-cumulates W/D/L from the Nth-from-last game to the most recent.
+# MAGIC --   - Daily-smoothed: picks last game of each day.
+# MAGIC --
+# MAGIC -- SOURCES
+# MAGIC --   - naf_catalog.gold_presentation.coach_global_elo_rating_history
+# MAGIC --   - naf_catalog.gold_dim.analytical_config
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series AS
+# MAGIC WITH cfg AS (
+# MAGIC   SELECT CAST(MAX(CASE WHEN parameter_name = 'last_n_games_window' THEN parameter_value END) AS INT) AS n
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC eligible AS (
+# MAGIC   -- Coaches with at least 2*N total rated games
+# MAGIC   SELECT h.coach_id, h.rating_system, COUNT(*) AS total_games
+# MAGIC   FROM naf_catalog.gold_presentation.coach_global_elo_rating_history h
+# MAGIC   CROSS JOIN cfg
+# MAGIC   GROUP BY h.coach_id, h.rating_system
+# MAGIC   HAVING COUNT(*) >= 2 * MAX(cfg.n)
+# MAGIC ),
+# MAGIC last_n AS (
+# MAGIC   SELECT
+# MAGIC     h.rating_system,
+# MAGIC     h.coach_id,
+# MAGIC     h.coach_name,
+# MAGIC     h.game_date,
+# MAGIC     h.game_index,
+# MAGIC     h.result_numeric,
+# MAGIC     CASE WHEN h.result_numeric = 1.0 THEN 1 ELSE 0 END AS win,
+# MAGIC     CASE WHEN h.result_numeric = 0.5 THEN 1 ELSE 0 END AS draw,
+# MAGIC     CASE WHEN h.result_numeric = 0.0 THEN 1 ELSE 0 END AS loss,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY h.rating_system, h.coach_id
+# MAGIC       ORDER BY h.game_index DESC
+# MAGIC     ) AS reverse_idx
+# MAGIC   FROM naf_catalog.gold_presentation.coach_global_elo_rating_history h
+# MAGIC   JOIN eligible e
+# MAGIC     ON h.coach_id = e.coach_id AND h.rating_system = e.rating_system
+# MAGIC ),
+# MAGIC last_n_filtered AS (
+# MAGIC   SELECT *
+# MAGIC   FROM last_n
+# MAGIC   CROSS JOIN cfg
+# MAGIC   WHERE reverse_idx <= cfg.n
+# MAGIC ),
+# MAGIC cumulated AS (
+# MAGIC   SELECT
+# MAGIC     rating_system,
+# MAGIC     coach_id,
+# MAGIC     coach_name,
+# MAGIC     game_date,
+# MAGIC     game_index,
+# MAGIC     SUM(win)  OVER w AS cum_win,
+# MAGIC     SUM(draw) OVER w AS cum_draw,
+# MAGIC     SUM(loss) OVER w AS cum_loss,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY rating_system, coach_id, game_date
+# MAGIC       ORDER BY game_index DESC
+# MAGIC     ) AS day_rn
+# MAGIC   FROM last_n_filtered
+# MAGIC   WINDOW w AS (
+# MAGIC     PARTITION BY rating_system, coach_id
+# MAGIC     ORDER BY game_index
+# MAGIC     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+# MAGIC   )
+# MAGIC ),
+# MAGIC eod AS (
+# MAGIC   SELECT * FROM cumulated WHERE day_rn = 1
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   coach_id,
+# MAGIC   coach_name,
+# MAGIC   game_date  AS event_day,
+# MAGIC   result,
+# MAGIC   result_order,
+# MAGIC   CAST(value AS BIGINT) AS value
+# MAGIC FROM eod
+# MAGIC LATERAL VIEW STACK(
+# MAGIC   3,
+# MAGIC   'win',  cum_win,  1,
+# MAGIC   'draw', cum_draw, 2,
+# MAGIC   'loss', cum_loss, 3
+# MAGIC ) s AS result, value, result_order;
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- TEST: naf_catalog.gold_presentation (coach) smoke tests (dashboard-aligned)
 # MAGIC -- =====================================================================
 # MAGIC
@@ -2039,6 +2507,18 @@
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'pres.coach_race_elo_rating_history non_empty',
 # MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_race_elo_rating_history) = 0 THEN 1 ELSE 0 END
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'pres.coach_global_elo_rating_daily_series non_empty',
+# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_global_elo_rating_daily_series) = 0 THEN 1 ELSE 0 END
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'pres.coach_race_elo_rating_daily_series non_empty',
+# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_race_elo_rating_daily_series) = 0 THEN 1 ELSE 0 END
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'pres.coach_cumulative_results_last_n_daily_series non_empty',
+# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series) = 0 THEN 1 ELSE 0 END
 # MAGIC
 # MAGIC
 # MAGIC   -- -------------------------
@@ -2163,6 +2643,36 @@
 # MAGIC     SELECT rating_system, coach_id, race_id, game_id
 # MAGIC     FROM naf_catalog.gold_presentation.coach_race_elo_rating_history
 # MAGIC     GROUP BY rating_system, coach_id, race_id, game_id
+# MAGIC     HAVING COUNT(*) > 1
+# MAGIC   )
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'pres.coach_global_elo_rating_daily_series PK duplicates (rating_system, coach_id, game_date)',
+# MAGIC          COUNT(*) AS fail_rows
+# MAGIC   FROM (
+# MAGIC     SELECT rating_system, coach_id, game_date
+# MAGIC     FROM naf_catalog.gold_presentation.coach_global_elo_rating_daily_series
+# MAGIC     GROUP BY rating_system, coach_id, game_date
+# MAGIC     HAVING COUNT(*) > 1
+# MAGIC   )
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'pres.coach_race_elo_rating_daily_series PK duplicates (rating_system, coach_id, race_id, game_date)',
+# MAGIC          COUNT(*) AS fail_rows
+# MAGIC   FROM (
+# MAGIC     SELECT rating_system, coach_id, race_id, game_date
+# MAGIC     FROM naf_catalog.gold_presentation.coach_race_elo_rating_daily_series
+# MAGIC     GROUP BY rating_system, coach_id, race_id, game_date
+# MAGIC     HAVING COUNT(*) > 1
+# MAGIC   )
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC   SELECT 'pres.coach_cumulative_results_last_n_daily_series PK duplicates (coach_id, event_day, result_order)',
+# MAGIC          COUNT(*) AS fail_rows
+# MAGIC   FROM (
+# MAGIC     SELECT coach_id, event_day, result_order
+# MAGIC     FROM naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series
+# MAGIC     GROUP BY coach_id, event_day, result_order
 # MAGIC     HAVING COUNT(*) > 1
 # MAGIC   )
 # MAGIC )

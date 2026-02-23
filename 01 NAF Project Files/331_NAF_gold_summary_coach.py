@@ -2455,13 +2455,15 @@
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v
 # MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Aggregate opponent GLOBAL Elo distribution stats (weighted mean + coverage) per coach.
+# MAGIC -- PURPOSE      : Aggregate opponent GLOBAL Elo distribution stats (weighted mean of median + coverage) per coach.
 # MAGIC -- LAYER        : GOLD_SUMMARY
 # MAGIC -- GRAIN        : 1 row per (rating_system, coach_id).
 # MAGIC -- PRIMARY KEY  : (rating_system, coach_id)
 # MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v,
 # MAGIC --                naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC -- NOTES        : Weighted mean uses games_played as weights; missing opponent ratings are imputed to 150.0.
+# MAGIC -- NOTES        : Uses each opponent's MEDIAN GLO (all games) as the strength measure,
+# MAGIC --                weighted by games_played against that opponent.
+# MAGIC --                Missing opponent ratings are imputed to elo_initial_rating (150.0).
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v AS
@@ -2483,8 +2485,8 @@
 # MAGIC   SELECT
 # MAGIC     rating_system,
 # MAGIC     coach_id AS opponent_coach_id,
-# MAGIC     CAST(global_elo_mean_all AS DOUBLE) AS opponent_global_elo_mean_all,
-# MAGIC     CAST(global_elo_current  AS DOUBLE) AS opponent_global_elo_current
+# MAGIC     CAST(global_elo_median_all AS DOUBLE) AS opponent_global_elo_median_all,
+# MAGIC     CAST(global_elo_current    AS DOUBLE) AS opponent_global_elo_current
 # MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
 # MAGIC )
 # MAGIC
@@ -2492,18 +2494,18 @@
 # MAGIC   o.rating_system,
 # MAGIC   o.coach_id,
 # MAGIC
-# MAGIC   -- weighted mean, imputing missing opponents to initial rating
-# MAGIC   SUM(o.games_played * COALESCE(g.opponent_global_elo_mean_all, g.opponent_global_elo_current, cfg.elo_initial_rating))
-# MAGIC     / NULLIF(SUM(o.games_played), 0) AS opponent_global_elo_mean_weighted,
+# MAGIC   -- weighted mean of opponent median GLO, imputing missing to initial rating
+# MAGIC   SUM(o.games_played * COALESCE(g.opponent_global_elo_median_all, g.opponent_global_elo_current, cfg.elo_initial_rating))
+# MAGIC     / NULLIF(SUM(o.games_played), 0) AS opponent_global_elo_median_weighted,
 # MAGIC
 # MAGIC   CAST(COUNT(DISTINCT o.opponent_coach_id) AS INT) AS opponents_count,
 # MAGIC
 # MAGIC   -- denominator of the weighted mean (total games vs opponents with IDs)
 # MAGIC   CAST(SUM(o.games_played) AS INT) AS opponent_games_weight,
 # MAGIC
-# MAGIC   -- coverage diagnostics (how many weighted games had a real opponent global_elo_mean_all)
-# MAGIC   CAST(SUM(CASE WHEN g.opponent_global_elo_mean_all IS NOT NULL THEN o.games_played ELSE 0 END) AS INT) AS opponent_games_rated,
-# MAGIC   CAST(SUM(CASE WHEN g.opponent_global_elo_mean_all IS     NULL THEN o.games_played ELSE 0 END) AS INT) AS opponent_games_imputed,
+# MAGIC   -- coverage diagnostics (how many weighted games had a real opponent global_elo_median_all)
+# MAGIC   CAST(SUM(CASE WHEN g.opponent_global_elo_median_all IS NOT NULL THEN o.games_played ELSE 0 END) AS INT) AS opponent_games_rated,
+# MAGIC   CAST(SUM(CASE WHEN g.opponent_global_elo_median_all IS     NULL THEN o.games_played ELSE 0 END) AS INT) AS opponent_games_imputed,
 # MAGIC
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM opp o

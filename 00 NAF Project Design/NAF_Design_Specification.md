@@ -287,6 +287,8 @@ The presentation layer uses identity views as a DRY pattern for display attribut
 
 These are views (not tables) and are internal to the presentation layer. They are not stable contracts for external consumption.
 
+**Future visualisation ideas**: Butterfly charts (back-to-back horizontal bars, losses left / wins right, one row per opponent strength bin) would be a strong visual for WDL-by-opponent-strength. Not supported natively in Databricks AI/BI — implement in future HTML/Streamlit dashboards.
+
 **Flag emoji rendering caveat**: `flag_emoji` uses Unicode Regional Indicator Symbols (e.g. U+1F1E9 U+1F1F0 for 🇩🇰). These render as graphical flags on macOS and Linux, but Windows displays them as two-letter codes (e.g. "DK"). The underlying UTF-8 bytes are correct on all platforms — this is a client-side rendering limitation. For future HTML/Streamlit dashboards targeting Windows users, use CSS flag libraries (`flag-icons`) or image-based flags (`flagcdn.com`) instead of Unicode emoji.
 
 ---

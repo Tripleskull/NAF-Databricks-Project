@@ -4,9 +4,7 @@
       "name": "7b732535",
       "displayName": "coach_profile",
       "queryLines": [
-        "-- ---------------------------------------------------------------------\r\n",
-        "-- 3) DASHBOARD QUERY (example): remove emoji logic; consume flag_emoji instead\r\n",
-        "-- ---------------------------------------------------------------------\r\n",
+        "-- Updated coach profile query with new layout\r\n",
         "WITH p AS (\r\n",
         "  SELECT\r\n",
         "    cp.coach_id,\r\n",
@@ -15,26 +13,25 @@
         "    cp.flag_emoji,\r\n",
         "\r\n",
         "    cp.games_played_all,\r\n",
-        "    cp.games_played_rated,\r\n",
         "    cp.tournaments_played,\r\n",
         "    cp.nations_played,\r\n",
+        "    cp.opponents_count,\r\n",
+        "    cp.active_since_year,\r\n",
+        "    cp.last_active_year,\r\n",
         "\r\n",
         "    cp.global_elo_current,\r\n",
-        "    cp.global_elo_peak_all,\r\n",
-        "    cp.global_elo_peak_post_threshold,\r\n",
         "    cp.global_elo_peak_last_50,\r\n",
-        "    cp.global_elo_mean_all,\r\n",
         "    cp.global_elo_median_all,\r\n",
-        "\r\n",
-        "    cp.opponent_global_elo_mean_weighted,\r\n",
-        "    cp.opponents_count,\r\n",
+        "    cp.opponent_global_elo_median_weighted,\r\n",
+        "    cp.world_rank_current,\r\n",
+        "    cp.nation_rank_current,\r\n",
+        "    cp.world_rank_peak,\r\n",
+        "    cp.nation_rank_peak,\r\n",
         "\r\n",
         "    cp.main_race_name,\r\n",
         "    cp.main_race_games_played,\r\n",
-        "    cp.main_race_win_pct,\r\n",
-        "\r\n",
-        "    cp.race_2_name,\r\n",
-        "    cp.race_2_games_played,\r\n",
+        "    cp.main_race_ppg,\r\n",
+        "    cp.median_race_ppg,\r\n",
         "\r\n",
         "    cp.best_win_streak,\r\n",
         "    cp.current_win_streak,\r\n",
@@ -43,15 +40,12 @@
         "\r\n",
         "    cp.load_timestamp\r\n",
         "  FROM naf_catalog.gold_presentation.coach_profile cp\r\n",
-        "  LEFT JOIN naf_catalog.gold_presentation.coach_identity_v ci\r\n",
-        "    ON cp.coach_id = ci.coach_id\r\n",
         "),\r\n",
         "\r\n",
         "race_stats AS (\r\n",
         "  SELECT\r\n",
         "    coach_id,\r\n",
-        "    COUNT(DISTINCT race_id) AS distinct_races_played,\r\n",
-        "    MAX(win_pct)            AS best_race_win_pct\r\n",
+        "    COUNT(DISTINCT race_id) AS distinct_races_played\r\n",
         "  FROM naf_catalog.gold_presentation.coach_race_performance\r\n",
         "  WHERE race_id <> 0\r\n",
         "    AND games_played > 0\r\n",
@@ -61,8 +55,7 @@
         "p2 AS (\r\n",
         "  SELECT\r\n",
         "    p.*,\r\n",
-        "    COALESCE(rs.distinct_races_played, 0) AS distinct_races_played,\r\n",
-        "    rs.best_race_win_pct\r\n",
+        "    COALESCE(rs.distinct_races_played, 0) AS distinct_races_played\r\n",
         "  FROM p\r\n",
         "  LEFT JOIN race_stats rs\r\n",
         "    ON p.coach_id = rs.coach_id\r\n",
@@ -76,37 +69,35 @@
         "  p2.load_timestamp\r\n",
         "FROM p2\r\n",
         "LATERAL VIEW explode(array(\r\n",
-        "  named_struct('sort_order',  1, 'label', '👤 NAF Name',   'profile', coalesce(p2.coach_name, 'Unknown coach')),\r\n",
-        "  named_struct('sort_order',  2, 'label', '🔢 NAF Number', 'profile', cast(p2.coach_id as string)),\r\n",
-        "  named_struct('sort_order',  3, 'label', '🌍 Nation',     'profile', concat(coalesce(p2.flag_emoji, '🌐'), ' ', coalesce(p2.nation_name_display, 'Unknown'))),\r\n",
+        "  named_struct('sort_order',  1, 'label', '\ud83d\udc64 NAF Name',   'profile', coalesce(p2.coach_name, 'Unknown coach')),\r\n",
+        "  named_struct('sort_order',  2, 'label', '\ud83d\udd22 NAF Number', 'profile', cast(p2.coach_id as string)),\r\n",
+        "  named_struct('sort_order',  3, 'label', '\ud83c\udf0d Nation',     'profile', concat(coalesce(p2.flag_emoji, '\ud83c\udf10'), ' ', coalesce(p2.nation_name_display, 'Unknown'))),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 10, 'label', '📊 Overview', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 11, 'label', ' • Total games (all)', 'profile', coalesce(cast(p2.games_played_all as string), '0')),\r\n",
-        "  named_struct('sort_order', 13, 'label', ' • Tournaments',       'profile', coalesce(cast(p2.tournaments_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 14, 'label', ' • Nations played',    'profile', coalesce(cast(p2.nations_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 10, 'label', '\ud83d\udcca Overview', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 11, 'label', ' \u2022 Total games (all)', 'profile', concat(cast(p2.games_played_all as string), ' (', cast(p2.wins as string), '/', cast(p2.draws as string), '/', cast(p2.losses as string), ')')),\r\n",
+        "  named_struct('sort_order', 12, 'label', ' \u2022 Tournaments',       'profile', coalesce(cast(p2.tournaments_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 13, 'label', ' \u2022 Nations played',    'profile', coalesce(cast(p2.nations_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 14, 'label', ' \u2022 Opponents faced',   'profile', coalesce(cast(p2.opponents_count as string), '0')),\r\n",
+        "  named_struct('sort_order', 15, 'label', ' \u2022 Active since / Last active years', 'profile', concat(cast(p2.active_since_year as string), ' / ', cast(p2.last_active_year as string))),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 20, 'label', '📈 Ratings', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 21, 'label', ' • Current GLO',                'profile', coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 22, 'label', ' • Peak GLO (all)',             'profile', coalesce(cast(round(p2.global_elo_peak_all, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 23, 'label', ' • Peak GLO (post-threshold)',  'profile', coalesce(cast(round(p2.global_elo_peak_post_threshold, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 24, 'label', ' • Peak GLO (last 50)',         'profile', coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 25, 'label', ' • Mean GLO (all)',             'profile', coalesce(cast(round(coalesce(p2.global_elo_mean_all, p2.global_elo_current), 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 26, 'label', ' • Median GLO (all)',           'profile', coalesce(cast(round(coalesce(p2.global_elo_median_all, p2.global_elo_current), 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 27, 'label', ' • Opponent mean GLO (weighted)','profile', coalesce(cast(round(p2.opponent_global_elo_mean_weighted, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 28, 'label', ' • Opponents faced (distinct)', 'profile', coalesce(cast(p2.opponents_count as string), '0')),\r\n",
+        "  named_struct('sort_order', 20, 'label', '\ud83d\udcc8 Ratings', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 21, 'label', ' \u2022 Current GLO',                'profile', coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 22, 'label', ' \u2022 Peak GLO (last 50)',         'profile', coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 23, 'label', ' \u2022 Median GLO',                 'profile', coalesce(cast(round(p2.global_elo_median_all, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 24, 'label', ' \u2022 Opp median GLO (weighted)',  'profile', coalesce(cast(round(p2.opponent_global_elo_median_weighted, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 25, 'label', ' \u2022 World rank (current) / Nation rank (current)', 'profile', concat(cast(p2.world_rank_current as string), ' / ', cast(p2.nation_rank_current as string))),\r\n",
+        "  named_struct('sort_order', 26, 'label', ' \u2022 World rank (peak) / Nation rank (peak)', 'profile', concat(cast(p2.world_rank_peak as string), ' / ', cast(p2.nation_rank_peak as string))),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 30, 'label', '🛡 Favourite race', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 31, 'label', ' • Race',            'profile', coalesce(p2.main_race_name, 'N/A')),\r\n",
-        "  named_struct('sort_order', 32, 'label', ' • Games with race',  'profile', coalesce(cast(p2.main_race_games_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 33, 'label', ' • Win % with race',  'profile', coalesce(cast(round(p2.main_race_win_pct, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 34, 'label', ' • Distinct races played', 'profile', coalesce(cast(p2.distinct_races_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 35, 'label', ' • Best race win %',       'profile', coalesce(cast(round(p2.best_race_win_pct, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 30, 'label', '\ud83d\udee1 Favourite race', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 31, 'label', ' \u2022 Race',                 'profile', coalesce(p2.main_race_name, 'N/A')),\r\n",
+        "  named_struct('sort_order', 32, 'label', ' \u2022 Games with race',      'profile', coalesce(cast(p2.main_race_games_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 33, 'label', ' \u2022 Race PPG',             'profile', coalesce(cast(round(p2.main_race_ppg, 2) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 34, 'label', ' \u2022 Distinct races played', 'profile', coalesce(cast(p2.distinct_races_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 35, 'label', ' \u2022 Median race PPG',       'profile', coalesce(cast(round(p2.median_race_ppg, 2) as string), 'N/A')),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 40, 'label', '🔥 Streaks', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 41, 'label', ' • Best win streak',      'profile', coalesce(cast(p2.best_win_streak as string), '0')),\r\n",
-        "  named_struct('sort_order', 42, 'label', ' • Current win streak',    'profile', coalesce(cast(p2.current_win_streak as string), '0')),\r\n",
-        "  named_struct('sort_order', 43, 'label', ' • Best unbeaten streak',  'profile', coalesce(cast(p2.best_unbeaten_streak as string), '0')),\r\n",
-        "  named_struct('sort_order', 44, 'label', ' • Current unbeaten streak','profile', coalesce(cast(p2.current_unbeaten_streak as string), '0'))\r\n",
+        "  named_struct('sort_order', 40, 'label', '\ud83d\udd25 Streaks', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 41, 'label', ' \u2022 Best win / Current win',             'profile', concat(cast(p2.best_win_streak as string), ' / ', cast(p2.current_win_streak as string))),\r\n",
+        "  named_struct('sort_order', 42, 'label', ' \u2022 Best unbeaten / Current unbeaten',   'profile', concat(cast(p2.best_unbeaten_streak as string), ' / ', cast(p2.current_unbeaten_streak as string)))\r\n",
         ")) e AS row\r\n",
         "ORDER BY\r\n",
         "  p2.coach_id,\r\n",
@@ -252,7 +243,7 @@
         "-- QUERY: coach_opponent_insights (dashboard dataset)\r\n",
         "-- =================================================\r\n",
         "-- PURPOSE\r\n",
-        "--   Per-coach opponent “insights” table for dashboards (strength + outcomes vs opponents),\r\n",
+        "--   Per-coach opponent \u201cinsights\u201d table for dashboards (strength + outcomes vs opponents),\r\n",
         "--   including all metrics exposed by the presentation contract.\r\n",
         "--\r\n",
         "-- LAYER\r\n",
@@ -370,12 +361,65 @@
         "WHERE coach_id = :coach_id;\n",
         "\n"
       ]
+    },
+    {
+      "name": "d7c4e2f1",
+      "displayName": "coach_global_elo_rating_daily_series",
+      "queryLines": [
+        "SELECT\r\n",
+        "  *\r\n",
+        "FROM naf_catalog.gold_presentation.coach_global_elo_rating_daily_series\r\n",
+        "ORDER BY\r\n",
+        "  coach_id,\r\n",
+        "  series_date;\r\n"
+      ]
+    },
+    {
+      "name": "e8d5f3a2",
+      "displayName": "coach_race_elo_rating_daily_series",
+      "queryLines": [
+        "SELECT\r\n",
+        "  *\r\n",
+        "FROM naf_catalog.gold_presentation.coach_race_elo_rating_daily_series\r\n",
+        "WHERE race_rank_by_games <= 6\r\n",
+        "ORDER BY\r\n",
+        "  coach_id,\r\n",
+        "  series_date,\r\n",
+        "  race_id;\r\n"
+      ]
+    },
+    {
+      "name": "f9e6a4b3",
+      "displayName": "coach_cumulative_results_last_n_daily_series",
+      "queryLines": [
+        "SELECT\r\n",
+        "  *\r\n",
+        "FROM naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series\r\n",
+        "ORDER BY\r\n",
+        "  coach_id,\r\n",
+        "  series_date,\r\n",
+        "  result;\r\n"
+      ]
+    },
+    {
+      "name": "a0f7b5c4",
+      "displayName": "coach_opponent_insights_highlights",
+      "queryLines": [
+        "SELECT\r\n",
+        "  *\r\n",
+        "FROM naf_catalog.gold_presentation.coach_opponent_insights\r\n",
+        "WHERE group_order >= 3\r\n",
+        "ORDER BY\r\n",
+        "  coach_id,\r\n",
+        "  group_order,\r\n",
+        "  opponent_coach_id;\r\n"
+      ]
     }
   ],
   "pages": [
     {
       "name": "9dbe70f2",
-      "displayName": "coach page 1",
+      "displayName": "Overview",
       "layout": [
         {
           "widget": {
@@ -445,24 +489,29 @@
         },
         {
           "widget": {
-            "name": "8212b971",
+            "name": "1b655f4f",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "52345e69",
+                  "datasetName": "92b53229",
                   "fields": [
                     {
-                      "name": "coach_id",
-                      "expression": "`coach_id`"
+                      "name": "result",
+                      "expression": "`result`"
                     },
                     {
-                      "name": "event_timestamp",
-                      "expression": "`event_timestamp`"
+                      "name": "level",
+                      "expression": "`level`"
                     },
                     {
-                      "name": "glo_rating_after",
-                      "expression": "`glo_rating_after`"
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "IN_RANGE(`coach_id`, NULL, NULL)"
                     }
                   ],
                   "disaggregated": true
@@ -471,12 +520,114 @@
             ],
             "spec": {
               "version": 3,
-              "widgetType": "line",
+              "widgetType": "bar",
               "encodings": {
                 "x": {
-                  "fieldName": "event_timestamp",
+                  "fieldName": "level",
                   "axis": {
-                    "hideLabels": false,
+                    "hideLabels": true
+                  },
+                  "displayName": " ",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "axis": {
+                    "title": " ",
+                    "hideTitle": true,
+                    "hideLabels": true,
+                    "hideGrid": false
+                  },
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result",
+                  "displayName": "Result",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "loss",
+                        "draw",
+                        "win"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "loss",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "draw",
+                        "color": "#FFD700"
+                      },
+                      {
+                        "value": "win",
+                        "color": "#00FF7F"
+                      }
+                    ]
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showDescription": true,
+                "description": "Distribution of results in all registered games.",
+                "showTitle": true,
+                "title": "W/D/L distribution"
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 13,
+            "width": 4,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "6749c1b1",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7e6b0b4b",
+                  "fields": [
+                    {
+                      "name": "result",
+                      "expression": "`result`"
+                    },
+                    {
+                      "name": "event_day",
+                      "expression": "`event_day`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_day",
+                  "axis": {
                     "title": " "
                   },
                   "scale": {
@@ -484,114 +635,38 @@
                   }
                 },
                 "y": {
-                  "fieldName": "glo_rating_after",
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "color": {
-                  "fieldName": "coach_id",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                }
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Global \"NAF\" ELO rating (GLO)"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 27,
-            "width": 6,
-            "height": 7
-          }
-        },
-        {
-          "widget": {
-            "name": "89154031",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "7287b5e0",
-                  "fields": [
-                    {
-                      "name": "race_name",
-                      "expression": "`race_name`"
-                    },
-                    {
-                      "name": "event_timestamp",
-                      "expression": "`event_timestamp`"
-                    },
-                    {
-                      "name": "elo_rating_after",
-                      "expression": "`elo_rating_after`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "widgetType": "line",
-              "encodings": {
-                "x": {
-                  "fieldName": "event_timestamp",
-                  "axis": {
-                    "hideTitle": false,
-                    "hideLabels": false
-                  },
-                  "displayName": " ",
-                  "scale": {
-                    "type": "temporal"
-                  }
-                },
-                "y": {
-                  "fieldName": "elo_rating_after",
+                  "fieldName": "value",
                   "displayName": " ",
                   "scale": {
                     "type": "quantitative"
                   }
                 },
                 "color": {
-                  "fieldName": "race_name",
-                  "legend": {
-                    "hide": false,
-                    "position": "right"
-                  },
+                  "fieldName": "result",
                   "scale": {
                     "type": "categorical",
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "Amazon",
-                        "Chaos Chosen",
-                        "Chaos Dwarf",
-                        "Chaos Renegade",
-                        "Dark Elf",
-                        "Dwarf",
-                        "Elf Union",
-                        "Halfling",
-                        "High Elf",
-                        "Human",
-                        "Lizardmen",
-                        "Necromantic Horror",
-                        "Norse",
-                        "Old World Alliance",
-                        "Orc",
-                        "Shambling Undead",
-                        "Skaven",
-                        "Slann",
-                        "Tomb Kings",
-                        "Underworld Denizens",
-                        "Vampire",
-                        "Wood Elf"
+                        "loss",
+                        "draw",
+                        "win"
                       ]
-                    }
+                    },
+                    "mappings": [
+                      {
+                        "value": "win",
+                        "color": "#00FF7F"
+                      },
+                      {
+                        "value": "loss",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "draw",
+                        "color": "#FFD700"
+                      }
+                    ]
                   }
                 },
                 "label": {
@@ -599,64 +674,17 @@
                 }
               },
               "frame": {
-                "showTitle": true,
-                "title": "Racial NAF ELO ratings (ELO)"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 38,
-            "width": 6,
-            "height": 7
-          }
-        },
-        {
-          "widget": {
-            "name": "cc582b57",
-            "queries": [
-              {
-                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_race_name",
-                "query": {
-                  "datasetName": "7287b5e0",
-                  "fields": [
-                    {
-                      "name": "race_name",
-                      "expression": "`race_name`"
-                    },
-                    {
-                      "name": "race_name_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "filter-multi-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "race_name",
-                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_race_name"
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Choose races to display (ELO):",
                 "showDescription": false,
-                "description": "Choose races to display ratings"
+                "showTitle": true,
+                "title": "Cumulative results over time"
               }
             }
           },
           "position": {
-            "x": 0,
-            "y": 36,
-            "width": 6,
-            "height": 2
+            "x": 2,
+            "y": 0,
+            "width": 4,
+            "height": 6
           }
         },
         {
@@ -2395,88 +2423,33 @@
             "width": 4,
             "height": 5
           }
-        },
+        }
+      ]
+    },
+    {
+      "name": "ratings_page_9dbe70f2",
+      "displayName": "Ratings",
+      "layout": [
         {
           "widget": {
-            "name": "5bcc4f79",
-            "queries": [
-              {
-                "name": "parameter_dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4cdb12539987f55571371c96_min_games",
-                "query": {
-                  "datasetName": "a59b382e",
-                  "parameters": [
-                    {
-                      "name": "min_games",
-                      "keyword": "min_games"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "parameterName": "min_games",
-                    "queryName": "parameter_dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4cdb12539987f55571371c96_min_games"
-                  }
-                ]
-              },
-              "selection": {
-                "defaultSelection": {
-                  "values": {
-                    "dataType": "STRING",
-                    "values": [
-                      {
-                        "value": "25"
-                      }
-                    ]
-                  }
-                }
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Min number of games:",
-                "showDescription": true,
-                "description": "Limit displayed races in result table"
-              }
-            }
-          },
-          "position": {
-            "x": 2,
-            "y": 6,
-            "width": 4,
-            "height": 2
-          }
-        },
-        {
-          "widget": {
-            "name": "1b655f4f",
+            "name": "8212b971",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "92b53229",
+                  "datasetName": "52345e69",
                   "fields": [
                     {
-                      "name": "result",
-                      "expression": "`result`"
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
                     },
                     {
-                      "name": "level",
-                      "expression": "`level`"
+                      "name": "event_timestamp",
+                      "expression": "`event_timestamp`"
                     },
                     {
-                      "name": "value",
-                      "expression": "`value`"
-                    }
-                  ],
-                  "filters": [
-                    {
-                      "expression": "IN_RANGE(`coach_id`, NULL, NULL)"
+                      "name": "glo_rating_after",
+                      "expression": "`glo_rating_after`"
                     }
                   ],
                   "disaggregated": true
@@ -2485,114 +2458,12 @@
             ],
             "spec": {
               "version": 3,
-              "widgetType": "bar",
+              "widgetType": "line",
               "encodings": {
                 "x": {
-                  "fieldName": "level",
+                  "fieldName": "event_timestamp",
                   "axis": {
-                    "hideLabels": true
-                  },
-                  "displayName": " ",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "y": {
-                  "fieldName": "value",
-                  "axis": {
-                    "title": " ",
-                    "hideTitle": true,
-                    "hideLabels": true,
-                    "hideGrid": false
-                  },
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "color": {
-                  "fieldName": "result",
-                  "displayName": "Result",
-                  "scale": {
-                    "type": "categorical",
-                    "sort": {
-                      "by": "custom-order",
-                      "orderedValues": [
-                        "loss",
-                        "draw",
-                        "win"
-                      ]
-                    },
-                    "mappings": [
-                      {
-                        "value": "loss",
-                        "color": "#FF5733"
-                      },
-                      {
-                        "value": "draw",
-                        "color": "#FFD700"
-                      },
-                      {
-                        "value": "win",
-                        "color": "#00FF7F"
-                      }
-                    ]
-                  }
-                },
-                "label": {
-                  "show": true
-                }
-              },
-              "frame": {
-                "showDescription": true,
-                "description": "Distribution of results in all registered games.",
-                "showTitle": true,
-                "title": "W/D/L distribution"
-              },
-              "mark": {
-                "layout": "group"
-              }
-            }
-          },
-          "position": {
-            "x": 2,
-            "y": 13,
-            "width": 4,
-            "height": 6
-          }
-        },
-        {
-          "widget": {
-            "name": "6749c1b1",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "7e6b0b4b",
-                  "fields": [
-                    {
-                      "name": "result",
-                      "expression": "`result`"
-                    },
-                    {
-                      "name": "event_day",
-                      "expression": "`event_day`"
-                    },
-                    {
-                      "name": "value",
-                      "expression": "`value`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "widgetType": "area",
-              "encodings": {
-                "x": {
-                  "fieldName": "event_day",
-                  "axis": {
+                    "hideLabels": false,
                     "title": " "
                   },
                   "scale": {
@@ -2600,38 +2471,114 @@
                   }
                 },
                 "y": {
-                  "fieldName": "value",
+                  "fieldName": "glo_rating_after",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "coach_id",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Global \"NAF\" ELO rating (GLO)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 27,
+            "width": 6,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "89154031",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "7287b5e0",
+                  "fields": [
+                    {
+                      "name": "race_name",
+                      "expression": "`race_name`"
+                    },
+                    {
+                      "name": "event_timestamp",
+                      "expression": "`event_timestamp`"
+                    },
+                    {
+                      "name": "elo_rating_after",
+                      "expression": "`elo_rating_after`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_timestamp",
+                  "axis": {
+                    "hideTitle": false,
+                    "hideLabels": false
+                  },
+                  "displayName": " ",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "elo_rating_after",
                   "displayName": " ",
                   "scale": {
                     "type": "quantitative"
                   }
                 },
                 "color": {
-                  "fieldName": "result",
+                  "fieldName": "race_name",
+                  "legend": {
+                    "hide": false,
+                    "position": "right"
+                  },
                   "scale": {
                     "type": "categorical",
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "loss",
-                        "draw",
-                        "win"
+                        "Amazon",
+                        "Chaos Chosen",
+                        "Chaos Dwarf",
+                        "Chaos Renegade",
+                        "Dark Elf",
+                        "Dwarf",
+                        "Elf Union",
+                        "Halfling",
+                        "High Elf",
+                        "Human",
+                        "Lizardmen",
+                        "Necromantic Horror",
+                        "Norse",
+                        "Old World Alliance",
+                        "Orc",
+                        "Shambling Undead",
+                        "Skaven",
+                        "Slann",
+                        "Tomb Kings",
+                        "Underworld Denizens",
+                        "Vampire",
+                        "Wood Elf"
                       ]
-                    },
-                    "mappings": [
-                      {
-                        "value": "win",
-                        "color": "#00FF7F"
-                      },
-                      {
-                        "value": "loss",
-                        "color": "#FF5733"
-                      },
-                      {
-                        "value": "draw",
-                        "color": "#FFD700"
-                      }
-                    ]
+                    }
                   }
                 },
                 "label": {
@@ -2639,113 +2586,24 @@
                 }
               },
               "frame": {
-                "showDescription": false,
                 "showTitle": true,
-                "title": "Cumulative results over time"
-              }
-            }
-          },
-          "position": {
-            "x": 2,
-            "y": 0,
-            "width": 4,
-            "height": 6
-          }
-        },
-        {
-          "widget": {
-            "name": "55f0707a",
-            "queries": [
-              {
-                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4d611195921598468cb01404_daily(event_timestamp)",
-                "query": {
-                  "datasetName": "52345e69",
-                  "fields": [
-                    {
-                      "name": "daily(event_timestamp)",
-                      "expression": "DATE_TRUNC(\"DAY\", `event_timestamp`)"
-                    },
-                    {
-                      "name": "daily(event_timestamp)_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "filter-date-range-picker",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "daily(event_timestamp)",
-                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4d611195921598468cb01404_daily(event_timestamp)"
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Choose date interval to display (GLO):"
+                "title": "Racial NAF ELO ratings (ELO)"
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 25,
+            "y": 38,
             "width": 6,
-            "height": 2
+            "height": 7
           }
-        },
-        {
-          "widget": {
-            "name": "20975492",
-            "queries": [
-              {
-                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_event_timestamp",
-                "query": {
-                  "datasetName": "7287b5e0",
-                  "fields": [
-                    {
-                      "name": "event_timestamp",
-                      "expression": "`event_timestamp`"
-                    },
-                    {
-                      "name": "event_timestamp_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "filter-date-range-picker",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "event_timestamp",
-                    "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0eb06c2b41cd5ae8bda754b74811b_event_timestamp"
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Choose dates interval to display (ELO)",
-                "showDescription": false,
-                "description": "Choose date interval of rating to display"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 34,
-            "width": 6,
-            "height": 2
-          }
-        },
+        }
+      ]
+    },
+    {
+      "name": "opponents_page_9dbe70f2",
+      "displayName": "Opponents",
+      "layout": [
         {
           "widget": {
             "name": "79167813",
@@ -3474,10 +3332,10 @@
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "150–200",
-                        "200–250",
-                        "250–300",
-                        "300–350",
+                        "150\u2013200",
+                        "200\u2013250",
+                        "250\u2013300",
+                        "300\u2013350",
                         "Overall"
                       ]
                     }
@@ -3546,8 +3404,7 @@
             "height": 6
           }
         }
-      ],
-      "pageType": "PAGE_TYPE_CANVAS"
+      ]
     },
     {
       "name": "af6796ad",
