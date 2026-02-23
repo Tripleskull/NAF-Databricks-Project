@@ -2375,7 +2375,7 @@
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series AS
 # MAGIC WITH cfg AS (
-# MAGIC   SELECT CAST(MAX(CASE WHEN parameter_name = 'last_n_games_window' THEN parameter_value END) AS INT) AS n
+# MAGIC   SELECT CAST(last_n_games_window AS INT) AS n
 # MAGIC   FROM naf_catalog.gold_dim.analytical_config
 # MAGIC ),
 # MAGIC eligible AS (
