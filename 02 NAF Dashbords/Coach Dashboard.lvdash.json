@@ -183,31 +183,51 @@
       "name": "7287b5e0",
       "displayName": "coach_race_rating_timeseries",
       "queryLines": [
-        "-- QUERY: coach_race_rating_timeseries (dashboard dataset)  [RACE SCOPE]\n",
-        "-- ===================================================================\n",
-        "-- PURPOSE\n",
-        "--   One row per coach game per race (RACE scope) showing Elo rating change + display fields,\n",
-        "--   sourced from the GOLD_PRESENTATION canonical contract.\n",
-        "--\n",
-        "-- LAYER\n",
-        "--   gold_presentation (thin passthrough; include all new metrics automatically)\n",
-        "--\n",
-        "-- OUTPUT GRAIN\n",
-        "--   One row per (rating_system, coach_id, race_id, game_id)\n",
-        "--\n",
-        "-- SOURCE (presentation contract)\n",
-        "--   naf_catalog.gold_presentation.coach_race_elo_rating_history\n",
-        "\n",
-        "SELECT\n",
-        "  *\n",
-        "FROM naf_catalog.gold_presentation.coach_race_elo_rating_history\n",
-        "WHERE rating_system = 'NAF_ELO'\n",
-        "ORDER BY\n",
-        "  coach_id,\n",
-        "  race_id,\n",
-        "  COALESCE(event_timestamp, CAST(game_date AS TIMESTAMP)),\n",
-        "  game_index,\n",
-        "  game_id;\n"
+        "SELECT\r\n",
+        "  coach_id,\r\n",
+        "  coach_name,\r\n",
+        "  race_id,\r\n",
+        "  race_name,\r\n",
+        "  game_week,\r\n",
+        "  elo_weekly,\r\n",
+        "  race_rank_by_games\r\n",
+        "FROM naf_catalog.gold_presentation.coach_race_elo_rating_daily_series\r\n",
+        "WHERE rating_system = 'NAF_ELO'\r\n",
+        "  AND (:start_date IS NULL OR game_week >= CAST(:start_date AS DATE))\r\n",
+        "  AND (:end_date IS NULL OR game_week <= CAST(:end_date AS DATE))\r\n",
+        "ORDER BY coach_id, race_name, game_week;\r\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "start_date",
+          "keyword": "start_date",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "end_date",
+          "keyword": "end_date",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": ""
+                }
+              ]
+            }
+          }
+        }
       ]
     },
     {
@@ -215,14 +235,49 @@
       "displayName": "coach_global_rating_timeseries",
       "queryLines": [
         "SELECT\r\n",
-        "  *\r\n",
-        "FROM naf_catalog.gold_presentation.coach_global_elo_rating_history\r\n",
-        "WHERE rating_system = 'NAF_ELO'\r\n",
-        "ORDER BY\r\n",
         "  coach_id,\r\n",
-        "  COALESCE(event_timestamp, CAST(game_date AS TIMESTAMP)),\r\n",
-        "  game_index,\r\n",
-        "  game_id;\r\n"
+        "  coach_name,\r\n",
+        "  game_week,\r\n",
+        "  glo_weekly,\r\n",
+        "  glo_running_peak,\r\n",
+        "  glo_running_median\r\n",
+        "FROM naf_catalog.gold_presentation.coach_global_elo_rating_daily_series\r\n",
+        "WHERE rating_system = 'NAF_ELO'\r\n",
+        "  AND (:start_date IS NULL OR game_week >= CAST(:start_date AS DATE))\r\n",
+        "  AND (:end_date IS NULL OR game_week <= CAST(:end_date AS DATE))\r\n",
+        "ORDER BY coach_id, game_week;\r\n"
+      ],
+      "parameters": [
+        {
+          "displayName": "start_date",
+          "keyword": "start_date",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "end_date",
+          "keyword": "end_date",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": ""
+                }
+              ]
+            }
+          }
+        }
       ]
     },
     {
@@ -487,7 +542,7 @@
             "x": 0,
             "y": 0,
             "width": 2,
-            "height": 19
+            "height": 18
           }
         },
         {
@@ -593,7 +648,7 @@
           },
           "position": {
             "x": 2,
-            "y": 13,
+            "y": 12,
             "width": 4,
             "height": 6
           }
@@ -877,7 +932,7 @@
                   },
                   {
                     "fieldName": "last_game_event_timestamp",
-                    "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
+                    "dateTimeFormat": "YYYY-MM-DD",
                     "booleanValues": [
                       "false",
                       "true"
@@ -897,58 +952,6 @@
                     "title": "last_game_event_timestamp",
                     "allowSearch": false,
                     "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "fieldName": "nation_name_display",
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 7,
-                    "title": "nation_name_display",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "fieldName": "flag_emoji",
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 8,
-                    "title": "Flag",
-                    "allowSearch": false,
-                    "alignContent": "left",
                     "allowHTML": false,
                     "highlightLinks": false,
                     "useMonospaceFont": false,
@@ -2410,21 +2413,111 @@
                 }
               ],
               "allowHTMLByDefault": false,
-              "itemsPerPage": 25,
+              "itemsPerPage": 6,
               "paginationSize": "default",
               "condensed": true,
               "withRowNumber": false,
               "frame": {
                 "showTitle": true,
-                "title": "Results in order of mostly played races"
-              }
+                "title": "Race performance (by games played)"
+              },
+              "rowsPerPage": 6
             }
           },
           "position": {
             "x": 2,
-            "y": 8,
+            "y": 6,
             "width": 4,
-            "height": 5
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "last50_cumulative_618e2ddf",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "f9e6a4b3",
+                  "fields": [
+                    {
+                      "name": "result",
+                      "expression": "`result`"
+                    },
+                    {
+                      "name": "event_day",
+                      "expression": "`event_day`"
+                    },
+                    {
+                      "name": "value",
+                      "expression": "`value`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "event_day",
+                  "axis": {
+                    "title": " "
+                  },
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "value",
+                  "displayName": " ",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "result",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "custom-order",
+                      "orderedValues": [
+                        "loss",
+                        "draw",
+                        "win"
+                      ]
+                    },
+                    "mappings": [
+                      {
+                        "value": "win",
+                        "color": "#00FF7F"
+                      },
+                      {
+                        "value": "loss",
+                        "color": "#FF5733"
+                      },
+                      {
+                        "value": "draw",
+                        "color": "#FFD700"
+                      }
+                    ]
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Cumulative results (last 50 games)"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 6,
+            "height": 6
           }
         }
       ],
@@ -2448,12 +2541,20 @@
                       "expression": "`coach_id`"
                     },
                     {
-                      "name": "event_timestamp",
-                      "expression": "`event_timestamp`"
+                      "name": "game_week",
+                      "expression": "`game_week`"
                     },
                     {
-                      "name": "glo_rating_after",
-                      "expression": "`glo_rating_after`"
+                      "name": "glo_weekly",
+                      "expression": "`glo_weekly`"
+                    },
+                    {
+                      "name": "glo_running_peak",
+                      "expression": "`glo_running_peak`"
+                    },
+                    {
+                      "name": "glo_running_median",
+                      "expression": "`glo_running_median`"
                     }
                   ],
                   "disaggregated": true
@@ -2465,7 +2566,7 @@
               "widgetType": "line",
               "encodings": {
                 "x": {
-                  "fieldName": "event_timestamp",
+                  "fieldName": "game_week",
                   "axis": {
                     "hideLabels": false,
                     "title": " "
@@ -2474,18 +2575,26 @@
                     "type": "temporal"
                   }
                 },
-                "y": {
-                  "fieldName": "glo_rating_after",
-                  "scale": {
-                    "type": "quantitative"
+                "y": [
+                  {
+                    "fieldName": "glo_weekly",
+                    "scale": {
+                      "type": "quantitative"
+                    }
+                  },
+                  {
+                    "fieldName": "glo_running_peak",
+                    "scale": {
+                      "type": "quantitative"
+                    }
+                  },
+                  {
+                    "fieldName": "glo_running_median",
+                    "scale": {
+                      "type": "quantitative"
+                    }
                   }
-                },
-                "color": {
-                  "fieldName": "coach_id",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                }
+                ]
               },
               "frame": {
                 "showTitle": true,
@@ -2514,12 +2623,12 @@
                       "expression": "`race_name`"
                     },
                     {
-                      "name": "event_timestamp",
-                      "expression": "`event_timestamp`"
+                      "name": "game_week",
+                      "expression": "`game_week`"
                     },
                     {
-                      "name": "elo_rating_after",
-                      "expression": "`elo_rating_after`"
+                      "name": "elo_weekly",
+                      "expression": "`elo_weekly`"
                     }
                   ],
                   "disaggregated": true
@@ -2531,7 +2640,7 @@
               "widgetType": "line",
               "encodings": {
                 "x": {
-                  "fieldName": "event_timestamp",
+                  "fieldName": "game_week",
                   "axis": {
                     "hideTitle": false,
                     "hideLabels": false
@@ -2542,7 +2651,7 @@
                   }
                 },
                 "y": {
-                  "fieldName": "elo_rating_after",
+                  "fieldName": "elo_weekly",
                   "displayName": " ",
                   "scale": {
                     "type": "quantitative"
@@ -2750,446 +2859,6 @@
             "y": 19,
             "width": 6,
             "height": 6
-          }
-        },
-        {
-          "widget": {
-            "name": "1d0bc995",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "15dbc912",
-                  "fields": [
-                    {
-                      "name": "bin_label",
-                      "expression": "`bin_label`"
-                    },
-                    {
-                      "name": "win_points_per_game",
-                      "expression": "`win_points_per_game`"
-                    },
-                    {
-                      "name": "wins",
-                      "expression": "`wins`"
-                    },
-                    {
-                      "name": "draws",
-                      "expression": "`draws`"
-                    },
-                    {
-                      "name": "losses",
-                      "expression": "`losses`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "bin_label",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 3,
-                    "title": "bin_label",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "win_points_per_game",
-                    "numberFormat": "0.00",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 6,
-                    "title": "win_points_per_game",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "wins",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 7,
-                    "title": "wins",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "draws",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 8,
-                    "title": "draws",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "losses",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 9,
-                    "title": "losses",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  }
-                ]
-              },
-              "invisibleColumns": [
-                {
-                  "numberFormat": "0",
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "coach_id",
-                  "type": "integer",
-                  "displayAs": "number",
-                  "order": 0,
-                  "title": "coach_id",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "bin_scheme_id",
-                  "type": "string",
-                  "displayAs": "string",
-                  "order": 1,
-                  "title": "bin_scheme_id",
-                  "allowSearch": false,
-                  "alignContent": "left",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "bin_scheme_name_display",
-                  "type": "string",
-                  "displayAs": "string",
-                  "order": 2,
-                  "title": "bin_scheme_name_display",
-                  "allowSearch": false,
-                  "alignContent": "left",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "numberFormat": "0",
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "opponents_count",
-                  "type": "integer",
-                  "displayAs": "number",
-                  "order": 4,
-                  "title": "opponents_count",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "numberFormat": "0",
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "games_played",
-                  "type": "integer",
-                  "displayAs": "number",
-                  "order": 5,
-                  "title": "games_played",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "numberFormat": "0.00",
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "win_pct",
-                  "type": "float",
-                  "displayAs": "number",
-                  "order": 10,
-                  "title": "win_pct",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "win_points",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 11,
-                  "title": "win_points",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                }
-              ],
-              "allowHTMLByDefault": false,
-              "itemsPerPage": 25,
-              "paginationSize": "default",
-              "condensed": true,
-              "withRowNumber": false,
-              "frame": {
-                "showTitle": true,
-                "showDescription": true,
-                "title": "Performance table based on opponent strength"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 45,
-            "width": 6,
-            "height": 4
-          }
-        },
-        {
-          "widget": {
-            "name": "b7a94551",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "15dbc912",
-                  "fields": [
-                    {
-                      "name": "bin_label",
-                      "expression": "`bin_label`"
-                    },
-                    {
-                      "name": "win_points_per_game",
-                      "expression": "`win_points_per_game`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "bin_label",
-                  "axis": {
-                    "hideLabels": false,
-                    "hideTitle": false,
-                    "title": "Opponents rating"
-                  },
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "y": {
-                  "fieldName": "win_points_per_game",
-                  "axis": {
-                    "title": "Point per game"
-                  },
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "label": {
-                  "show": true
-                }
-              },
-              "frame": {
-                "showDescription": true,
-                "showTitle": true,
-                "title": "Binned point per game by opponent strength",
-                "description": "Point per game (1/0.5/0) in bins based on opponents rating."
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 55,
-            "width": 6,
-            "height": 5
           }
         },
         {
@@ -3572,6 +3241,74 @@
                   ],
                   "disaggregated": false
                 }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/d7c4e2f1_coach_id",
+                "query": {
+                  "datasetName": "d7c4e2f1",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/e8d5f3a2_coach_id",
+                "query": {
+                  "datasetName": "e8d5f3a2",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/f9e6a4b3_coach_id",
+                "query": {
+                  "datasetName": "f9e6a4b3",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/a0f7b5c4_coach_id",
+                "query": {
+                  "datasetName": "a0f7b5c4",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
               }
             ],
             "spec": {
@@ -3614,6 +3351,22 @@
                   {
                     "fieldName": "coach_id",
                     "queryName": "dashboards/01f0c3be36a61a938dcb7f63ec9c073f/datasets/01f0c3be4dcd13ae9aa7e117ade91432_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/{id}/datasets/d7c4e2f1_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/{id}/datasets/e8d5f3a2_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/{id}/datasets/f9e6a4b3_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/{id}/datasets/a0f7b5c4_coach_id"
                   }
                 ]
               },
