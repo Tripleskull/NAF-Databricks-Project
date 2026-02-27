@@ -308,6 +308,36 @@
 
 # COMMAND ----------
 
+# MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_members_cumulative_weekly_display
+# MAGIC -- =============================================================================
+# MAGIC -- PURPOSE:
+# MAGIC --   Dashboard-ready weekly cumulative NAF member count per nation + World.
+# MAGIC --   Joins nation_dim for display names. World row uses nation_id = 0.
+# MAGIC -- GRAIN:
+# MAGIC --   One row per (nation_id, iso_week)
+# MAGIC -- SOURCES:
+# MAGIC --   naf_catalog.gold_summary.nation_members_cumulative_weekly
+# MAGIC --   naf_catalog.gold_dim.nation_dim
+# MAGIC -- FEEDS: W2 — NAF Members Over Time (Nation Dashboard)
+# MAGIC -- =============================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_members_cumulative_weekly_display AS
+# MAGIC SELECT
+# MAGIC   s.nation_id,
+# MAGIC   CASE WHEN s.nation_id = 0 THEN 'World'
+# MAGIC        ELSE n.nation_name_display
+# MAGIC   END                                     AS nation_name_display,
+# MAGIC   s.iso_week,
+# MAGIC   s.new_coaches,
+# MAGIC   s.cumulative_coaches,
+# MAGIC   s.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_members_cumulative_weekly AS s
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
+# MAGIC   ON s.nation_id = n.nation_id;
+# MAGIC
+
+# COMMAND ----------
+
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_peak_distribution
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -350,6 +380,37 @@
 # MAGIC   ON m.nation_id = n.nation_id
 # MAGIC LEFT JOIN naf_catalog.gold_dim.coach_dim AS c
 # MAGIC   ON m.coach_id = c.coach_id;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_binned_distribution_display
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Dashboard-facing GLO histogram data with nation display names.
+# MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=0).
+# MAGIC -- GRAIN        : 1 row per (nation_name_display, metric_type, glo_bin)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_glo_binned_distribution
+# MAGIC --                naf_catalog.gold_dim.nation_dim
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_binned_distribution_display AS
+# MAGIC SELECT
+# MAGIC   d.nation_id,
+# MAGIC   CASE WHEN d.nation_id = 0 THEN 'World'
+# MAGIC        ELSE n.nation_name_display
+# MAGIC   END AS nation_name_display,
+# MAGIC   d.metric_type,
+# MAGIC   d.glo_bin,
+# MAGIC   CONCAT(CAST(d.glo_bin AS STRING), '–', CAST(d.glo_bin + 25 AS STRING)) AS glo_bin_label,
+# MAGIC   d.coach_count,
+# MAGIC   d.total_coaches,
+# MAGIC   ROUND(d.density * 100, 2) AS density_pct,
+# MAGIC   ROUND(d.cumulative_density * 100, 2) AS cumulative_density_pct,
+# MAGIC   d.load_timestamp
+# MAGIC FROM naf_catalog.gold_summary.nation_glo_binned_distribution AS d
+# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
+# MAGIC   ON d.nation_id = n.nation_id;
 # MAGIC
 
 # COMMAND ----------
@@ -939,17 +1000,19 @@
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
 # MAGIC
-# MAGIC   -- Tournament location dimension
+# MAGIC   -- Away ratio (proportion of games played abroad)
+# MAGIC   ROUND(100.0 * s.games_away / NULLIF(s.games_home + s.games_away, 0), 1)
+# MAGIC     AS away_ratio_pct,
+# MAGIC
+# MAGIC   -- Tournament location: PPG home vs away
 # MAGIC   s.games_home,
 # MAGIC   s.games_away,
-# MAGIC   s.win_frac_home,
-# MAGIC   s.win_frac_away,
+# MAGIC   ROUND(s.win_frac_home, 3)         AS ppg_home,
+# MAGIC   ROUND(s.win_frac_away, 3)         AS ppg_away,
 # MAGIC
-# MAGIC   -- Opponent origin dimension
-# MAGIC   s.games_vs_domestic,
+# MAGIC   -- Opponent origin: PPG vs foreign (drop domestic PPG — always ~0.5)
 # MAGIC   s.games_vs_foreign,
-# MAGIC   s.win_frac_vs_domestic,
-# MAGIC   s.win_frac_vs_foreign,
+# MAGIC   ROUND(s.win_frac_vs_foreign, 3)   AS ppg_vs_foreign,
 # MAGIC
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_domestic_summary AS s
@@ -964,11 +1027,12 @@
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for nation W/D/L by opponent rating bin.
+# MAGIC --   Supports GLO Metric filter via metric_type (PEAK/MEDIAN).
 # MAGIC --   Joins bin labels for display-ready output.
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, bin_scheme_id, bin_index)
+# MAGIC --   1 row per (nation_id, metric_type, bin_scheme_id, bin_index)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC --   - naf_catalog.gold_presentation.global_elo_bin_scheme
@@ -981,6 +1045,7 @@
 # MAGIC   s.nation_id,
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
+# MAGIC   s.metric_type,
 # MAGIC   s.bin_scheme_id,
 # MAGIC   s.bin_index,
 # MAGIC   bs.bin_label_display,
@@ -990,8 +1055,7 @@
 # MAGIC   s.wins,
 # MAGIC   s.draws,
 # MAGIC   s.losses,
-# MAGIC   s.win_frac,
-# MAGIC   s.avg_td_diff,
+# MAGIC   s.ppg,
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl AS s
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.global_elo_bin_scheme AS bs
@@ -1008,12 +1072,13 @@
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for nation W/D/L by game quality bin.
-# MAGIC --   Game quality = average of both players' GLO peak.
+# MAGIC --   Game quality = average of both players' GLO (peak or median per metric_type).
+# MAGIC --   Supports GLO Metric filter via metric_type (PEAK/MEDIAN).
 # MAGIC --   Joins bin labels for display-ready output.
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, bin_scheme_id, bin_index)
+# MAGIC --   1 row per (nation_id, metric_type, bin_scheme_id, bin_index)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_game_quality_bin_wdl
 # MAGIC --   - naf_catalog.gold_presentation.global_elo_bin_scheme
@@ -1026,6 +1091,7 @@
 # MAGIC   s.nation_id,
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
+# MAGIC   s.metric_type,
 # MAGIC   s.bin_scheme_id,
 # MAGIC   s.bin_index,
 # MAGIC   bs.bin_label_display,
@@ -1035,8 +1101,7 @@
 # MAGIC   s.wins,
 # MAGIC   s.draws,
 # MAGIC   s.losses,
-# MAGIC   s.win_frac,
-# MAGIC   s.avg_td_diff,
+# MAGIC   s.ppg,
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl AS s
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.global_elo_bin_scheme AS bs
