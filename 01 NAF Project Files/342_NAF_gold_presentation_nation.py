@@ -1117,18 +1117,19 @@
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for the national team selector.
-# MAGIC --   Shows eligible coaches with their selector scores, component percentiles,
-# MAGIC --   raw metrics, and specialist badge counts.
+# MAGIC --   Simplified 3-component scoring with selector_focus filter support.
+# MAGIC --   Shows eligible coaches with scores, component percentiles, raw metrics,
+# MAGIC --   and supplementary badge counts.
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, coach_id)
+# MAGIC --   1 row per (nation_id, selector_focus, coach_id)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_team_candidate_scores
 # MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
 # MAGIC --   - naf_catalog.gold_dim.coach_dim
-# MAGIC --   - naf_catalog.gold_summary.coach_race_relative_strength  (world specialist count)
-# MAGIC --   - naf_catalog.gold_summary.coach_race_nation_rank        (national specialist count)
+# MAGIC --   - naf_catalog.gold_summary.coach_race_relative_strength  (specialist counts)
+# MAGIC --   - naf_catalog.gold_summary.coach_race_nation_rank        (national specialist)
 # MAGIC -- PHASE: 6
 # MAGIC -- =====================================================================
 # MAGIC
@@ -1137,29 +1138,29 @@
 # MAGIC   tc.nation_id,
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
+# MAGIC   tc.selector_focus,
 # MAGIC   tc.coach_id,
 # MAGIC   cd.coach_name,
 # MAGIC
 # MAGIC   -- Ranking
 # MAGIC   tc.selector_rank,
-# MAGIC   CAST(ROUND(tc.selector_score,           2) AS DOUBLE) AS selector_score,
+# MAGIC   tc.selector_score,
 # MAGIC
-# MAGIC   -- Component percentiles (0–100, within-nation)
-# MAGIC   CAST(ROUND(tc.rating_pctl,              1) AS DOUBLE) AS rating_pctl,
-# MAGIC   CAST(ROUND(tc.form_pctl,                1) AS DOUBLE) AS form_pctl,
-# MAGIC   CAST(ROUND(tc.opponent_strength_pctl,   1) AS DOUBLE) AS opponent_strength_pctl,
-# MAGIC   CAST(ROUND(tc.versatility_pctl,         1) AS DOUBLE) AS versatility_pctl,
-# MAGIC   CAST(ROUND(tc.international_pctl,       1) AS DOUBLE) AS international_pctl,
+# MAGIC   -- Core component percentiles (0–100, within-nation)
+# MAGIC   ROUND(tc.glo_pctl,      1) AS glo_pctl,
+# MAGIC   ROUND(tc.race_pctl,     1) AS race_pctl,
+# MAGIC   ROUND(tc.opponent_pctl, 1) AS opponent_pctl,
 # MAGIC
 # MAGIC   -- Raw metric values
 # MAGIC   tc.glo_peak,
+# MAGIC   tc.glo_median,
+# MAGIC   tc.race_elo_median,
+# MAGIC   tc.avg_opponent_glo,
+# MAGIC
+# MAGIC   -- Supplementary (display only, not in selector score)
 # MAGIC   tc.form_score,
-# MAGIC   tc.avg_opponent_glo_peak,
 # MAGIC   tc.races_above_world_median,
 # MAGIC   tc.races_played_eligible,
-# MAGIC   tc.win_frac_vs_foreign,
-# MAGIC
-# MAGIC   -- Specialist badge counts
 # MAGIC   COALESCE(ws.world_specialist_count,    0) AS world_specialist_count,
 # MAGIC   COALESCE(ns.national_specialist_count, 0) AS national_specialist_count,
 # MAGIC
@@ -1194,10 +1195,11 @@
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for the nation power ranking table.
 # MAGIC --   Ranks nations by the average selector_score of their top 8 candidates.
+# MAGIC --   Supports selector_focus filter (GLO/RACE/OPPONENT/BALANCED).
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per nation_id
+# MAGIC --   1 row per (nation_id, selector_focus)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_power_ranking
 # MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
@@ -1210,8 +1212,10 @@
 # MAGIC   pr.nation_id,
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
-# MAGIC   CAST(ROUND(pr.top_8_avg_selector_score, 2) AS DOUBLE) AS top_8_avg_selector_score,
-# MAGIC   CAST(ROUND(pr.top_8_avg_glo_peak,       1) AS DOUBLE) AS top_8_avg_glo_peak,
+# MAGIC   pr.selector_focus,
+# MAGIC   pr.top_8_avg_selector_score,
+# MAGIC   pr.top_8_avg_glo_peak,
+# MAGIC   pr.top_8_avg_glo_median,
 # MAGIC   pr.coaches_in_top_8,
 # MAGIC   pr.coaches_eligible,
 # MAGIC   pr.load_timestamp

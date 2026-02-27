@@ -277,13 +277,10 @@
 # MAGIC   CAST(50      AS INT)     AS form_window_games,
 # MAGIC   CAST(50      AS INT)     AS form_min_games_for_pctl,
 # MAGIC
-# MAGIC   -- Team selector weights (Phase 6)
-# MAGIC   -- Sum must equal 1.0. Tunable; see Analytical_Parameters.md.
-# MAGIC   CAST(0.30    AS DOUBLE)  AS selector_w_rating,
-# MAGIC   CAST(0.25    AS DOUBLE)  AS selector_w_form,
-# MAGIC   CAST(0.15    AS DOUBLE)  AS selector_w_opponent,
-# MAGIC   CAST(0.15    AS DOUBLE)  AS selector_w_versatility,
-# MAGIC   CAST(0.15    AS DOUBLE)  AS selector_w_international,
+# MAGIC   -- Team selector (Phase 6)
+# MAGIC   -- Old 5-weight scheme removed. New 3-component selector (GLO/Race/Opponent)
+# MAGIC   -- uses deterministic focus weights computed in 332 (no config needed).
+# MAGIC   -- Kept for reference: previous weights were 0.30/0.25/0.15/0.15/0.15.
 # MAGIC
 # MAGIC   CURRENT_TIMESTAMP()      AS load_timestamp
 # MAGIC ;
