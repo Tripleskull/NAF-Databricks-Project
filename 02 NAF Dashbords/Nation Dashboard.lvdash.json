@@ -4,16 +4,7 @@
       "name": "w1_nation_profile",
       "displayName": "Nation Profile Card",
       "queryLines": [
-        "SELECT\r\n",
-        "  label,\r\n",
-        "  profile,\r\n",
-        "  sort_order,\r\n",
-        "  nation_id,\r\n",
-        "  nation_name_display,\r\n",
-        "  load_timestamp\r\n",
-        "FROM naf_catalog.gold_presentation.nation_profile_long\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY sort_order"
+        "SELECT\r\n  label,\r\n  profile,\r\n  sort_order,\r\n  nation_id,\r\n  nation_name_display,\r\n  load_timestamp\r\nFROM naf_catalog.gold_presentation.nation_profile_long\r\nWHERE nation_name_display = :nation_name_display\r\nORDER BY sort_order"
       ],
       "parameters": [
         {
@@ -37,15 +28,7 @@
       "name": "w2_nation_members_over_time",
       "displayName": "NAF Members Over Time",
       "queryLines": [
-        "SELECT\r\n",
-        "  iso_week,\r\n",
-        "  cumulative_coaches,\r\n",
-        "  nation_name_display\r\n",
-        "FROM naf_catalog.gold_presentation.nation_members_cumulative_weekly_display\r\n",
-        "WHERE nation_name_display IN (:nation_name_display)\r\n",
-        "  OR nation_name_display IN (:compare_nations)\r\n",
-        "  OR nation_id = 0\r\n",
-        "ORDER BY iso_week, nation_name_display"
+        "SELECT\r\n  iso_week,\r\n  cumulative_coaches,\r\n  nation_name_display\r\nFROM naf_catalog.gold_presentation.nation_members_cumulative_weekly_display\r\nWHERE array_contains(:nation_name_display, nation_name_display)\r\n  OR array_contains(:compare_nations, nation_name_display)\r\n  OR nation_id = 0\r\nORDER BY iso_week, nation_name_display"
       ],
       "parameters": [
         {
@@ -85,49 +68,7 @@
       "name": "w3_glo_boxplot",
       "displayName": "GLO Distribution",
       "queryLines": [
-        "SELECT\r\n",
-        "  nd.nation_name_display,\r\n",
-        "  nqm.coaches_count,\r\n",
-        "  nqm.value_min,\r\n",
-        "  nqm.value_p10,\r\n",
-        "  nqm.value_p25,\r\n",
-        "  nqm.value_p50,\r\n",
-        "  nqm.value_p75,\r\n",
-        "  nqm.value_p90,\r\n",
-        "  nqm.value_max,\r\n",
-        "  nqm.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.nation_glo_metric_quantiles nqm\r\n",
-        "JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
-        "  ON nqm.nation_id = nd.nation_id\r\n",
-        "WHERE nqm.metric_type = :glo_metric\r\n",
-        "  AND (\r\n",
-        "    nd.nation_name_display = :nation_name_display\r\n",
-        "    OR array_contains(coalesce(:compare_nations, array()), nd.nation_name_display)\r\n",
-        "  )\r\n",
-        "\r\n",
-        "UNION ALL\r\n",
-        "\r\n",
-        "SELECT\r\n",
-        "  'World' AS nation_name_display,\r\n",
-        "  wqm.coaches_count,\r\n",
-        "  wqm.value_min,\r\n",
-        "  wqm.value_p10,\r\n",
-        "  wqm.value_p25,\r\n",
-        "  wqm.value_p50,\r\n",
-        "  wqm.value_p75,\r\n",
-        "  wqm.value_p90,\r\n",
-        "  wqm.value_max,\r\n",
-        "  wqm.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.world_glo_metric_quantiles wqm\r\n",
-        "WHERE wqm.metric_type = :glo_metric\r\n",
-        "\r\n",
-        "ORDER BY\r\n",
-        "  CASE\r\n",
-        "    WHEN nation_name_display = 'World' THEN 0\r\n",
-        "    WHEN nation_name_display = :nation_name_display THEN 1\r\n",
-        "    ELSE 2\r\n",
-        "  END,\r\n",
-        "  nation_name_display"
+        "SELECT\r\n  nd.nation_name_display,\r\n  nqm.coaches_count,\r\n  nqm.value_min,\r\n  nqm.value_p10,\r\n  nqm.value_p25,\r\n  nqm.value_p50,\r\n  nqm.value_p75,\r\n  nqm.value_p90,\r\n  nqm.value_max,\r\n  nqm.load_timestamp\r\nFROM naf_catalog.gold_summary.nation_glo_metric_quantiles nqm\r\nJOIN naf_catalog.gold_dim.nation_dim nd\r\n  ON nqm.nation_id = nd.nation_id\r\nWHERE nqm.metric_type = :glo_metric\r\n  AND (\r\n    nd.nation_name_display = :nation_name_display\r\n    OR array_contains(coalesce(:compare_nations, array()), nd.nation_name_display)\r\n  )\r\n\r\nUNION ALL\r\n\r\nSELECT\r\n  'World' AS nation_name_display,\r\n  wqm.coaches_count,\r\n  wqm.value_min,\r\n  wqm.value_p10,\r\n  wqm.value_p25,\r\n  wqm.value_p50,\r\n  wqm.value_p75,\r\n  wqm.value_p90,\r\n  wqm.value_max,\r\n  wqm.load_timestamp\r\nFROM naf_catalog.gold_summary.world_glo_metric_quantiles wqm\r\nWHERE wqm.metric_type = :glo_metric\r\n\r\nORDER BY\r\n  CASE\r\n    WHEN nation_name_display = 'World' THEN 0\r\n    WHEN nation_name_display = :nation_name_display THEN 1\r\n    ELSE 2\r\n  END,\r\n  nation_name_display"
       ],
       "parameters": [
         {
@@ -182,55 +123,7 @@
       "name": "w4_elo_boxplot",
       "displayName": "Race ELO Distribution",
       "queryLines": [
-        "WITH base AS (\r\n",
-        "  SELECT\r\n",
-        "    nd.nation_name_display,\r\n",
-        "    ncrp.coach_id,\r\n",
-        "    ncrp.elo_peak AS peak_elo\r\n",
-        "  FROM naf_catalog.gold_summary.nation_coach_race_elo_peak ncrp\r\n",
-        "  JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
-        "    ON ncrp.nation_id = nd.nation_id\r\n",
-        "  JOIN naf_catalog.gold_dim.race_dim rd\r\n",
-        "    ON ncrp.race_id = rd.race_id\r\n",
-        "  WHERE rd.race_name = :race_name\r\n",
-        "    AND ncrp.elo_peak IS NOT NULL\r\n",
-        "),\r\n",
-        "world_data AS (\r\n",
-        "  SELECT\r\n",
-        "    'World' AS nation_label,\r\n",
-        "    coach_id,\r\n",
-        "    peak_elo\r\n",
-        "  FROM base\r\n",
-        "),\r\n",
-        "selected AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    coach_id,\r\n",
-        "    peak_elo\r\n",
-        "  FROM base\r\n",
-        "  WHERE nation_name_display = :nation_name_display\r\n",
-        "),\r\n",
-        "comparisons AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    coach_id,\r\n",
-        "    peak_elo\r\n",
-        "  FROM base\r\n",
-        "  WHERE array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
-        "    AND nation_name_display <> :nation_name_display\r\n",
-        "),\r\n",
-        "SELECT * FROM world_data\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM selected\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM comparisons\r\n",
-        "ORDER BY\r\n",
-        "  CASE\r\n",
-        "    WHEN nation_label = 'World' THEN 0\r\n",
-        "        WHEN nation_label = :nation_name_display THEN 1\r\n",
-        "    ELSE 2\r\n",
-        "  END,\r\n",
-        "  nation_label"
+        "WITH base AS (\r\n  SELECT\r\n    nd.nation_name_display,\r\n    ncrp.coach_id,\r\n    ncrp.elo_peak AS peak_elo\r\n  FROM naf_catalog.gold_summary.nation_coach_race_elo_peak ncrp\r\n  JOIN naf_catalog.gold_dim.nation_dim nd\r\n    ON ncrp.nation_id = nd.nation_id\r\n  JOIN naf_catalog.gold_dim.race_dim rd\r\n    ON ncrp.race_id = rd.race_id\r\n  WHERE rd.race_name = :race_name\r\n    AND ncrp.elo_peak IS NOT NULL\r\n),\r\nworld_data AS (\r\n  SELECT\r\n    'World' AS nation_label,\r\n    coach_id,\r\n    peak_elo\r\n  FROM base\r\n) selected AS (\r\n  SELECT\r\n    nation_name_display AS nation_label,\r\n    coach_id,\r\n    peak_elo\r\n  FROM base\r\n  WHERE nation_name_display = :nation_name_display\r\n),\r\ncomparisons AS (\r\n  SELECT\r\n    nation_name_display AS nation_label,\r\n    coach_id,\r\n    peak_elo\r\n  FROM base\r\n  WHERE array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n    AND nation_name_display <> :nation_name_display\r\n) SELECT * FROM world_data\r\nUNION ALL\r\nSELECT * FROM selected\r\nUNION ALL\r\nSELECT * FROM comparisons\r\nORDER BY\r\n  CASE\r\n    WHEN nation_label = 'World' THEN 0\r\n        WHEN nation_label = :nation_name_display THEN 1\r\n    ELSE 2\r\n  END,\r\n  nation_label"
       ],
       "parameters": [
         {
@@ -285,18 +178,7 @@
       "name": "w5_glo_histogram",
       "displayName": "GLO Rating Histogram",
       "queryLines": [
-        "SELECT\r\n",
-        "  glo_bin_label,\r\n",
-        "  density_pct,\r\n",
-        "  nation_name_display\r\n",
-        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
-        "WHERE metric_type = :glo_metric\r\n",
-        "  AND (\r\n",
-        "    nation_name_display IN (:nation_name_display)\r\n",
-        "    OR nation_name_display IN (:compare_nations)\r\n",
-        "    OR nation_id = 0\r\n",
-        "  )\r\n",
-        "ORDER BY glo_bin, nation_name_display"
+        "SELECT\r\n  glo_bin_label,\r\n  density_pct,\r\n  nation_name_display\r\nFROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\nWHERE metric_type = :glo_metric\r\n  AND (\r\n    array_contains(:nation_name_display, nation_name_display)\r\n    OR array_contains(:compare_nations, nation_name_display)\r\n    OR nation_id = 0\r\n  )\r\nORDER BY glo_bin, nation_name_display"
       ],
       "parameters": [
         {
@@ -351,18 +233,7 @@
       "name": "w6_glo_cumulative",
       "displayName": "GLO Cumulative Distribution",
       "queryLines": [
-        "SELECT\r\n",
-        "  glo_bin_label,\r\n",
-        "  cumulative_density_pct,\r\n",
-        "  nation_name_display\r\n",
-        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
-        "WHERE metric_type = :glo_metric\r\n",
-        "  AND (\r\n",
-        "    nation_name_display IN (:nation_name_display)\r\n",
-        "    OR nation_name_display IN (:compare_nations)\r\n",
-        "    OR nation_id = 0\r\n",
-        "  )\r\n",
-        "ORDER BY glo_bin, nation_name_display"
+        "SELECT\r\n  glo_bin_label,\r\n  cumulative_density_pct,\r\n  nation_name_display\r\nFROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\nWHERE metric_type = :glo_metric\r\n  AND (\r\n    array_contains(:nation_name_display, nation_name_display)\r\n    OR array_contains(:compare_nations, nation_name_display)\r\n    OR nation_id = 0\r\n  )\r\nORDER BY glo_bin, nation_name_display"
       ],
       "parameters": [
         {
@@ -417,7 +288,7 @@
       "name": "w7_race_popularity",
       "displayName": "Race Popularity",
       "queryLines": [
-        "SELECT\n  race_name,\n  coaches_pct_nation,\n  nation_name_display\nFROM naf_catalog.gold_presentation.nation_race_meta\nWHERE nation_name_display IN (:nation_name_display)\n  OR nation_name_display IN (:compare_nations)\n\nUNION ALL\n\nSELECT\n  r.race_name,\n  ROUND(100.0 * COUNT(DISTINCT cg.coach_id) / NULLIF(total.cnt, 0), 2) AS coaches_pct_nation,\n  'World' AS nation_name_display\nFROM naf_catalog.gold_fact.coach_games_fact cg\nJOIN naf_catalog.gold_dim.race_dim r ON cg.race_id = r.race_id\nCROSS JOIN (\n  SELECT COUNT(DISTINCT coach_id) AS cnt\n  FROM naf_catalog.gold_fact.coach_games_fact\n) total\nGROUP BY r.race_name, total.cnt\n\nORDER BY nation_name_display, coaches_pct_nation DESC"
+        "SELECT\n  race_name,\n  coaches_pct_nation,\n  nation_name_display\nFROM naf_catalog.gold_presentation.nation_race_meta\nWHERE array_contains(:nation_name_display, nation_name_display)\n  OR array_contains(:compare_nations, nation_name_display)\n\nUNION ALL\n\nSELECT\n  r.race_name,\n  ROUND(100.0 * COUNT(DISTINCT cg.coach_id) / NULLIF(total.cnt, 0), 2) AS coaches_pct_nation,\n  'World' AS nation_name_display\nFROM naf_catalog.gold_fact.coach_games_fact cg\nJOIN naf_catalog.gold_dim.race_dim r ON cg.race_id = r.race_id\nCROSS JOIN (\n  SELECT COUNT(DISTINCT coach_id) AS cnt\n  FROM naf_catalog.gold_fact.coach_games_fact\n) total\nGROUP BY r.race_name, total.cnt\n\nORDER BY nation_name_display, coaches_pct_nation DESC"
       ],
       "parameters": [
         {
@@ -481,18 +352,7 @@
       "name": "w9_opponent_elo_bins",
       "displayName": "Results by Opponent Rating",
       "queryLines": [
-        "SELECT\r\n",
-        "  bin_label_display,\r\n",
-        "  games,\r\n",
-        "  wins,\r\n",
-        "  draws,\r\n",
-        "  losses,\r\n",
-        "  ppg\r\n",
-        "FROM naf_catalog.gold_presentation.nation_opponent_elo_bin_wdl_display\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "  AND metric_type = :glo_metric\r\n",
-        "  AND bin_scheme_id = 'static_5'\r\n",
-        "ORDER BY bin_index"
+        "SELECT\r\n  bin_label_display,\r\n  games,\r\n  wins,\r\n  draws,\r\n  losses,\r\n  ppg\r\nFROM naf_catalog.gold_presentation.nation_opponent_elo_bin_wdl_display\r\nWHERE nation_name_display = :nation_name_display\r\n  AND metric_type = :glo_metric\r\n  AND bin_scheme_id = 'static_5'\r\nORDER BY bin_index"
       ],
       "parameters": [
         {
@@ -531,18 +391,7 @@
       "name": "w10_game_quality_bins",
       "displayName": "Results by Game Quality",
       "queryLines": [
-        "SELECT\r\n",
-        "  bin_label_display,\r\n",
-        "  games,\r\n",
-        "  wins,\r\n",
-        "  draws,\r\n",
-        "  losses,\r\n",
-        "  ppg\r\n",
-        "FROM naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "  AND metric_type = :glo_metric\r\n",
-        "  AND bin_scheme_id = 'static_5'\r\n",
-        "ORDER BY bin_index"
+        "SELECT\r\n  bin_label_display,\r\n  games,\r\n  wins,\r\n  draws,\r\n  losses,\r\n  ppg\r\nFROM naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display\r\nWHERE nation_name_display = :nation_name_display\r\n  AND metric_type = :glo_metric\r\n  AND bin_scheme_id = 'static_5'\r\nORDER BY bin_index"
       ],
       "parameters": [
         {
@@ -605,17 +454,7 @@
       "name": "w12_nation_rivalries",
       "displayName": "Nation Rivalries",
       "queryLines": [
-        "SELECT\r\n",
-        "  opponent_nation_name_display,\r\n",
-        "  games,\r\n",
-        "  wins,\r\n",
-        "  draws,\r\n",
-        "  losses,\r\n",
-        "  ppg,\r\n",
-        "  rivalry_score\r\n",
-        "FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY rivalry_rank"
+        "SELECT\r\n  opponent_nation_name_display,\r\n  games,\r\n  wins,\r\n  draws,\r\n  losses,\r\n  ppg,\r\n  rivalry_score\r\nFROM naf_catalog.gold_presentation.nation_rivalry_display\r\nWHERE nation_name_display = :nation_name_display\r\nORDER BY rivalry_rank"
       ],
       "parameters": [
         {
@@ -639,21 +478,7 @@
       "name": "w13_team_candidates",
       "displayName": "National Team Candidates",
       "queryLines": [
-        "SELECT\r\n",
-        "  selector_rank,\r\n",
-        "  coach_name,\r\n",
-        "  selector_score,\r\n",
-        "  glo_pctl,\r\n",
-        "  race_pctl,\r\n",
-        "  opponent_pctl,\r\n",
-        "  glo_median,\r\n",
-        "  race_elo_median,\r\n",
-        "  avg_opponent_glo\r\n",
-        "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "  AND selector_focus = :selector_focus\r\n",
-        "ORDER BY selector_rank\r\n",
-        "LIMIT 20"
+        "SELECT\r\n  selector_rank,\r\n  coach_name,\r\n  selector_score,\r\n  glo_pctl,\r\n  race_pctl,\r\n  opponent_pctl,\r\n  glo_median,\r\n  race_elo_median,\r\n  avg_opponent_glo\r\nFROM naf_catalog.gold_presentation.nation_team_candidates_display\r\nWHERE nation_name_display = :nation_name_display\r\n  AND selector_focus = :selector_focus\r\nORDER BY selector_rank\r\nLIMIT 20"
       ],
       "parameters": [
         {
@@ -692,17 +517,7 @@
       "name": "w14_power_ranking",
       "displayName": "Nation Power Ranking",
       "queryLines": [
-        "SELECT\r\n",
-        "  power_rank,\r\n",
-        "  flag_emoji,\r\n",
-        "  nation_name_display,\r\n",
-        "  top_8_avg_selector_score,\r\n",
-        "  top_8_avg_glo_peak,\r\n",
-        "  top_8_avg_glo_median,\r\n",
-        "  coaches_eligible\r\n",
-        "FROM naf_catalog.gold_presentation.nation_power_ranking_display\r\n",
-        "WHERE selector_focus = :selector_focus\r\n",
-        "ORDER BY power_rank"
+        "SELECT\r\n  power_rank,\r\n  flag_emoji,\r\n  nation_name_display,\r\n  top_8_avg_selector_score,\r\n  top_8_avg_glo_peak,\r\n  top_8_avg_glo_median,\r\n  coaches_eligible\r\nFROM naf_catalog.gold_presentation.nation_power_ranking_display\r\nWHERE selector_focus = :selector_focus\r\nORDER BY power_rank"
       ],
       "parameters": [
         {
@@ -726,9 +541,7 @@
       "name": "filter_glo_metric_values",
       "displayName": "Filter GLO Metric Values",
       "queryLines": [
-        "SELECT DISTINCT metric_type\r\n",
-        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
-        "ORDER BY metric_type"
+        "SELECT DISTINCT metric_type\r\nFROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\nORDER BY metric_type"
       ],
       "parameters": []
     },
@@ -736,10 +549,7 @@
       "name": "filter_race_values",
       "displayName": "Filter Race Values",
       "queryLines": [
-        "SELECT DISTINCT race_name\r\n",
-        "FROM naf_catalog.gold_dim.race_dim\r\n",
-        "WHERE race_name IS NOT NULL\r\n",
-        "ORDER BY race_name"
+        "SELECT DISTINCT race_name\r\nFROM naf_catalog.gold_dim.race_dim\r\nWHERE race_name IS NOT NULL\r\nORDER BY race_name"
       ],
       "parameters": []
     },
@@ -747,9 +557,7 @@
       "name": "filter_selector_focus_values",
       "displayName": "Filter Selector Focus Values",
       "queryLines": [
-        "SELECT DISTINCT selector_focus\r\n",
-        "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
-        "ORDER BY selector_focus"
+        "SELECT DISTINCT selector_focus\r\nFROM naf_catalog.gold_presentation.nation_team_candidates_display\r\nORDER BY selector_focus"
       ],
       "parameters": []
     }
