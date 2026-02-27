@@ -785,7 +785,7 @@
 # MAGIC   CAST(s.wins   AS INT)       AS wins,
 # MAGIC   CAST(s.draws  AS INT)       AS draws,
 # MAGIC   CAST(s.losses AS INT)       AS losses,
-# MAGIC   ROUND(s.win_pct, 3)         AS ppg,
+# MAGIC   ROUND(s.avg_score_for, 3)   AS ppg,
 # MAGIC   ROUND(s.glo_exchange_mean, 2) AS avg_glo_exchange,
 # MAGIC
 # MAGIC   COALESCE(r.rivalry_score, 0) AS rivalry_score,
@@ -938,16 +938,16 @@
 # MAGIC   QUALIFY ROW_NUMBER() OVER (PARTITION BY nation_id ORDER BY games_played DESC) = 1
 # MAGIC ),
 # MAGIC h2h_best AS (
-# MAGIC   SELECT nation_id, opponent_nation_id, win_pct
+# MAGIC   SELECT nation_id, opponent_nation_id, avg_score_for AS ppg
 # MAGIC   FROM naf_catalog.gold_summary.nation_vs_nation_summary
 # MAGIC   WHERE nation_id <> 0 AND opponent_nation_id <> 0 AND games_played >= 10
-# MAGIC   QUALIFY ROW_NUMBER() OVER (PARTITION BY nation_id ORDER BY win_pct DESC) = 1
+# MAGIC   QUALIFY ROW_NUMBER() OVER (PARTITION BY nation_id ORDER BY avg_score_for DESC) = 1
 # MAGIC ),
 # MAGIC h2h_worst AS (
-# MAGIC   SELECT nation_id, opponent_nation_id, win_pct
+# MAGIC   SELECT nation_id, opponent_nation_id, avg_score_for AS ppg
 # MAGIC   FROM naf_catalog.gold_summary.nation_vs_nation_summary
 # MAGIC   WHERE nation_id <> 0 AND opponent_nation_id <> 0 AND games_played >= 10
-# MAGIC   QUALIFY ROW_NUMBER() OVER (PARTITION BY nation_id ORDER BY win_pct ASC) = 1
+# MAGIC   QUALIFY ROW_NUMBER() OVER (PARTITION BY nation_id ORDER BY avg_score_for ASC) = 1
 # MAGIC ),
 # MAGIC
 # MAGIC -- 9. Resolve opponent nation names
@@ -955,8 +955,8 @@
 # MAGIC   SELECT
 # MAGIC     o.nation_id,
 # MAGIC     CONCAT(n1.nation_name_display, ' (', CAST(hm.games_played AS STRING), ' games)') AS most_played_opp,
-# MAGIC     CONCAT(n2.nation_name_display, ' (PPG ', CAST(ROUND(hb.win_pct, 2) AS STRING), ')') AS best_record_opp,
-# MAGIC     CONCAT(n3.nation_name_display, ' (PPG ', CAST(ROUND(hw.win_pct, 2) AS STRING), ')') AS worst_record_opp
+# MAGIC     CONCAT(n2.nation_name_display, ' (', CAST(ROUND(hb.ppg, 3) AS STRING), ' PPG)') AS best_record_opp,
+# MAGIC     CONCAT(n3.nation_name_display, ' (', CAST(ROUND(hw.ppg, 3) AS STRING), ' PPG)') AS worst_record_opp
 # MAGIC   FROM overview o
 # MAGIC   LEFT JOIN h2h_most  hm ON o.nation_id = hm.nation_id
 # MAGIC   LEFT JOIN h2h_best  hb ON o.nation_id = hb.nation_id

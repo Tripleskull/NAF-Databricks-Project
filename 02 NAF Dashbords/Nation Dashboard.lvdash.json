@@ -1,150 +1,16 @@
 {
   "datasets": [
     {
-      "name": "a861eb98",
-      "displayName": "nation_peak_glo_distribution",
-      "queryLines": [
-        "SELECT\r\n",
-        "  coach_id,\r\n",
-        "  nation_id,\r\n",
-        "  nation_name_display,\r\n",
-        "  glo_peak\r\n",
-        "FROM naf_catalog.gold_presentation.nation_glo_peak_distribution\r\n",
-        "WHERE is_valid_glo = TRUE\r\n",
-        "  AND glo_peak IS NOT NULL"
-      ]
-    },
-    {
-      "name": "f43468b1",
-      "displayName": "nation_race_meta",
-      "queryLines": [
-        "SELECT\r\n",
-        "  ns.nation_id,\r\n",
-        "  ns.race_id,\r\n",
-        "  rd.race_name,\r\n",
-        "  ns.coaches_count,\r\n",
-        "  ns.coach_participations_count,\r\n",
-        "  ns.tournaments_attended_count,\r\n",
-        "  ns.coaches_pct_nation,\r\n",
-        "  ns.coach_participations_pct_nation,\r\n",
-        "  ns.tournaments_attended_pct_nation,\r\n",
-        "  ns.avg_points_per_game AS points_per_game,\r\n",
-        "  ns.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.nation_race_summary ns\r\n",
-        "LEFT JOIN naf_catalog.gold_dim.race_dim rd\r\n",
-        "  ON ns.race_id = rd.race_id"
-      ]
-    },
-    {
-      "name": "b8f184d0",
-      "displayName": "nation_race_peak_elo_distribution",
-      "queryLines": [
-        "SELECT\r\n",
-        "  nc.coach_id,\r\n",
-        "  nc.race_id,\r\n",
-        "  nc.nation_id,\r\n",
-        "  nc.elo_peak,\r\n",
-        "  nc.games_with_race,\r\n",
-        "  nc.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.nation_coach_race_elo_peak nc\r\n",
-        "WHERE nc.is_valid_elo = TRUE\r\n",
-        "  AND nc.elo_peak IS NOT NULL\r\n",
-        "  -- Add additional filters for race_id and nation_id as needed"
-      ]
-    },
-    {
-      "name": "db6a177f",
-      "displayName": "nation_race_peak_elo_summary",
-      "queryLines": [
-        "SELECT\r\n",
-        "  nation_id,\r\n",
-        "  race_id,\r\n",
-        "  coaches_with_race_count,\r\n",
-        "  elo_peak_mean,\r\n",
-        "  elo_peak_median,\r\n",
-        "  elo_peak_p90,\r\n",
-        "  elo_peak_p10,\r\n",
-        "  load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.nation_race_elo_peak_summary"
-      ]
-    },
-    {
-      "name": "d429dda5",
-      "displayName": "nation_vs_nation_meta",
-      "queryLines": [
-        "SELECT\r\n",
-        "  nation_id,\r\n",
-        "  nation_name,\r\n",
-        "  nation_name_display,\r\n",
-        "  fifa_code,\r\n",
-        "  flag_code\r\n",
-        "FROM naf_catalog.gold_dim.nation_dim"
-      ]
-    },
-    {
-      "name": "b3fb708b",
-      "displayName": "Nation vs World boxplot",
-      "queryLines": [
-        "SELECT\r\n",
-        "  'Nation' AS scope,\r\n",
-        "  nqm.nation_id,\r\n",
-        "  nqm.coaches_count,\r\n",
-        "  nqm.value_min,\r\n",
-        "  nqm.value_p10,\r\n",
-        "  nqm.value_p25,\r\n",
-        "  nqm.value_p50,\r\n",
-        "  nqm.value_p75,\r\n",
-        "  nqm.value_p90,\r\n",
-        "  nqm.value_max,\r\n",
-        "  nqm.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.nation_glo_metric_quantiles nqm\r\n",
-        "JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
-        "  ON nqm.nation_id = nd.nation_id\r\n",
-        "WHERE nqm.metric_type = 'PEAK'\r\n",
-        "  AND nd.nation_name_display = :nation_name_display\r\n",
-        "\r\n",
-        "UNION ALL\r\n",
-        "\r\n",
-        "SELECT\r\n",
-        "  'World' AS scope,\r\n",
-        "  NULL AS nation_id,\r\n",
-        "  wqm.coaches_count,\r\n",
-        "  wqm.value_min,\r\n",
-        "  wqm.value_p10,\r\n",
-        "  wqm.value_p25,\r\n",
-        "  wqm.value_p50,\r\n",
-        "  wqm.value_p75,\r\n",
-        "  wqm.value_p90,\r\n",
-        "  wqm.value_max,\r\n",
-        "  wqm.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.world_glo_metric_quantiles wqm\r\n",
-        "WHERE wqm.metric_type = 'PEAK'"
-      ],
-      "parameters": [
-        {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "5436dca7",
-      "displayName": "nation_overview",
+      "name": "w1_nation_profile",
+      "displayName": "Nation Profile Card",
       "queryLines": [
         "SELECT\r\n",
         "  label,\r\n",
-        "  profile\r\n",
+        "  profile,\r\n",
+        "  sort_order,\r\n",
+        "  nation_id,\r\n",
+        "  nation_name_display,\r\n",
+        "  load_timestamp\r\n",
         "FROM naf_catalog.gold_presentation.nation_profile_long\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
         "ORDER BY sort_order"
@@ -168,20 +34,72 @@
       ]
     },
     {
-      "name": "ab8b0908",
-      "displayName": "Nations vs World and nations GLO",
+      "name": "w2_nation_members_over_time",
+      "displayName": "NAF Members Over Time",
+      "queryLines": [
+        "SELECT\r\n",
+        "  iso_week,\r\n",
+        "  cumulative_coaches,\r\n",
+        "  nation_name_display\r\n",
+        "FROM naf_catalog.gold_presentation.nation_members_cumulative_weekly_display\r\n",
+        "WHERE nation_name_display IN (:nation_name_display)\r\n",
+        "  OR nation_name_display IN (:compare_nations)\r\n",
+        "  OR nation_id = 0\r\n",
+        "ORDER BY iso_week, nation_name_display"
+      ],
+      "parameters": [
+        {
+          "displayName": "nation_name_display",
+          "keyword": "nation_name_display",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "compare_nations",
+          "keyword": "compare_nations",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Sweden"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "w3_glo_boxplot",
+      "displayName": "GLO Distribution",
       "queryLines": [
         "SELECT\r\n",
         "  nd.nation_name_display,\r\n",
+        "  nqm.coaches_count,\r\n",
         "  nqm.value_min,\r\n",
+        "  nqm.value_p10,\r\n",
         "  nqm.value_p25,\r\n",
         "  nqm.value_p50,\r\n",
         "  nqm.value_p75,\r\n",
-        "  nqm.value_max\r\n",
+        "  nqm.value_p90,\r\n",
+        "  nqm.value_max,\r\n",
+        "  nqm.load_timestamp\r\n",
         "FROM naf_catalog.gold_summary.nation_glo_metric_quantiles nqm\r\n",
         "JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
         "  ON nqm.nation_id = nd.nation_id\r\n",
-        "WHERE nqm.metric_type = 'PEAK'\r\n",
+        "WHERE nqm.metric_type = :glo_metric\r\n",
         "  AND (\r\n",
         "    nd.nation_name_display = :nation_name_display\r\n",
         "    OR array_contains(coalesce(:compare_nations, array()), nd.nation_name_display)\r\n",
@@ -191,13 +109,17 @@
         "\r\n",
         "SELECT\r\n",
         "  'World' AS nation_name_display,\r\n",
+        "  wqm.coaches_count,\r\n",
         "  wqm.value_min,\r\n",
+        "  wqm.value_p10,\r\n",
         "  wqm.value_p25,\r\n",
         "  wqm.value_p50,\r\n",
         "  wqm.value_p75,\r\n",
-        "  wqm.value_max\r\n",
+        "  wqm.value_p90,\r\n",
+        "  wqm.value_max,\r\n",
+        "  wqm.load_timestamp\r\n",
         "FROM naf_catalog.gold_summary.world_glo_metric_quantiles wqm\r\n",
-        "WHERE wqm.metric_type = 'PEAK'\r\n",
+        "WHERE wqm.metric_type = :glo_metric\r\n",
         "\r\n",
         "ORDER BY\r\n",
         "  CASE\r\n",
@@ -209,25 +131,6 @@
       ],
       "parameters": [
         {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                },
-                {
-                  "value": "Sweden"
-                }
-              ]
-            }
-          }
-        },
-        {
           "displayName": "nation_name_display",
           "keyword": "nation_name_display",
           "dataType": "STRING",
@@ -241,50 +144,7 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "6ac8952f",
-      "displayName": "Density GLO",
-      "queryLines": [
-        "SELECT\r\n",
-        "  nd.nation_name_display,\r\n",
-        "  nqm.value_min,\r\n",
-        "  nqm.value_p25,\r\n",
-        "  nqm.value_p50,\r\n",
-        "  nqm.value_p75,\r\n",
-        "  nqm.value_max\r\n",
-        "FROM naf_catalog.gold_summary.nation_glo_metric_quantiles nqm\r\n",
-        "JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
-        "  ON nqm.nation_id = nd.nation_id\r\n",
-        "WHERE nqm.metric_type = 'PEAK'\r\n",
-        "  AND (\r\n",
-        "    nd.nation_name_display = :nation_name_display\r\n",
-        "    OR array_contains(coalesce(:compare_nations, array()), nd.nation_name_display)\r\n",
-        "  )\r\n",
-        "\r\n",
-        "UNION ALL\r\n",
-        "\r\n",
-        "SELECT\r\n",
-        "  'World' AS nation_name_display,\r\n",
-        "  wqm.value_min,\r\n",
-        "  wqm.value_p25,\r\n",
-        "  wqm.value_p50,\r\n",
-        "  wqm.value_p75,\r\n",
-        "  wqm.value_max\r\n",
-        "FROM naf_catalog.gold_summary.world_glo_metric_quantiles wqm\r\n",
-        "WHERE wqm.metric_type = 'PEAK'\r\n",
-        "\r\n",
-        "ORDER BY\r\n",
-        "  CASE\r\n",
-        "    WHEN nation_name_display = 'World' THEN 0\r\n",
-        "    WHEN nation_name_display = :nation_name_display THEN 1\r\n",
-        "    ELSE 2\r\n",
-        "  END,\r\n",
-        "  nation_name_display"
-      ],
-      "parameters": [
+        },
         {
           "displayName": "compare_nations",
           "keyword": "compare_nations",
@@ -295,9 +155,6 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
-                },
-                {
                   "value": "Sweden"
                 }
               ]
@@ -305,15 +162,15 @@
           }
         },
         {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
+          "displayName": "glo_metric",
+          "keyword": "glo_metric",
           "dataType": "STRING",
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
+                  "value": "PEAK"
                 }
               ]
             }
@@ -322,62 +179,8 @@
       ]
     },
     {
-      "name": "41a0b7be",
-      "displayName": "Summary Card",
-      "queryLines": [
-        "SELECT\r\n",
-        "  bin_scheme_name_display AS metric,\r\n",
-        "  nation_name_display,\r\n",
-        "  result AS value\r\n",
-        "FROM naf_catalog.gold_presentation.coach_opponent_global_elo_bin_results_long\r\n",
-        "WHERE nation_name_display = 'World'\r\n",
-        "   OR nation_name_display = :nation_name_display\r\n",
-        "   OR array_contains(\r\n",
-        "        coalesce(:compare_nations, array()), \r\n",
-        "        nation_name_display\r\n",
-        "      )\r\n",
-        "ORDER BY bin_scheme_name_display, nation_name_display"
-      ],
-      "parameters": [
-        {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                },
-                {
-                  "value": "Sweden"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "0d4ef502",
-      "displayName": "Nations vs World and nations ELO",
+      "name": "w4_elo_boxplot",
+      "displayName": "Race ELO Distribution",
       "queryLines": [
         "WITH base AS (\r\n",
         "  SELECT\r\n",
@@ -389,10 +192,9 @@
         "    ON ncrp.nation_id = nd.nation_id\r\n",
         "  JOIN naf_catalog.gold_dim.race_dim rd\r\n",
         "    ON ncrp.race_id = rd.race_id\r\n",
-        "  WHERE rd.race_name = :race\r\n",
+        "  WHERE rd.race_name = :race_name\r\n",
         "    AND ncrp.elo_peak IS NOT NULL\r\n",
         "),\r\n",
-        "\r\n",
         "world_data AS (\r\n",
         "  SELECT\r\n",
         "    'World' AS nation_label,\r\n",
@@ -400,7 +202,6 @@
         "    peak_elo\r\n",
         "  FROM base\r\n",
         "),\r\n",
-        "\r\n",
         "selected AS (\r\n",
         "  SELECT\r\n",
         "    nation_name_display AS nation_label,\r\n",
@@ -409,7 +210,6 @@
         "  FROM base\r\n",
         "  WHERE nation_name_display = :nation_name_display\r\n",
         "),\r\n",
-        "\r\n",
         "comparisons AS (\r\n",
         "  SELECT\r\n",
         "    nation_name_display AS nation_label,\r\n",
@@ -419,20 +219,7 @@
         "  WHERE array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
         "    AND nation_name_display <> :nation_name_display\r\n",
         "),\r\n",
-        "\r\n",
-        "rest_of_world AS (\r\n",
-        "  SELECT\r\n",
-        "    'Rest of World' AS nation_label,\r\n",
-        "    coach_id,\r\n",
-        "    peak_elo\r\n",
-        "  FROM base\r\n",
-        "  WHERE nation_name_display <> :nation_name_display\r\n",
-        "    AND NOT array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
-        ")\r\n",
-        "\r\n",
         "SELECT * FROM world_data\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM rest_of_world\r\n",
         "UNION ALL\r\n",
         "SELECT * FROM selected\r\n",
         "UNION ALL\r\n",
@@ -440,9 +227,8 @@
         "ORDER BY\r\n",
         "  CASE\r\n",
         "    WHEN nation_label = 'World' THEN 0\r\n",
-        "    WHEN nation_label = 'Rest of World' THEN 1\r\n",
-        "    WHEN nation_label = :nation_name_display THEN 2\r\n",
-        "    ELSE 3\r\n",
+        "        WHEN nation_label = :nation_name_display THEN 1\r\n",
+        "    ELSE 2\r\n",
         "  END,\r\n",
         "  nation_label"
       ],
@@ -472,15 +258,15 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
+                  "value": "Sweden"
                 }
               ]
             }
           }
         },
         {
-          "displayName": "race",
-          "keyword": "race",
+          "displayName": "race_name",
+          "keyword": "race_name",
           "dataType": "STRING",
           "defaultSelection": {
             "values": {
@@ -496,211 +282,39 @@
       ]
     },
     {
-      "name": "1b775d70",
-      "displayName": "race hist",
+      "name": "w5_glo_histogram",
+      "displayName": "GLO Rating Histogram",
       "queryLines": [
-        "WITH nation_rows AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    race_id,\r\n",
-        "    race_name,\r\n",
-        "    coaches_pct_nation  AS proportion\r\n",
-        "  FROM naf_catalog.gold_presentation.nation_race_meta\r\n",
-        "  WHERE nation_name_display = :nation_name_display\r\n",
-        "     OR array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
-        "),\r\n",
-        "\r\n",
-        "counts AS (\r\n",
-        "  SELECT\r\n",
-        "    s.race_id,\r\n",
-        "    SUM(s.coaches_count) AS world_coaches,\r\n",
-        "    SUM(CASE WHEN n.nation_name_display <> :nation_name_display THEN s.coaches_count ELSE 0 END) AS rest_coaches\r\n",
-        "  FROM naf_catalog.gold_summary.nation_race_summary s\r\n",
-        "  JOIN naf_catalog.gold_dim.nation_dim n\r\n",
-        "    ON s.nation_id = n.nation_id\r\n",
-        "  GROUP BY s.race_id\r\n",
-        "),\r\n",
-        "\r\n",
-        "totals AS (\r\n",
-        "  SELECT\r\n",
-        "    SUM(world_coaches) AS world_total,\r\n",
-        "    SUM(rest_coaches)  AS rest_total\r\n",
-        "  FROM counts\r\n",
-        "),\r\n",
-        "\r\n",
-        "baselines AS (\r\n",
-        "  SELECT\r\n",
-        "    'World' AS nation_label,\r\n",
-        "    c.race_id,\r\n",
-        "    r.race_name,\r\n",
-        "    c.world_coaches / NULLIF(t.world_total, 0) AS proportion\r\n",
-        "  FROM counts c\r\n",
-        "  JOIN naf_catalog.gold_dim.race_dim r\r\n",
-        "    ON c.race_id = r.race_id\r\n",
-        "  CROSS JOIN totals t\r\n",
-        "\r\n",
-        "  UNION ALL\r\n",
-        "\r\n",
-        "  SELECT\r\n",
-        "    'Rest of World' AS nation_label,\r\n",
-        "    c.race_id,\r\n",
-        "    r.race_name,\r\n",
-        "    c.rest_coaches / NULLIF(t.rest_total, 0) AS proportion\r\n",
-        "  FROM counts c\r\n",
-        "  JOIN naf_catalog.gold_dim.race_dim r\r\n",
-        "    ON c.race_id = r.race_id\r\n",
-        "  CROSS JOIN totals t\r\n",
-        ")\r\n",
-        "\r\n",
-        "SELECT nation_label, race_name, proportion\r\n",
-        "FROM baselines\r\n",
-        "\r\n",
-        "UNION ALL\r\n",
-        "\r\n",
-        "SELECT nation_label, race_name, proportion\r\n",
-        "FROM nation_rows\r\n",
-        "\r\n",
-        "ORDER BY\r\n",
-        "  race_name,\r\n",
-        "  CASE\r\n",
-        "    WHEN nation_label = 'World' THEN 0\r\n",
-        "    WHEN nation_label = 'Rest of World' THEN 1\r\n",
-        "    WHEN nation_label = :nation_name_display THEN 2\r\n",
-        "    ELSE 3\r\n",
-        "  END,\r\n",
-        "  nation_label;\r\n"
+        "SELECT\r\n",
+        "  glo_bin_label,\r\n",
+        "  density_pct,\r\n",
+        "  nation_name_display\r\n",
+        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
+        "WHERE metric_type = :glo_metric\r\n",
+        "  AND (\r\n",
+        "    nation_name_display IN (:nation_name_display)\r\n",
+        "    OR nation_name_display IN (:compare_nations)\r\n",
+        "    OR nation_id = 0\r\n",
+        "  )\r\n",
+        "ORDER BY glo_bin, nation_name_display"
       ],
       "parameters": [
         {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
+          "displayName": "nation_name_display",
+          "keyword": "nation_name_display",
           "dataType": "STRING",
-          "complexType": "MULTI",
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "World"
+                  "value": "Denmark"
                 }
               ]
             }
           }
         },
         {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "680c657c",
-      "displayName": "GLO exchange",
-      "queryLines": [
-        "WITH base AS (\r\n",
-        "  SELECT\r\n",
-        "    opponent_nation_name_display AS opponent_nation,\r\n",
-        "    opponent_nation_id,\r\n",
-        "    glo_exchange_total,\r\n",
-        "    glo_exchange_mean,\r\n",
-        "    games_played,\r\n",
-        "    load_timestamp\r\n",
-        "  FROM naf_catalog.gold_presentation.nation_vs_nation_meta\r\n",
-        "  WHERE nation_name_display = :nation_name_display\r\n",
-        "    AND games_played >= 5\r\n",
-        "    AND opponent_nation_name_display <> :nation_name_display\r\n",
-        "),\r\n",
-        "\r\n",
-        "ranked AS (\r\n",
-        "  SELECT\r\n",
-        "    opponent_nation,\r\n",
-        "    glo_exchange_total,\r\n",
-        "    glo_exchange_mean,\r\n",
-        "    games_played,\r\n",
-        "    load_timestamp,\r\n",
-        "    ROW_NUMBER() OVER (\r\n",
-        "      ORDER BY glo_exchange_total DESC, opponent_nation_id\r\n",
-        "    ) AS position,\r\n",
-        "    SUM(glo_exchange_total) OVER (\r\n",
-        "      ORDER BY glo_exchange_total DESC, opponent_nation_id\r\n",
-        "      ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW\r\n",
-        "    ) AS running_total\r\n",
-        "  FROM base\r\n",
-        ")\r\n",
-        "\r\n",
-        "SELECT\r\n",
-        "  position,\r\n",
-        "  opponent_nation,\r\n",
-        "  glo_exchange_total,\r\n",
-        "  glo_exchange_mean,\r\n",
-        "  games_played,\r\n",
-        "  running_total,\r\n",
-        "  CONCAT(\r\n",
-        "    opponent_nation,\r\n",
-        "    '\\nGames: ', games_played,\r\n",
-        "    '\\nAvg GLO: ', ROUND(glo_exchange_mean, 2),\r\n",
-        "    '\\nTotal GLO: ', ROUND(glo_exchange_total, 1)\r\n",
-        "  ) AS hover_label,\r\n",
-        "  load_timestamp\r\n",
-        "FROM ranked\r\n",
-        "ORDER BY position;\r\n"
-      ],
-      "parameters": [
-        {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "d1bb6b80",
-      "displayName": "Nation vs Nation records",
-      "queryLines": [
-        "SELECT\r\n",
-        "  opponent_nation_name_display AS opponent_nation,\r\n",
-        "  games_played,\r\n",
-        "  wins,\r\n",
-        "  draws,\r\n",
-        "  losses,\r\n",
-        "  win_pct,\r\n",
-        "  avg_score_for,\r\n",
-        "  avg_score_against,\r\n",
-        "  glo_exchange_total AS total_glo_exchange,\r\n",
-        "  glo_exchange_mean  AS avg_glo_exchange,\r\n",
-        "  load_timestamp\r\n",
-        "FROM naf_catalog.gold_presentation.nation_vs_nation_meta\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "  AND games_played >= 5\r\n",
-        "  AND (\r\n",
-        "        coalesce(size(coalesce(:compare_nations, array())), 0) = 0\r\n",
-        "     OR array_contains(coalesce(:compare_nations, array()), opponent_nation_name_display)\r\n",
-        "      )\r\n",
-        "ORDER BY games_played DESC, opponent_nation_name_display;\r\n"
-      ],
-      "parameters": [
-        {
           "displayName": "compare_nations",
           "keyword": "compare_nations",
           "dataType": "STRING",
@@ -709,29 +323,23 @@
             "values": {
               "dataType": "STRING",
               "values": [
-                {
-                  "value": "Denmark"
-                },
                 {
                   "value": "Sweden"
-                },
-                {
-                  "value": "Finland"
                 }
               ]
             }
           }
         },
         {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
+          "displayName": "glo_metric",
+          "keyword": "glo_metric",
           "dataType": "STRING",
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
+                  "value": "PEAK"
                 }
               ]
             }
@@ -740,153 +348,38 @@
       ]
     },
     {
-      "name": "0cc8c0f4",
-      "displayName": "Rival Score",
+      "name": "w6_glo_cumulative",
+      "displayName": "GLO Cumulative Distribution",
       "queryLines": [
         "SELECT\r\n",
-        "  opponent_nation_name_display AS opponent_nation,\r\n",
-        "  games_played,\r\n",
-        "  win_pct,\r\n",
-        "  avg_score_for,\r\n",
-        "  avg_score_against,\r\n",
-        "  avg_score_diff,\r\n",
-        "  glo_exchange_total,\r\n",
-        "  games_score,\r\n",
-        "  closeness_score,\r\n",
-        "  games_share,\r\n",
-        "  rivalry_score\r\n",
-        "FROM naf_catalog.gold_presentation.nation_rivalry_meta\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY rivalry_score DESC;\r\n"
-      ],
-      "parameters": [
-        {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "7ad190ff",
-      "displayName": "Top performing coaches",
-      "queryLines": [
-        "SELECT\r\n",
-        "  nation_name_display,\r\n",
-        "  coach_id,\r\n",
-        "  coach_name,\r\n",
-        "  glo_peak,\r\n",
-        "  world_rank,\r\n",
-        "  nation_rank,\r\n",
-        "  bin_index,\r\n",
-        "  bin_lower,\r\n",
-        "  bin_upper,\r\n",
-        "  bin_label,\r\n",
-        "  opponents_count,\r\n",
-        "  win_points_per_game\r\n",
-        "FROM naf_catalog.gold_presentation.nation_top_coach_opponent_bin_perf\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "  AND nation_rank <= COALESCE(:top_n, 20)\r\n",
-        "ORDER BY nation_rank, bin_index;"
-      ],
-      "parameters": [
-        {
-          "displayName": "top_n",
-          "keyword": "top_n",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "12"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "efd8dfe9",
-      "displayName": "Nations vs World  BOX with metrics",
-      "queryLines": [
-        "-- QUERY: nation_coach_glo_metrics_long (dashboard dataset)\r\n",
-        "--\r\n",
-        "-- PURPOSE:\r\n",
-        "--   Return per-coach GLO metric rows (long format) for:\r\n",
-        "--     1) the selected nation\r\n",
-        "--     2) optional comparison nations (multi-select)\r\n",
-        "--     3) the 'World' benchmark\r\n",
-        "--   Used for cross-nation comparisons in the dashboard.\r\n",
-        "--\r\n",
-        "-- LAYER:\r\n",
-        "--   gold_presentation (dashboard contract consumer query).\r\n",
-        "--   Metric definitions should be owned upstream (typically gold_summary) and surfaced here as shaped outputs. :contentReference[oaicite:0]{index=0} :contentReference[oaicite:1]{index=1}\r\n",
-        "--\r\n",
-        "-- INPUTS / PARAMETERS:\r\n",
-        "--   :nation_name_display (STRING)            -- selected nation label (UI-facing, from nation_dim).\r\n",
-        "--   :compare_nations (ARRAY<STRING> | NULL)  -- optional multi-select nation labels to compare.\r\n",
-        "--\r\n",
-        "-- OUTPUT GRAIN:\r\n",
-        "--   One row per (nation_name_display, coach_id, metric_type).\r\n",
-        "--\r\n",
-        "-- UNIQUENESS EXPECTATION:\r\n",
-        "--   Unique on (nation_name_display, coach_id, metric_type) for the returned metric_type set.\r\n",
-        "--\r\n",
-        "-- SOURCE:\r\n",
-        "--   naf_catalog.gold_presentation.nation_coach_glo_metrics_long\r\n",
-        "--\r\n",
-        "-- FILTER SEMANTICS:\r\n",
-        "--   - Always include 'World' rows (nation_name_display = 'World').\r\n",
-        "--   - Always include the selected nation.\r\n",
-        "--   - Include additional nations when they are in :compare_nations, excluding the selected nation.\r\n",
-        "\r\n",
-        "SELECT\r\n",
-        "  nation_name_display,\r\n",
-        "  coach_id,\r\n",
-        "  coach_name,\r\n",
-        "  metric_type,\r\n",
-        "  metric_value,\r\n",
-        "  games_played,\r\n",
-        "  load_timestamp\r\n",
-        "FROM naf_catalog.gold_presentation.nation_coach_glo_metrics_long\r\n",
-        "WHERE metric_type IN ('PEAK', 'MEAN', 'MEDIAN')\r\n",
+        "  glo_bin_label,\r\n",
+        "  cumulative_density_pct,\r\n",
+        "  nation_name_display\r\n",
+        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
+        "WHERE metric_type = :glo_metric\r\n",
         "  AND (\r\n",
-        "       nation_name_display = 'World'\r\n",
-        "    OR nation_name_display = :nation_name_display\r\n",
-        "    OR (\r\n",
-        "         array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
-        "         AND nation_name_display <> :nation_name_display\r\n",
-        "       )\r\n",
-        "  );\r\n"
+        "    nation_name_display IN (:nation_name_display)\r\n",
+        "    OR nation_name_display IN (:compare_nations)\r\n",
+        "    OR nation_id = 0\r\n",
+        "  )\r\n",
+        "ORDER BY glo_bin, nation_name_display"
       ],
       "parameters": [
+        {
+          "displayName": "nation_name_display",
+          "keyword": "nation_name_display",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
+            }
+          }
+        },
         {
           "displayName": "compare_nations",
           "keyword": "compare_nations",
@@ -897,19 +390,37 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
-                },
-                {
                   "value": "Sweden"
-                },
-                {
-                  "value": "World"
                 }
               ]
             }
           }
         },
         {
+          "displayName": "glo_metric",
+          "keyword": "glo_metric",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "PEAK"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "w7_race_popularity",
+      "displayName": "Race Popularity",
+      "queryLines": [
+        "SELECT\n  race_name,\n  coaches_pct_nation,\n  nation_name_display\nFROM naf_catalog.gold_presentation.nation_race_meta\nWHERE nation_name_display IN (:nation_name_display)\n  OR nation_name_display IN (:compare_nations)\n\nUNION ALL\n\nSELECT\n  r.race_name,\n  ROUND(100.0 * COUNT(DISTINCT cg.coach_id) / NULLIF(total.cnt, 0), 2) AS coaches_pct_nation,\n  'World' AS nation_name_display\nFROM naf_catalog.gold_fact.coach_games_fact cg\nJOIN naf_catalog.gold_dim.race_dim r ON cg.race_id = r.race_id\nCROSS JOIN (\n  SELECT COUNT(DISTINCT coach_id) AS cnt\n  FROM naf_catalog.gold_fact.coach_games_fact\n) total\nGROUP BY r.race_name, total.cnt\n\nORDER BY nation_name_display, coaches_pct_nation DESC"
+      ],
+      "parameters": [
+        {
           "displayName": "nation_name_display",
           "keyword": "nation_name_display",
           "dataType": "STRING",
@@ -923,54 +434,30 @@
               ]
             }
           }
+        },
+        {
+          "displayName": "compare_nations",
+          "keyword": "compare_nations",
+          "dataType": "STRING",
+          "complexType": "MULTI",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Sweden"
+                }
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "name": "44813501",
-      "displayName": "Untitled dataset",
+      "name": "w8_performance_context",
+      "displayName": "Performance Context",
       "queryLines": [
-        "-- DATASET: nation_overview_comparison_summary (filtered to one focus nation)\r\n",
-        "-- Notes:\r\n",
-        "-- - deterministic focus nation selection (ORDER BY + LIMIT 1)\r\n",
-        "-- - optional \"latest load only\" filter (uncomment if needed)\r\n",
-        "\r\n",
-        "WITH focus AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_id AS focus_nation_id\r\n",
-        "  FROM naf_catalog.gold_dim.nation_dim\r\n",
-        "  WHERE nation_name_display = :nation_name_display\r\n",
-        "  ORDER BY nation_id\r\n",
-        "  LIMIT 1\r\n",
-        ")\r\n",
-        "--, latest AS (\r\n",
-        "--  SELECT\r\n",
-        "--    MAX(s.load_timestamp) AS load_timestamp\r\n",
-        "--  FROM naf_catalog.gold_summary.nation_overview_comparison_summary AS s\r\n",
-        "--  JOIN focus AS f\r\n",
-        "--    ON s.focus_nation_id = f.focus_nation_id\r\n",
-        "--)\r\n",
-        "SELECT\r\n",
-        "  s.comparison_group,\r\n",
-        "  s.coaches_count,\r\n",
-        "  s.coach_participations_count,\r\n",
-        "  s.avg_points_per_game,\r\n",
-        "  s.glo_peak_mean,\r\n",
-        "  s.glo_peak_median,\r\n",
-        "  s.glo_peak_max,\r\n",
-        "  s.load_timestamp\r\n",
-        "FROM naf_catalog.gold_summary.nation_overview_comparison_summary AS s\r\n",
-        "JOIN focus AS f\r\n",
-        "  ON s.focus_nation_id = f.focus_nation_id\r\n",
-        "--JOIN latest AS l\r\n",
-        "--  ON s.load_timestamp = l.load_timestamp\r\n",
-        "ORDER BY\r\n",
-        "  CASE s.comparison_group\r\n",
-        "    WHEN 'NATION' THEN 1\r\n",
-        "    WHEN 'REST_OF_WORLD' THEN 2\r\n",
-        "    WHEN 'WORLD' THEN 3\r\n",
-        "    ELSE 99\r\n",
-        "  END;\r\n"
+        "SELECT\n  away_ratio_pct,\n  games_home,\n  games_away,\n  ppg_home,\n  ppg_away,\n  games_vs_foreign,\n  ppg_vs_foreign\nFROM naf_catalog.gold_presentation.nation_domestic_performance_display\nWHERE nation_name_display = :nation_name_display"
       ],
       "parameters": [
         {
@@ -991,57 +478,20 @@
       ]
     },
     {
-      "name": "ph5_domestic_perf",
-      "displayName": "Domestic / International Performance",
+      "name": "w9_opponent_elo_bins",
+      "displayName": "Results by Opponent Rating",
       "queryLines": [
         "SELECT\r\n",
-        "  nation_name_display,\r\n",
-        "  flag_emoji,\r\n",
-        "  games_home,\r\n",
-        "  games_away,\r\n",
-        "  ROUND(win_frac_home  * 100, 1) AS win_pct_home,\r\n",
-        "  ROUND(win_frac_away  * 100, 1) AS win_pct_away,\r\n",
-        "  games_vs_domestic,\r\n",
-        "  games_vs_foreign,\r\n",
-        "  ROUND(win_frac_vs_domestic * 100, 1) AS win_pct_vs_domestic,\r\n",
-        "  ROUND(win_frac_vs_foreign  * 100, 1) AS win_pct_vs_foreign\r\n",
-        "FROM naf_catalog.gold_presentation.nation_domestic_performance_display\r\n",
-        "WHERE nation_name_display = :nation_name_display"
-      ],
-      "parameters": [
-        {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Denmark"
-                }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "ph5_opp_bin_wdl",
-      "displayName": "Nation vs Opponent ELO Bins",
-      "queryLines": [
-        "SELECT\r\n",
-        "  nation_name_display,\r\n",
-        "  bin_index,\r\n",
         "  bin_label_display,\r\n",
         "  games,\r\n",
         "  wins,\r\n",
         "  draws,\r\n",
         "  losses,\r\n",
-        "  ROUND(win_frac * 100, 1) AS win_pct,\r\n",
-        "  ROUND(avg_td_diff, 2)   AS avg_td_diff\r\n",
+        "  ppg\r\n",
         "FROM naf_catalog.gold_presentation.nation_opponent_elo_bin_wdl_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
+        "  AND metric_type = :glo_metric\r\n",
+        "  AND bin_scheme_id = 'static_5'\r\n",
         "ORDER BY bin_index"
       ],
       "parameters": [
@@ -1059,26 +509,79 @@
               ]
             }
           }
+        },
+        {
+          "displayName": "glo_metric",
+          "keyword": "glo_metric",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "PEAK"
+                }
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "name": "ph5_gq_bin_wdl",
-      "displayName": "Nation vs Game Quality Bins",
+      "name": "w10_game_quality_bins",
+      "displayName": "Results by Game Quality",
       "queryLines": [
         "SELECT\r\n",
-        "  nation_name_display,\r\n",
-        "  bin_index,\r\n",
         "  bin_label_display,\r\n",
         "  games,\r\n",
         "  wins,\r\n",
         "  draws,\r\n",
         "  losses,\r\n",
-        "  ROUND(win_frac * 100, 1) AS win_pct,\r\n",
-        "  ROUND(avg_td_diff, 2)   AS avg_td_diff\r\n",
+        "  ppg\r\n",
         "FROM naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
+        "  AND metric_type = :glo_metric\r\n",
+        "  AND bin_scheme_id = 'static_5'\r\n",
         "ORDER BY bin_index"
+      ],
+      "parameters": [
+        {
+          "displayName": "nation_name_display",
+          "keyword": "nation_name_display",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "glo_metric",
+          "keyword": "glo_metric",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "PEAK"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "w11_glo_exchange",
+      "displayName": "GLO Exchange",
+      "queryLines": [
+        "SELECT\n  opponent_nation_name_display,\n  ROUND(glo_exchange_mean, 2) AS avg_glo_exchange\nFROM naf_catalog.gold_presentation.nation_vs_nation_meta\nWHERE nation_name_display = :nation_name_display\n  AND games_played >= 5\nORDER BY glo_exchange_mean DESC"
       ],
       "parameters": [
         {
@@ -1099,7 +602,94 @@
       ]
     },
     {
-      "name": "ph6_power_ranking",
+      "name": "w12_nation_rivalries",
+      "displayName": "Nation Rivalries",
+      "queryLines": [
+        "SELECT\r\n",
+        "  opponent_nation_name_display,\r\n",
+        "  games,\r\n",
+        "  wins,\r\n",
+        "  draws,\r\n",
+        "  losses,\r\n",
+        "  ppg,\r\n",
+        "  rivalry_score\r\n",
+        "FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
+        "WHERE nation_name_display = :nation_name_display\r\n",
+        "ORDER BY rivalry_rank"
+      ],
+      "parameters": [
+        {
+          "displayName": "nation_name_display",
+          "keyword": "nation_name_display",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "w13_team_candidates",
+      "displayName": "National Team Candidates",
+      "queryLines": [
+        "SELECT\r\n",
+        "  selector_rank,\r\n",
+        "  coach_name,\r\n",
+        "  selector_score,\r\n",
+        "  glo_pctl,\r\n",
+        "  race_pctl,\r\n",
+        "  opponent_pctl,\r\n",
+        "  glo_median,\r\n",
+        "  race_elo_median,\r\n",
+        "  avg_opponent_glo\r\n",
+        "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
+        "WHERE nation_name_display = :nation_name_display\r\n",
+        "  AND selector_focus = :selector_focus\r\n",
+        "ORDER BY selector_rank\r\n",
+        "LIMIT 20"
+      ],
+      "parameters": [
+        {
+          "displayName": "nation_name_display",
+          "keyword": "nation_name_display",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Denmark"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "selector_focus",
+          "keyword": "selector_focus",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "BALANCED"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "w14_power_ranking",
       "displayName": "Nation Power Ranking",
       "queryLines": [
         "SELECT\r\n",
@@ -1108,66 +698,81 @@
         "  nation_name_display,\r\n",
         "  top_8_avg_selector_score,\r\n",
         "  top_8_avg_glo_peak,\r\n",
-        "  coaches_in_top_8,\r\n",
+        "  top_8_avg_glo_median,\r\n",
         "  coaches_eligible\r\n",
         "FROM naf_catalog.gold_presentation.nation_power_ranking_display\r\n",
+        "WHERE selector_focus = :selector_focus\r\n",
         "ORDER BY power_rank"
-      ]
-    },
-    {
-      "name": "ph6_team_candidates",
-      "displayName": "National Team Candidates",
-      "queryLines": [
-        "SELECT\r\n",
-        "  selector_rank,\r\n",
-        "  coach_name,\r\n",
-        "  ROUND(selector_score, 2)           AS selector_score,\r\n",
-        "  ROUND(rating_pctl, 1)              AS rating_pctl,\r\n",
-        "  ROUND(form_pctl, 1)                AS form_pctl,\r\n",
-        "  ROUND(opponent_strength_pctl, 1)   AS opp_strength_pctl,\r\n",
-        "  ROUND(versatility_pctl, 1)         AS versatility_pctl,\r\n",
-        "  ROUND(international_pctl, 1)       AS intl_pctl,\r\n",
-        "  ROUND(glo_peak, 1)                 AS glo_peak,\r\n",
-        "  ROUND(win_frac_vs_foreign * 100, 1) AS intl_win_pct,\r\n",
-        "  races_above_world_median,\r\n",
-        "  world_specialist_count,\r\n",
-        "  national_specialist_count\r\n",
-        "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY selector_rank"
       ],
       "parameters": [
         {
-          "displayName": "nation_name_display",
-          "keyword": "nation_name_display",
+          "displayName": "selector_focus",
+          "keyword": "selector_focus",
           "dataType": "STRING",
           "defaultSelection": {
             "values": {
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
+                  "value": "BALANCED"
                 }
               ]
             }
           }
         }
       ]
+    },
+    {
+      "name": "filter_glo_metric_values",
+      "displayName": "Filter GLO Metric Values",
+      "queryLines": [
+        "SELECT DISTINCT metric_type\r\n",
+        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
+        "ORDER BY metric_type"
+      ],
+      "parameters": []
+    },
+    {
+      "name": "filter_race_values",
+      "displayName": "Filter Race Values",
+      "queryLines": [
+        "SELECT DISTINCT race_name\r\n",
+        "FROM naf_catalog.gold_dim.race_dim\r\n",
+        "WHERE race_name IS NOT NULL\r\n",
+        "ORDER BY race_name"
+      ],
+      "parameters": []
+    },
+    {
+      "name": "filter_selector_focus_values",
+      "displayName": "Filter Selector Focus Values",
+      "queryLines": [
+        "SELECT DISTINCT selector_focus\r\n",
+        "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
+        "ORDER BY selector_focus"
+      ],
+      "parameters": []
     }
   ],
   "pages": [
     {
-      "name": "e494ad32",
-      "displayName": "Untitled page",
+      "name": "main_content",
+      "displayName": "Nation Analysis",
       "layout": [
         {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 7
+          },
           "widget": {
-            "name": "015a39a3",
+            "name": "w1_profile_card",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "5436dca7",
+                  "datasetName": "w1_nation_profile",
                   "fields": [
                     {
                       "name": "label",
@@ -1183,185 +788,72 @@
               }
             ],
             "spec": {
-              "version": 1,
+              "version": 3,
               "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Nation Profile Card"
+              },
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "label",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 100000,
-                    "title": "label",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "label",
+                    "fieldName": "label"
                   },
                   {
-                    "fieldName": "profile",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 100001,
-                    "title": "profile",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "profile",
+                    "fieldName": "profile"
                   }
                 ]
               },
-              "invisibleColumns": [],
-              "allowHTMLByDefault": false,
-              "itemsPerPage": 25,
-              "paginationSize": "default",
-              "condensed": true,
-              "withRowNumber": false
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 0,
-            "width": 4,
-            "height": 12
-          }
-        },
-        {
-          "widget": {
-            "name": "fe5e4d66",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "efd8dfe9",
-                  "fields": [
-                    {
-                      "name": "nation_name_display",
-                      "expression": "`nation_name_display`"
-                    },
-                    {
-                      "name": "min(metric_value)",
-                      "expression": "MIN(`metric_value`)"
-                    },
-                    {
-                      "name": "q1(metric_value)",
-                      "expression": "PERCENTILE(`metric_value`, 0.25)"
-                    },
-                    {
-                      "name": "median(metric_value)",
-                      "expression": "MEDIAN(`metric_value`)"
-                    },
-                    {
-                      "name": "q3(metric_value)",
-                      "expression": "PERCENTILE(`metric_value`, 0.75)"
-                    },
-                    {
-                      "name": "max(metric_value)",
-                      "expression": "MAX(`metric_value`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "widgetType": "box",
-              "encodings": {
-                "x": {
-                  "fieldName": "nation_name_display",
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "categorical"
-                  }
+              "invisibleColumns": [
+                {
+                  "name": "sort_order",
+                  "fieldName": "sort_order"
                 },
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(metric_value)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(metric_value)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(metric_value)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(metric_value)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(metric_value)"
-                  },
-                  "axis": {
-                    "hideLabels": false,
-                    "hideGrid": false,
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative"
-                  }
+                {
+                  "name": "nation_id",
+                  "fieldName": "nation_id"
+                },
+                {
+                  "name": "nation_name_display",
+                  "fieldName": "nation_name_display"
+                },
+                {
+                  "name": "load_timestamp",
+                  "fieldName": "load_timestamp"
                 }
-              }
+              ]
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 12,
-            "width": 6,
-            "height": 7
           }
         },
         {
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 8,
+            "height": 7
+          },
           "widget": {
-            "name": "f4d2ff7f",
+            "name": "w2_members_over_time",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "6ac8952f",
+                  "datasetName": "w2_nation_members_over_time",
                   "fields": [
+                    {
+                      "name": "iso_week",
+                      "expression": "`iso_week`"
+                    },
+                    {
+                      "name": "cumulative_coaches",
+                      "expression": "`cumulative_coaches`"
+                    },
                     {
                       "name": "nation_name_display",
                       "expression": "`nation_name_display`"
-                    },
-                    {
-                      "name": "glo_bin",
-                      "expression": "`glo_bin`"
-                    },
-                    {
-                      "name": "cumulative_density",
-                      "expression": "`cumulative_density`"
                     }
                   ],
                   "disaggregated": true
@@ -1371,269 +863,340 @@
             "spec": {
               "version": 3,
               "widgetType": "line",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "NAF Members Over Time"
+              },
               "encodings": {
                 "x": {
-                  "fieldName": "glo_bin",
+                  "fieldName": "iso_week",
+                  "displayName": "Week",
                   "scale": {
-                    "type": "quantitative"
+                    "type": "temporal"
                   }
                 },
                 "y": {
-                  "fieldName": "cumulative_density",
+                  "fieldName": "cumulative_coaches",
+                  "displayName": "Cumulative Coaches",
                   "scale": {
                     "type": "quantitative"
                   }
                 },
                 "color": {
                   "fieldName": "nation_name_display",
+                  "displayName": "Nation",
                   "scale": {
                     "type": "categorical"
                   }
                 }
               }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 33,
-            "width": 6,
-            "height": 7
           }
         },
         {
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 6,
+            "height": 7
+          },
           "widget": {
-            "name": "cb3ccac8",
+            "name": "w3_glo_boxplot",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "41a0b7be",
+                  "datasetName": "w3_glo_boxplot",
                   "fields": [
-                    {
-                      "name": "metric",
-                      "expression": "`metric`"
-                    },
                     {
                       "name": "nation_name_display",
                       "expression": "`nation_name_display`"
                     },
                     {
-                      "name": "value",
-                      "expression": "`value`"
+                      "name": "value_min",
+                      "expression": "`value_min`"
+                    },
+                    {
+                      "name": "value_p10",
+                      "expression": "`value_p10`"
+                    },
+                    {
+                      "name": "value_p25",
+                      "expression": "`value_p25`"
+                    },
+                    {
+                      "name": "value_p50",
+                      "expression": "`value_p50`"
+                    },
+                    {
+                      "name": "value_p75",
+                      "expression": "`value_p75`"
+                    },
+                    {
+                      "name": "value_p90",
+                      "expression": "`value_p90`"
+                    },
+                    {
+                      "name": "value_max",
+                      "expression": "`value_max`"
                     }
                   ],
-                  "cubeGroupingSets": {
-                    "sets": [
-                      {
-                        "fieldNames": [
-                          "metric"
-                        ]
-                      },
-                      {
-                        "fieldNames": [
-                          "nation_name_display"
-                        ]
-                      }
-                    ]
-                  },
-                  "disaggregated": true,
-                  "orders": [
-                    {
-                      "direction": "ASC",
-                      "expression": "`metric`"
-                    },
-                    {
-                      "direction": "ASC",
-                      "expression": "`nation_name_display`"
-                    }
-                  ]
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "widgetType": "pivot",
-              "encodings": {
-                "rows": [
-                  {
-                    "fieldName": "metric",
-                    "displayTotal": false
-                  }
-                ],
-                "columns": [
-                  {
-                    "fieldName": "nation_name_display",
-                    "displayTotal": false,
-                    "displayName": " "
-                  }
-                ],
-                "cell": {
-                  "type": "multi-cell",
-                  "fields": [
-                    {
-                      "fieldName": "value",
-                      "cellType": "text",
-                      "displayName": " "
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 19,
-            "width": 6,
-            "height": 6
-          }
-        },
-        {
-          "widget": {
-            "name": "75327538",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "0d4ef502",
-                  "fields": [
-                    {
-                      "name": "nation_label",
-                      "expression": "`nation_label`"
-                    },
-                    {
-                      "name": "min(peak_elo)",
-                      "expression": "MIN(`peak_elo`)"
-                    },
-                    {
-                      "name": "q1(peak_elo)",
-                      "expression": "PERCENTILE(`peak_elo`, 0.25)"
-                    },
-                    {
-                      "name": "median(peak_elo)",
-                      "expression": "MEDIAN(`peak_elo`)"
-                    },
-                    {
-                      "name": "q3(peak_elo)",
-                      "expression": "PERCENTILE(`peak_elo`, 0.75)"
-                    },
-                    {
-                      "name": "max(peak_elo)",
-                      "expression": "MAX(`peak_elo`)"
-                    }
-                  ],
-                  "disaggregated": false
+                  "disaggregated": true
                 }
               }
             ],
             "spec": {
               "version": 3,
               "widgetType": "box",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "GLO Distribution"
+              },
               "encodings": {
                 "x": {
-                  "fieldName": "nation_label",
-                  "axis": {
-                    "hideTitle": true
-                  },
+                  "fieldName": "nation_name_display",
+                  "displayName": "Nation",
                   "scale": {
                     "type": "categorical"
                   }
                 },
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(peak_elo)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(peak_elo)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(peak_elo)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(peak_elo)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(peak_elo)"
-                  },
-                  "axis": {
-                    "hideTitle": false,
-                    "title": "peak ELO"
-                  },
-                  "scale": {
-                    "type": "quantitative"
-                  }
+                "lower_whisker": {
+                  "fieldName": "value_min"
+                },
+                "lower_box": {
+                  "fieldName": "value_p25"
+                },
+                "lower_median": {
+                  "fieldName": "value_p50"
+                },
+                "upper_median": {
+                  "fieldName": "value_p50"
+                },
+                "upper_box": {
+                  "fieldName": "value_p75"
+                },
+                "upper_whisker": {
+                  "fieldName": "value_max"
                 }
               }
             }
-          },
+          }
+        },
+        {
           "position": {
-            "x": 0,
-            "y": 41,
+            "x": 6,
+            "y": 7,
             "width": 6,
             "height": 7
-          }
-        },
-        {
-          "widget": {
-            "name": "5528ba94",
-            "queries": [
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_race",
-                "query": {
-                  "datasetName": "0d4ef502",
-                  "parameters": [
-                    {
-                      "name": "race",
-                      "keyword": "race"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "parameterName": "race",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_race"
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Race"
-              }
-            }
           },
-          "position": {
-            "x": 0,
-            "y": 40,
-            "width": 6,
-            "height": 1
-          }
-        },
-        {
           "widget": {
-            "name": "67aa2a83",
+            "name": "w4_elo_boxplot",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "1b775d70",
+                  "datasetName": "w4_elo_boxplot",
                   "fields": [
                     {
                       "name": "nation_label",
                       "expression": "`nation_label`"
                     },
                     {
+                      "name": "peak_elo",
+                      "expression": "`peak_elo`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "box",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Race ELO Distribution"
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "nation_label",
+                  "displayName": "Nation",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "peak_elo",
+                  "displayName": "Race ELO Peak",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 6,
+            "height": 8
+          },
+          "widget": {
+            "name": "w5_glo_histogram",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "w5_glo_histogram",
+                  "fields": [
+                    {
+                      "name": "glo_bin_label",
+                      "expression": "`glo_bin_label`"
+                    },
+                    {
+                      "name": "density_pct",
+                      "expression": "`density_pct`"
+                    },
+                    {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "GLO Rating Histogram"
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "glo_bin_label",
+                  "displayName": "GLO Bin",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "density_pct",
+                  "displayName": "Density %",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "nation_name_display",
+                  "displayName": "Nation",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 6,
+            "y": 14,
+            "width": 6,
+            "height": 8
+          },
+          "widget": {
+            "name": "w6_glo_cumulative",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "w6_glo_cumulative",
+                  "fields": [
+                    {
+                      "name": "glo_bin_label",
+                      "expression": "`glo_bin_label`"
+                    },
+                    {
+                      "name": "cumulative_density_pct",
+                      "expression": "`cumulative_density_pct`"
+                    },
+                    {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "GLO Cumulative Distribution"
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "glo_bin_label",
+                  "displayName": "GLO Bin",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "cumulative_density_pct",
+                  "displayName": "Cumulative Density %",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "nation_name_display",
+                  "displayName": "Nation",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 22,
+            "width": 12,
+            "height": 8
+          },
+          "widget": {
+            "name": "w7_race_popularity",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "w7_race_popularity",
+                  "fields": [
+                    {
                       "name": "race_name",
                       "expression": "`race_name`"
                     },
                     {
-                      "name": "proportion",
-                      "expression": "`proportion`"
+                      "name": "coaches_pct_nation",
+                      "expression": "`coaches_pct_nation`"
+                    },
+                    {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
                     }
                   ],
                   "disaggregated": true
@@ -1643,73 +1206,62 @@
             "spec": {
               "version": 3,
               "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "race_name",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "y": {
-                  "fieldName": "proportion",
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "color": {
-                  "fieldName": "nation_label",
-                  "scale": {
-                    "type": "categorical",
-                    "sort": {
-                      "by": "custom-order",
-                      "orderedValues": [
-                        "Denmark",
-                        "England",
-                        "Finland",
-                        "Norway",
-                        "Rest of World",
-                        "Sweden",
-                        "World"
-                      ]
-                    }
-                  }
-                },
-                "label": {
-                  "show": false
-                }
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Race Popularity (% of coaches)"
               },
               "mark": {
                 "layout": "group"
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "race_name",
+                  "displayName": "Race",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "coaches_pct_nation",
+                  "displayName": "% of Coaches",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "nation_name_display",
+                  "displayName": "Nation",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
               }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 48,
-            "width": 6,
-            "height": 9
           }
         },
         {
+          "position": {
+            "x": 0,
+            "y": 30,
+            "width": 12,
+            "height": 4
+          },
           "widget": {
-            "name": "fe3a5aed",
+            "name": "w8_performance_context",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "680c657c",
+                  "datasetName": "w8_performance_context",
                   "fields": [
                     {
-                      "name": "glo_exchange_mean",
-                      "expression": "`glo_exchange_mean`"
+                      "name": "metric",
+                      "expression": "`metric`"
                     },
                     {
-                      "name": "opponent_nation",
-                      "expression": "`opponent_nation`"
-                    },
-                    {
-                      "name": "glo_exchange_total",
-                      "expression": "`glo_exchange_total`"
+                      "name": "value",
+                      "expression": "`value`"
                     }
                   ],
                   "disaggregated": true
@@ -1718,79 +1270,69 @@
             ],
             "spec": {
               "version": 3,
-              "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "opponent_nation",
-                  "axis": {
-                    "hideLabels": false,
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "y": {
-                  "fieldName": "glo_exchange_total",
-                  "axis": {
-                    "hideTitle": true
-                  },
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "color": {
-                  "fieldName": "glo_exchange_mean",
-                  "scale": {
-                    "type": "quantitative",
-                    "colorRamp": {
-                      "mode": "scheme",
-                      "scheme": "redyellowgreen"
-                    },
-                    "domain": {
-                      "mid": 0
-                    },
-                    "reverse": false
-                  }
-                }
-              },
+              "widgetType": "table",
               "frame": {
                 "showTitle": true,
-                "title": "Average GLO Exchange vs Other Nations \n"
+                "showDescription": false,
+                "title": "Performance Context"
+              },
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "away_ratio_pct",
+                    "displayName": "Away %"
+                  },
+                  {
+                    "fieldName": "games_home",
+                    "displayName": "Games Home"
+                  },
+                  {
+                    "fieldName": "games_away",
+                    "displayName": "Games Away"
+                  },
+                  {
+                    "fieldName": "ppg_home",
+                    "displayName": "PPG Home"
+                  },
+                  {
+                    "fieldName": "ppg_away",
+                    "displayName": "PPG Away"
+                  },
+                  {
+                    "fieldName": "games_vs_foreign",
+                    "displayName": "Games vs Foreign"
+                  },
+                  {
+                    "fieldName": "ppg_vs_foreign",
+                    "displayName": "PPG vs Foreign"
+                  }
+                ]
               }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 57,
-            "width": 6,
-            "height": 9
           }
         },
         {
+          "position": {
+            "x": 0,
+            "y": 34,
+            "width": 6,
+            "height": 7
+          },
           "widget": {
-            "name": "de5890ca",
+            "name": "w9_opponent_elo_bins",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "d1bb6b80",
+                  "datasetName": "w9_opponent_elo_bins",
                   "fields": [
                     {
-                      "name": "opponent_nation",
-                      "expression": "`opponent_nation`"
+                      "name": "bin_label_display",
+                      "expression": "`bin_label_display`"
                     },
                     {
-                      "name": "total_glo_exchange",
-                      "expression": "`total_glo_exchange`"
-                    },
-                    {
-                      "name": "avg_glo_exchange",
-                      "expression": "`avg_glo_exchange`"
-                    },
-                    {
-                      "name": "games_played",
-                      "expression": "`games_played`"
+                      "name": "games",
+                      "expression": "`games`"
                     },
                     {
                       "name": "wins",
@@ -1805,12 +1347,8 @@
                       "expression": "`losses`"
                     },
                     {
-                      "name": "win_pct",
-                      "expression": "`win_pct`"
-                    },
-                    {
-                      "name": "avg_score_against",
-                      "expression": "`avg_score_against`"
+                      "name": "ppg",
+                      "expression": "`ppg`"
                     }
                   ],
                   "disaggregated": true
@@ -1818,343 +1356,220 @@
               }
             ],
             "spec": {
-              "version": 1,
+              "version": 3,
               "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Results by Opponent Rating"
+              },
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "opponent_nation",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 0,
-                    "title": "opponent_nation",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "bin_label_display",
+                    "fieldName": "bin_label_display"
                   },
                   {
-                    "fieldName": "total_glo_exchange",
-                    "numberFormat": "0.00",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 1,
-                    "title": "total_glo_exchange",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "games",
+                    "fieldName": "games"
                   },
                   {
-                    "fieldName": "avg_glo_exchange",
-                    "numberFormat": "0.00",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 2,
-                    "title": "avg_glo_exchange",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "wins",
+                    "fieldName": "wins"
                   },
                   {
-                    "fieldName": "games_played",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 3,
-                    "title": "games_played",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "draws",
+                    "fieldName": "draws"
                   },
                   {
-                    "fieldName": "wins",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 4,
-                    "title": "wins",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "losses",
+                    "fieldName": "losses"
                   },
                   {
-                    "fieldName": "draws",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 5,
-                    "title": "draws",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "losses",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 6,
-                    "title": "losses",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "win_pct",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "decimal",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 7,
-                    "title": "win_pct",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "avg_score_against",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "decimal",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 9,
-                    "title": "avg_score_against",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
+                    "name": "ppg",
+                    "fieldName": "ppg"
                   }
                 ]
-              },
-              "invisibleColumns": [
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "avg_score_for",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 1,
-                  "title": "avg_score_for",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "dateTimeFormat": "DD/MM/YYYY HH:mm:ss.SSS",
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "load_timestamp",
-                  "type": "datetime",
-                  "displayAs": "datetime",
-                  "order": 100010,
-                  "title": "load_timestamp",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                }
-              ],
-              "allowHTMLByDefault": false,
-              "itemsPerPage": 25,
-              "paginationSize": "default",
-              "condensed": true,
-              "withRowNumber": false
+              }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 66,
-            "width": 6,
-            "height": 4
           }
         },
         {
+          "position": {
+            "x": 6,
+            "y": 34,
+            "width": 6,
+            "height": 7
+          },
           "widget": {
-            "name": "8d369b50",
+            "name": "w10_game_quality_bins",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "0cc8c0f4",
+                  "datasetName": "w10_game_quality_bins",
                   "fields": [
                     {
-                      "name": "opponent_nation",
-                      "expression": "`opponent_nation`"
+                      "name": "bin_label_display",
+                      "expression": "`bin_label_display`"
                     },
                     {
-                      "name": "games_played",
-                      "expression": "`games_played`"
+                      "name": "games",
+                      "expression": "`games`"
                     },
                     {
-                      "name": "avg_score_for",
-                      "expression": "`avg_score_for`"
+                      "name": "wins",
+                      "expression": "`wins`"
                     },
                     {
-                      "name": "games_share",
-                      "expression": "`games_share`"
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    },
+                    {
+                      "name": "ppg",
+                      "expression": "`ppg`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Results by Game Quality"
+              },
+              "encodings": {
+                "columns": [
+                  {
+                    "name": "bin_label_display",
+                    "fieldName": "bin_label_display"
+                  },
+                  {
+                    "name": "games",
+                    "fieldName": "games"
+                  },
+                  {
+                    "name": "wins",
+                    "fieldName": "wins"
+                  },
+                  {
+                    "name": "draws",
+                    "fieldName": "draws"
+                  },
+                  {
+                    "name": "losses",
+                    "fieldName": "losses"
+                  },
+                  {
+                    "name": "ppg",
+                    "fieldName": "ppg"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 41,
+            "width": 12,
+            "height": 8
+          },
+          "widget": {
+            "name": "w11_glo_exchange",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "w11_glo_exchange",
+                  "fields": [
+                    {
+                      "name": "opponent_nation_name_display",
+                      "expression": "`opponent_nation_name_display`"
+                    },
+                    {
+                      "name": "avg_glo_exchange",
+                      "expression": "`avg_glo_exchange`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Average GLO Exchange vs Other Nations"
+              },
+              "encodings": {
+                "x": {
+                  "fieldName": "opponent_nation_name_display",
+                  "displayName": "Opponent Nation",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "avg_glo_exchange",
+                  "displayName": "Avg GLO Exchange",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 0,
+            "y": 49,
+            "width": 12,
+            "height": 6
+          },
+          "widget": {
+            "name": "w12_nation_rivalries",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "w12_nation_rivalries",
+                  "fields": [
+                    {
+                      "name": "opponent_nation_name_display",
+                      "expression": "`opponent_nation_name_display`"
+                    },
+                    {
+                      "name": "games",
+                      "expression": "`games`"
+                    },
+                    {
+                      "name": "wins",
+                      "expression": "`wins`"
+                    },
+                    {
+                      "name": "draws",
+                      "expression": "`draws`"
+                    },
+                    {
+                      "name": "losses",
+                      "expression": "`losses`"
+                    },
+                    {
+                      "name": "ppg",
+                      "expression": "`ppg`"
                     },
                     {
                       "name": "rivalry_score",
@@ -2166,793 +1581,62 @@
               }
             ],
             "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "opponent_nation",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 0,
-                    "title": "opponent_nation",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "games_played",
-                    "numberFormat": "0",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 1,
-                    "title": "games_played",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "avg_score_for",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "decimal",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 2,
-                    "title": "avg_score_for",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "games_share",
-                    "numberFormat": "0.00",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 6,
-                    "title": "games_share",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  },
-                  {
-                    "fieldName": "rivalry_score",
-                    "numberFormat": "0.00",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 7,
-                    "title": "rivalry_score",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false
-                  }
-                ]
-              },
-              "invisibleColumns": [
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "games_score",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 3,
-                  "title": "games_score",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "win_pct",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 4,
-                  "title": "win_pct",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "closeness_score",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 5,
-                  "title": "closeness_score",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "avg_score_against",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 9,
-                  "title": "avg_score_against",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "avg_score_diff",
-                  "type": "decimal",
-                  "displayAs": "number",
-                  "order": 10,
-                  "title": "avg_score_diff",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                },
-                {
-                  "numberFormat": "0.00",
-                  "booleanValues": [
-                    "false",
-                    "true"
-                  ],
-                  "imageUrlTemplate": "{{ @ }}",
-                  "imageTitleTemplate": "{{ @ }}",
-                  "imageWidth": "",
-                  "imageHeight": "",
-                  "linkUrlTemplate": "{{ @ }}",
-                  "linkTextTemplate": "{{ @ }}",
-                  "linkTitleTemplate": "{{ @ }}",
-                  "linkOpenInNewTab": true,
-                  "name": "glo_exchange_total",
-                  "type": "float",
-                  "displayAs": "number",
-                  "order": 100006,
-                  "title": "glo_exchange_total",
-                  "allowSearch": false,
-                  "alignContent": "right",
-                  "allowHTML": false,
-                  "highlightLinks": false,
-                  "useMonospaceFont": false,
-                  "preserveWhitespace": false
-                }
-              ],
-              "allowHTMLByDefault": false,
-              "itemsPerPage": 25,
-              "paginationSize": "default",
-              "condensed": true,
-              "withRowNumber": false
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 70,
-            "width": 6,
-            "height": 5
-          }
-        },
-        {
-          "widget": {
-            "name": "28e4b791",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "7ad190ff",
-                  "fields": [
-                    {
-                      "name": "coach_name",
-                      "expression": "`coach_name`"
-                    },
-                    {
-                      "name": "win_points_per_game",
-                      "expression": "`win_points_per_game`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
               "version": 3,
-              "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "coach_name",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "y": {
-                  "fieldName": "win_points_per_game",
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "label": {
-                  "show": true
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 75,
-            "width": 6,
-            "height": 6
-          }
-        },
-        {
-          "widget": {
-            "name": "895ee355",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "6ac8952f",
-                  "fields": [
-                    {
-                      "name": "nation_name_display",
-                      "expression": "`nation_name_display`"
-                    },
-                    {
-                      "name": "glo_bin",
-                      "expression": "`glo_bin`"
-                    },
-                    {
-                      "name": "density",
-                      "expression": "`density`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "widgetType": "bar",
-              "encodings": {
-                "x": {
-                  "fieldName": "glo_bin",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "y": {
-                  "fieldName": "density",
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "color": {
-                  "fieldName": "nation_name_display",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                }
-              },
-              "mark": {
-                "layout": "group"
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 25,
-            "width": 6,
-            "height": 8
-          }
-        },
-        {
-          "widget": {
-            "name": "ph5_dom_perf_widget",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "ph5_domestic_perf",
-                  "fields": [
-                    {
-                      "name": "flag_emoji",
-                      "expression": "`flag_emoji`"
-                    },
-                    {
-                      "name": "games_home",
-                      "expression": "`games_home`"
-                    },
-                    {
-                      "name": "games_away",
-                      "expression": "`games_away`"
-                    },
-                    {
-                      "name": "win_pct_home",
-                      "expression": "`win_pct_home`"
-                    },
-                    {
-                      "name": "win_pct_away",
-                      "expression": "`win_pct_away`"
-                    },
-                    {
-                      "name": "games_vs_domestic",
-                      "expression": "`games_vs_domestic`"
-                    },
-                    {
-                      "name": "games_vs_foreign",
-                      "expression": "`games_vs_foreign`"
-                    },
-                    {
-                      "name": "win_pct_vs_domestic",
-                      "expression": "`win_pct_vs_domestic`"
-                    },
-                    {
-                      "name": "win_pct_vs_foreign",
-                      "expression": "`win_pct_vs_foreign`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 1,
               "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "flag_emoji",
-                    "title": "Flag",
-                    "type": "string",
-                    "displayAs": "string",
-                    "order": 0
-                  },
-                  {
-                    "fieldName": "games_home",
-                    "title": "Games (Home)",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 1
-                  },
-                  {
-                    "fieldName": "games_away",
-                    "title": "Games (Away)",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 2
-                  },
-                  {
-                    "fieldName": "win_pct_home",
-                    "title": "Win% Home",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 3
-                  },
-                  {
-                    "fieldName": "win_pct_away",
-                    "title": "Win% Away",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 4
-                  },
-                  {
-                    "fieldName": "games_vs_domestic",
-                    "title": "vs Domestic",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 5
-                  },
-                  {
-                    "fieldName": "games_vs_foreign",
-                    "title": "vs Foreign",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 6
-                  },
-                  {
-                    "fieldName": "win_pct_vs_domestic",
-                    "title": "Win% Domestic",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 7
-                  },
-                  {
-                    "fieldName": "win_pct_vs_foreign",
-                    "title": "Win% Foreign",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 8
-                  }
-                ]
-              },
               "frame": {
                 "showTitle": true,
-                "title": "Home / Away & Domestic / International"
+                "showDescription": false,
+                "title": "Nation Rivalries"
               },
-              "itemsPerPage": 5,
-              "condensed": true
+              "encodings": {
+                "columns": [
+                  {
+                    "name": "opponent_nation_name_display",
+                    "fieldName": "opponent_nation_name_display"
+                  },
+                  {
+                    "name": "games",
+                    "fieldName": "games"
+                  },
+                  {
+                    "name": "wins",
+                    "fieldName": "wins"
+                  },
+                  {
+                    "name": "draws",
+                    "fieldName": "draws"
+                  },
+                  {
+                    "name": "losses",
+                    "fieldName": "losses"
+                  },
+                  {
+                    "name": "ppg",
+                    "fieldName": "ppg"
+                  },
+                  {
+                    "name": "rivalry_score",
+                    "fieldName": "rivalry_score"
+                  }
+                ]
+              }
             }
-          },
+          }
+        },
+        {
           "position": {
             "x": 0,
-            "y": 34,
+            "y": 55,
             "width": 12,
-            "height": 5
-          }
-        },
-        {
-          "widget": {
-            "name": "ph5_opp_bin_widget",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "ph5_opp_bin_wdl",
-                  "fields": [
-                    {
-                      "name": "bin_label_display",
-                      "expression": "`bin_label_display`"
-                    },
-                    {
-                      "name": "games",
-                      "expression": "`games`"
-                    },
-                    {
-                      "name": "wins",
-                      "expression": "`wins`"
-                    },
-                    {
-                      "name": "draws",
-                      "expression": "`draws`"
-                    },
-                    {
-                      "name": "losses",
-                      "expression": "`losses`"
-                    },
-                    {
-                      "name": "win_pct",
-                      "expression": "`win_pct`"
-                    },
-                    {
-                      "name": "avg_td_diff",
-                      "expression": "`avg_td_diff`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "bin_label_display",
-                    "title": "Opponent GLO Bin",
-                    "type": "string",
-                    "displayAs": "string",
-                    "order": 0
-                  },
-                  {
-                    "fieldName": "games",
-                    "title": "Games",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 1
-                  },
-                  {
-                    "fieldName": "wins",
-                    "title": "Wins",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 2
-                  },
-                  {
-                    "fieldName": "draws",
-                    "title": "Draws",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 3
-                  },
-                  {
-                    "fieldName": "losses",
-                    "title": "Losses",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 4
-                  },
-                  {
-                    "fieldName": "win_pct",
-                    "title": "Win %",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 5
-                  },
-                  {
-                    "fieldName": "avg_td_diff",
-                    "title": "Avg TD Diff",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 6
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "W/D/L by Opponent Rating Bin"
-              },
-              "itemsPerPage": 10,
-              "condensed": true
-            }
+            "height": 10
           },
-          "position": {
-            "x": 0,
-            "y": 39,
-            "width": 6,
-            "height": 7
-          }
-        },
-        {
           "widget": {
-            "name": "ph5_gq_bin_widget",
+            "name": "w13_team_candidates",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "ph5_gq_bin_wdl",
-                  "fields": [
-                    {
-                      "name": "bin_label_display",
-                      "expression": "`bin_label_display`"
-                    },
-                    {
-                      "name": "games",
-                      "expression": "`games`"
-                    },
-                    {
-                      "name": "wins",
-                      "expression": "`wins`"
-                    },
-                    {
-                      "name": "draws",
-                      "expression": "`draws`"
-                    },
-                    {
-                      "name": "losses",
-                      "expression": "`losses`"
-                    },
-                    {
-                      "name": "win_pct",
-                      "expression": "`win_pct`"
-                    },
-                    {
-                      "name": "avg_td_diff",
-                      "expression": "`avg_td_diff`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 1,
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "bin_label_display",
-                    "title": "Game Quality Bin",
-                    "type": "string",
-                    "displayAs": "string",
-                    "order": 0
-                  },
-                  {
-                    "fieldName": "games",
-                    "title": "Games",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 1
-                  },
-                  {
-                    "fieldName": "wins",
-                    "title": "Wins",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 2
-                  },
-                  {
-                    "fieldName": "draws",
-                    "title": "Draws",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 3
-                  },
-                  {
-                    "fieldName": "losses",
-                    "title": "Losses",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 4
-                  },
-                  {
-                    "fieldName": "win_pct",
-                    "title": "Win %",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 5
-                  },
-                  {
-                    "fieldName": "avg_td_diff",
-                    "title": "Avg TD Diff",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 6
-                  }
-                ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "W/D/L by Game Quality Bin"
-              },
-              "itemsPerPage": 10,
-              "condensed": true
-            }
-          },
-          "position": {
-            "x": 6,
-            "y": 39,
-            "width": 6,
-            "height": 7
-          }
-        },
-        {
-          "widget": {
-            "name": "ph6_candidates_widget",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "ph6_team_candidates",
+                  "datasetName": "w13_team_candidates",
                   "fields": [
                     {
                       "name": "selector_rank",
@@ -2967,44 +1651,28 @@
                       "expression": "`selector_score`"
                     },
                     {
-                      "name": "rating_pctl",
-                      "expression": "`rating_pctl`"
+                      "name": "glo_pctl",
+                      "expression": "`glo_pctl`"
                     },
                     {
-                      "name": "form_pctl",
-                      "expression": "`form_pctl`"
+                      "name": "race_pctl",
+                      "expression": "`race_pctl`"
                     },
                     {
-                      "name": "opp_strength_pctl",
-                      "expression": "`opp_strength_pctl`"
+                      "name": "opponent_pctl",
+                      "expression": "`opponent_pctl`"
                     },
                     {
-                      "name": "versatility_pctl",
-                      "expression": "`versatility_pctl`"
+                      "name": "glo_median",
+                      "expression": "`glo_median`"
                     },
                     {
-                      "name": "intl_pctl",
-                      "expression": "`intl_pctl`"
+                      "name": "race_elo_median",
+                      "expression": "`race_elo_median`"
                     },
                     {
-                      "name": "glo_peak",
-                      "expression": "`glo_peak`"
-                    },
-                    {
-                      "name": "intl_win_pct",
-                      "expression": "`intl_win_pct`"
-                    },
-                    {
-                      "name": "races_above_world_median",
-                      "expression": "`races_above_world_median`"
-                    },
-                    {
-                      "name": "world_specialist_count",
-                      "expression": "`world_specialist_count`"
-                    },
-                    {
-                      "name": "national_specialist_count",
-                      "expression": "`national_specialist_count`"
+                      "name": "avg_opponent_glo",
+                      "expression": "`avg_opponent_glo`"
                     }
                   ],
                   "disaggregated": true
@@ -3012,126 +1680,70 @@
               }
             ],
             "spec": {
-              "version": 1,
+              "version": 3,
               "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "National Team Candidates"
+              },
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "selector_rank",
-                    "title": "Rank",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 0
+                    "name": "selector_rank",
+                    "fieldName": "selector_rank"
                   },
                   {
-                    "fieldName": "coach_name",
-                    "title": "Coach",
-                    "type": "string",
-                    "displayAs": "string",
-                    "order": 1
+                    "name": "coach_name",
+                    "fieldName": "coach_name"
                   },
                   {
-                    "fieldName": "selector_score",
-                    "title": "Score",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 2
+                    "name": "selector_score",
+                    "fieldName": "selector_score"
                   },
                   {
-                    "fieldName": "glo_peak",
-                    "title": "GLO Peak",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 3
+                    "name": "glo_pctl",
+                    "fieldName": "glo_pctl"
                   },
                   {
-                    "fieldName": "rating_pctl",
-                    "title": "Rating %ile",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 4
+                    "name": "race_pctl",
+                    "fieldName": "race_pctl"
                   },
                   {
-                    "fieldName": "form_pctl",
-                    "title": "Form %ile",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 5
+                    "name": "opponent_pctl",
+                    "fieldName": "opponent_pctl"
                   },
                   {
-                    "fieldName": "opp_strength_pctl",
-                    "title": "Opp %ile",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 6
+                    "name": "glo_median",
+                    "fieldName": "glo_median"
                   },
                   {
-                    "fieldName": "versatility_pctl",
-                    "title": "Versatility %ile",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 7
+                    "name": "race_elo_median",
+                    "fieldName": "race_elo_median"
                   },
                   {
-                    "fieldName": "intl_pctl",
-                    "title": "Intl %ile",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 8
-                  },
-                  {
-                    "fieldName": "intl_win_pct",
-                    "title": "Intl Win%",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 9
-                  },
-                  {
-                    "fieldName": "races_above_world_median",
-                    "title": "Races above median",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 10
-                  },
-                  {
-                    "fieldName": "world_specialist_count",
-                    "title": "World spec.",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 11
-                  },
-                  {
-                    "fieldName": "national_specialist_count",
-                    "title": "Nat. spec.",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 12
+                    "name": "avg_opponent_glo",
+                    "fieldName": "avg_opponent_glo"
                   }
                 ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "National Team Candidates (Phase 6)"
-              },
-              "itemsPerPage": 15,
-              "condensed": true
+              }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 46,
-            "width": 12,
-            "height": 10
           }
         },
         {
+          "position": {
+            "x": 0,
+            "y": 65,
+            "width": 12,
+            "height": 10
+          },
           "widget": {
-            "name": "ph6_power_rank_widget",
+            "name": "w14_power_ranking",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "ph6_power_ranking",
+                  "datasetName": "w14_power_ranking",
                   "fields": [
                     {
                       "name": "power_rank",
@@ -3154,8 +1766,8 @@
                       "expression": "`top_8_avg_glo_peak`"
                     },
                     {
-                      "name": "coaches_in_top_8",
-                      "expression": "`coaches_in_top_8`"
+                      "name": "top_8_avg_glo_median",
+                      "expression": "`top_8_avg_glo_median`"
                     },
                     {
                       "name": "coaches_eligible",
@@ -3167,268 +1779,74 @@
               }
             ],
             "spec": {
-              "version": 1,
+              "version": 3,
               "widgetType": "table",
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "Nation Power Ranking"
+              },
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "power_rank",
-                    "title": "Rank",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 0
+                    "name": "power_rank",
+                    "fieldName": "power_rank"
                   },
                   {
-                    "fieldName": "flag_emoji",
-                    "title": "Flag",
-                    "type": "string",
-                    "displayAs": "string",
-                    "order": 1
+                    "name": "flag_emoji",
+                    "fieldName": "flag_emoji"
                   },
                   {
-                    "fieldName": "nation_name_display",
-                    "title": "Nation",
-                    "type": "string",
-                    "displayAs": "string",
-                    "order": 2
+                    "name": "nation_name_display",
+                    "fieldName": "nation_name_display"
                   },
                   {
-                    "fieldName": "top_8_avg_selector_score",
-                    "title": "Top-8 Score",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 3
+                    "name": "top_8_avg_selector_score",
+                    "fieldName": "top_8_avg_selector_score"
                   },
                   {
-                    "fieldName": "top_8_avg_glo_peak",
-                    "title": "Avg GLO Peak",
-                    "type": "float",
-                    "displayAs": "number",
-                    "order": 4
+                    "name": "top_8_avg_glo_peak",
+                    "fieldName": "top_8_avg_glo_peak"
                   },
                   {
-                    "fieldName": "coaches_in_top_8",
-                    "title": "In Top 8",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 5
+                    "name": "top_8_avg_glo_median",
+                    "fieldName": "top_8_avg_glo_median"
                   },
                   {
-                    "fieldName": "coaches_eligible",
-                    "title": "Eligible",
-                    "type": "integer",
-                    "displayAs": "number",
-                    "order": 6
+                    "name": "coaches_eligible",
+                    "fieldName": "coaches_eligible"
                   }
                 ]
-              },
-              "frame": {
-                "showTitle": true,
-                "title": "Nation Power Ranking (Phase 6)"
-              },
-              "itemsPerPage": 25,
-              "condensed": true
+              }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 56,
-            "width": 12,
-            "height": 10
           }
         }
       ],
-      "pageType": "PAGE_TYPE_CANVAS"
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
     },
     {
-      "name": "f0ee2be8",
+      "name": "global_filters",
       "displayName": "Global Filters",
       "layout": [
         {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          },
           "widget": {
-            "name": "a3c1b6fb",
+            "name": "filter_nation_name_display",
             "queries": [
               {
-                "name": "dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cab508c21e6d97b11b58a4241bcb_nation_name",
+                "name": "filter_nation_query",
                 "query": {
-                  "datasetName": "d429dda5",
+                  "datasetName": "w1_nation_profile",
                   "fields": [
                     {
-                      "name": "nation_name",
-                      "expression": "`nation_name`"
-                    },
-                    {
-                      "name": "nation_name_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cabeac6a11ebba45288482557fc3_nation_name_display",
-                "query": {
-                  "datasetName": "ab8b0908",
-                  "parameters": [
-                    {
                       "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cae8b24511c3ad2dad29c3a3154a_nation_name_display",
-                "query": {
-                  "datasetName": "d1bb6b80",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_nation_clean",
-                "query": {
-                  "datasetName": "0d4ef502",
-                  "parameters": [
-                    {
-                      "name": "nation_clean",
-                      "keyword": "nation_clean"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0db56a8561dffa96d6d1c09e78198_nation_name_display",
-                "query": {
-                  "datasetName": "44813501",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caccc8b5195d8a16fd8540359b2d_nation_name_display",
-                "query": {
-                  "datasetName": "41a0b7be",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad4edf91bb9ad63b219983c59bd_nation_name_display",
-                "query": {
-                  "datasetName": "1b775d70",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caeb16571dbbacc534d67bd151c6_nation_name_display",
-                "query": {
-                  "datasetName": "0cc8c0f4",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cab505de1fc9b13fd93ddb0b830e_nation_name_display",
-                "query": {
-                  "datasetName": "5436dca7",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cac1d354159ab58d2a393b4d4be3_nation_name_display",
-                "query": {
-                  "datasetName": "6ac8952f",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cadb242f16b0a4e60a56972304e9_nation_name_display",
-                "query": {
-                  "datasetName": "680c657c",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cabc921314c1a4bcc797b5f8bdc7_nation_name",
-                "query": {
-                  "datasetName": "b3fb708b",
-                  "parameters": [
-                    {
-                      "name": "nation_name",
-                      "keyword": "nation_name"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caf6ef0214fe8a1b67f9b61e6740_nation_name_display",
-                "query": {
-                  "datasetName": "7ad190ff",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0d72bc0a011a1ac4227e4e33def57_nation_name_display",
-                "query": {
-                  "datasetName": "efd8dfe9",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
+                      "expression": "`nation_name_display`"
                     }
                   ],
                   "disaggregated": false
@@ -3438,186 +1856,51 @@
             "spec": {
               "version": 2,
               "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cabeac6a11ebba45288482557fc3_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cae8b24511c3ad2dad29c3a3154a_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_clean",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_nation_clean"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0db56a8561dffa96d6d1c09e78198_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caccc8b5195d8a16fd8540359b2d_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad4edf91bb9ad63b219983c59bd_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caeb16571dbbacc534d67bd151c6_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cab505de1fc9b13fd93ddb0b830e_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cac1d354159ab58d2a393b4d4be3_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cadb242f16b0a4e60a56972304e9_nation_name_display"
-                  },
-                  {
-                    "fieldName": "nation_name",
-                    "queryName": "dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cab508c21e6d97b11b58a4241bcb_nation_name"
-                  },
-                  {
-                    "parameterName": "nation_name",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cabc921314c1a4bcc797b5f8bdc7_nation_name"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caf6ef0214fe8a1b67f9b61e6740_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0d72bc0a011a1ac4227e4e33def57_nation_name_display"
-                  }
-                ]
-              },
               "frame": {
                 "showTitle": true,
                 "title": "Nation"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Denmark"
+                      }
+                    ]
+                  }
+                }
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "nation_name_display",
+                    "queryName": "filter_nation_query"
+                  }
+                ]
               }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 0,
-            "width": 1,
-            "height": 2
           }
         },
         {
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          },
           "widget": {
-            "name": "fa205cee",
+            "name": "filter_compare_nations",
             "queries": [
               {
-                "name": "dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_nation_label",
+                "name": "filter_compare_nations_query",
                 "query": {
-                  "datasetName": "0d4ef502",
+                  "datasetName": "w2_nation_members_over_time",
                   "fields": [
                     {
-                      "name": "nation_label",
-                      "expression": "`nation_label`"
-                    },
-                    {
-                      "name": "nation_label_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cabeac6a11ebba45288482557fc3_compare_nations",
-                "query": {
-                  "datasetName": "ab8b0908",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caccc8b5195d8a16fd8540359b2d_compare_nations",
-                "query": {
-                  "datasetName": "41a0b7be",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_compare_nations",
-                "query": {
-                  "datasetName": "0d4ef502",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad4edf91bb9ad63b219983c59bd_compare_nations",
-                "query": {
-                  "datasetName": "1b775d70",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cae8b24511c3ad2dad29c3a3154a_compare_nations",
-                "query": {
-                  "datasetName": "d1bb6b80",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cac1d354159ab58d2a393b4d4be3_compare_nations",
-                "query": {
-                  "datasetName": "6ac8952f",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0d72bc0a011a1ac4227e4e33def57_compare_nations",
-                "query": {
-                  "datasetName": "efd8dfe9",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
                     }
                   ],
                   "disaggregated": false
@@ -3627,79 +1910,51 @@
             "spec": {
               "version": 2,
               "widgetType": "filter-multi-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cabeac6a11ebba45288482557fc3_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0caccc8b5195d8a16fd8540359b2d_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad4edf91bb9ad63b219983c59bd_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cae8b24511c3ad2dad29c3a3154a_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cac1d354159ab58d2a393b4d4be3_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0d72bc0a011a1ac4227e4e33def57_compare_nations"
-                  },
-                  {
-                    "fieldName": "nation_label",
-                    "queryName": "dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0cad392d91a5f8d5215293b6ad96e_nation_label"
-                  }
-                ]
-              },
               "frame": {
                 "showTitle": true,
                 "title": "Comparison Nations"
               },
               "selection": {
                 "defaultSelection": {
-                  "operator": {
-                    "operator": "OR",
-                    "args": []
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Sweden"
+                      }
+                    ]
                   }
                 }
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "nation_name_display",
+                    "queryName": "filter_compare_nations_query"
+                  }
+                ]
               }
             }
-          },
-          "position": {
-            "x": 0,
-            "y": 2,
-            "width": 1,
-            "height": 2
           }
         },
         {
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          },
           "widget": {
-            "name": "8d6dcae4",
+            "name": "filter_glo_metric",
             "queries": [
               {
-                "name": "dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0d72bc0a011a1ac4227e4e33def57_metric_type",
+                "name": "filter_glo_metric_query",
                 "query": {
-                  "datasetName": "efd8dfe9",
+                  "datasetName": "w3_glo_boxplot",
                   "fields": [
                     {
-                      "name": "metric_type",
-                      "expression": "`metric_type`"
-                    },
-                    {
-                      "name": "metric_type_associativity",
-                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                      "name": "metric_values",
+                      "expression": "SELECT 'PEAK' AS value UNION ALL SELECT 'MEDIAN' AS value"
                     }
                   ],
                   "disaggregated": false
@@ -3709,14 +1964,6 @@
             "spec": {
               "version": 2,
               "widgetType": "filter-single-select",
-              "encodings": {
-                "fields": [
-                  {
-                    "fieldName": "metric_type",
-                    "queryName": "dashboards/01f0c5156b8016d8b7a6485290c2ae83/datasets/01f0d72bc0a011a1ac4227e4e33def57_metric_type"
-                  }
-                ]
-              },
               "frame": {
                 "showTitle": true,
                 "title": "GLO Metric"
@@ -3727,19 +1974,153 @@
                     "dataType": "STRING",
                     "values": [
                       {
-                        "value": "MEAN"
+                        "value": "PEAK"
                       }
                     ]
                   }
                 }
-              }
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "metric_type",
+                    "queryName": "filter_glo_metric_query"
+                  }
+                ]
+              },
+              "datasetName": "filter_glo_metric_values",
+              "fields": [
+                {
+                  "name": "metric_type",
+                  "expression": "`metric_type`"
+                }
+              ],
+              "disaggregated": false
             }
-          },
+          }
+        },
+        {
           "position": {
-            "x": 0,
+            "x": 6,
             "y": 0,
-            "width": 1,
+            "width": 2,
             "height": 2
+          },
+          "widget": {
+            "name": "filter_race_name",
+            "queries": [
+              {
+                "name": "filter_race_query",
+                "query": {
+                  "datasetName": "w4_elo_boxplot",
+                  "fields": [
+                    {
+                      "name": "race_name",
+                      "expression": "`race_name`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "Race"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "Amazon"
+                      }
+                    ]
+                  }
+                }
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "race_name",
+                    "queryName": "filter_race_query"
+                  }
+                ]
+              },
+              "datasetName": "filter_race_values",
+              "fields": [
+                {
+                  "name": "race_name",
+                  "expression": "`race_name`"
+                }
+              ],
+              "disaggregated": false
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 2,
+            "height": 2
+          },
+          "widget": {
+            "name": "filter_selector_focus",
+            "queries": [
+              {
+                "name": "filter_selector_focus_query",
+                "query": {
+                  "datasetName": "w13_team_candidates",
+                  "fields": [
+                    {
+                      "name": "selector_focus_values",
+                      "expression": "SELECT 'GLO' AS value UNION ALL SELECT 'RACE' AS value UNION ALL SELECT 'OPPONENT' AS value UNION ALL SELECT 'BALANCED' AS value"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "frame": {
+                "showTitle": true,
+                "title": "Selector Focus"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "BALANCED"
+                      }
+                    ]
+                  }
+                }
+              },
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "selector_focus",
+                    "queryName": "filter_selector_focus_query"
+                  }
+                ]
+              },
+              "datasetName": "filter_selector_focus_values",
+              "fields": [
+                {
+                  "name": "selector_focus",
+                  "expression": "`selector_focus`"
+                }
+              ],
+              "disaggregated": false
+            }
           }
         }
       ],
@@ -3749,6 +2130,10 @@
   "uiSettings": {
     "theme": {
       "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "genieSpace": {
+      "isEnabled": false,
+      "enablementMode": "ENABLEMENT_MODE_UNSPECIFIED"
     },
     "applyModeEnabled": false
   }
