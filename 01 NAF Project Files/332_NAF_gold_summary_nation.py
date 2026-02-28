@@ -1376,6 +1376,7 @@
 # MAGIC     COUNT(*) AS coach_count
 # MAGIC   FROM metric_long
 # MAGIC   WHERE metric_value IS NOT NULL
+# MAGIC     AND nation_id <> 0   -- World handled separately in world_binned
 # MAGIC   GROUP BY nation_id, metric_type, FLOOR(metric_value / 25.0) * 25
 # MAGIC ),
 # MAGIC
@@ -1939,22 +1940,25 @@
 # MAGIC -- NOTES        : - Excludes intra-nation games (opponent from same nation).
 # MAGIC --                - Excludes Unknown nation (nation_id = 0).
 # MAGIC --                - Bins by opponent's GLO (peak or median per metric_type).
+# MAGIC --                - Uses COALESCE(stable, full-history) GLO so all opponents
+# MAGIC --                  with any rating are included (not just is_valid_glo).
+# MAGIC --                - Fixed bins: 0-150, 150-200, 200-250, 250-300, 300+.
 # MAGIC --                - Spine ensures all bins present per nation+metric (zero-filled).
-# MAGIC --                - Only includes coaches/opponents with valid GLO.
 # MAGIC -- PHASE        : 5
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC USING DELTA AS
 # MAGIC
-# MAGIC WITH bin_spine AS (
-# MAGIC   SELECT
-# MAGIC     bin_scheme_id,
-# MAGIC     bin_index,
-# MAGIC     bin_min_global_elo,
-# MAGIC     bin_max_global_elo,
-# MAGIC     num_bins
-# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
+# MAGIC -- Fixed bin definitions: 0-150, 150-200, 200-250, 250-300, 300+
+# MAGIC WITH bin_def AS (
+# MAGIC   SELECT * FROM (VALUES
+# MAGIC     (1, 0.0,    150.0, '0–150'),
+# MAGIC     (2, 150.0,  200.0, '150–200'),
+# MAGIC     (3, 200.0,  250.0, '200–250'),
+# MAGIC     (4, 250.0,  300.0, '250–300'),
+# MAGIC     (5, 300.0, 9999.0, '300+')
+# MAGIC   ) AS t(bin_index, bin_min, bin_max, bin_label)
 # MAGIC ),
 # MAGIC
 # MAGIC nation_spine AS (
@@ -1971,14 +1975,13 @@
 # MAGIC   SELECT
 # MAGIC     ns.nation_id,
 # MAGIC     ms.metric_type,
-# MAGIC     bs.bin_scheme_id,
-# MAGIC     bs.bin_index,
-# MAGIC     bs.bin_min_global_elo,
-# MAGIC     bs.bin_max_global_elo,
-# MAGIC     bs.num_bins
+# MAGIC     bd.bin_index,
+# MAGIC     bd.bin_min,
+# MAGIC     bd.bin_max,
+# MAGIC     bd.bin_label
 # MAGIC   FROM nation_spine ns
 # MAGIC   CROSS JOIN metric_spine ms
-# MAGIC   CROSS JOIN bin_spine bs
+# MAGIC   CROSS JOIN bin_def bd
 # MAGIC ),
 # MAGIC
 # MAGIC game_data AS (
@@ -1986,8 +1989,9 @@
 # MAGIC     c.nation_id        AS coach_nation_id,
 # MAGIC     opp_c.nation_id    AS opponent_nation_id,
 # MAGIC     cgf.result_numeric,
-# MAGIC     opp_glo.glo_peak   AS opponent_glo_peak,
-# MAGIC     opp_glo.glo_median AS opponent_glo_median
+# MAGIC     -- Use stable GLO if available, else full-history GLO
+# MAGIC     COALESCE(opp_glo.glo_peak, opp_glo.glo_peak_all)     AS opponent_glo_peak,
+# MAGIC     COALESCE(opp_glo.glo_median, opp_glo.glo_median_all) AS opponent_glo_median
 # MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
 # MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
 # MAGIC     ON cgf.coach_id = c.coach_id
@@ -1995,7 +1999,6 @@
 # MAGIC     ON cgf.opponent_coach_id = opp_c.coach_id
 # MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics opp_glo
 # MAGIC     ON cgf.opponent_coach_id = opp_glo.coach_id
-# MAGIC     AND opp_glo.is_valid_glo = TRUE
 # MAGIC   WHERE c.nation_id <> 0
 # MAGIC     AND opp_c.nation_id <> 0
 # MAGIC     AND c.nation_id <> opp_c.nation_id  -- exclude intra-nation
@@ -2017,13 +2020,12 @@
 # MAGIC   SELECT
 # MAGIC     gm.coach_nation_id AS nation_id,
 # MAGIC     gm.metric_type,
-# MAGIC     bs.bin_scheme_id,
-# MAGIC     bs.bin_index,
+# MAGIC     bd.bin_index,
 # MAGIC     gm.result_numeric
 # MAGIC   FROM game_metric gm
-# MAGIC   INNER JOIN bin_spine bs
-# MAGIC     ON gm.opponent_glo_value >= bs.bin_min_global_elo
-# MAGIC     AND gm.opponent_glo_value < bs.bin_max_global_elo
+# MAGIC   INNER JOIN bin_def bd
+# MAGIC     ON gm.opponent_glo_value >= bd.bin_min
+# MAGIC     AND gm.opponent_glo_value < bd.bin_max
 # MAGIC   WHERE gm.opponent_glo_value IS NOT NULL
 # MAGIC ),
 # MAGIC
@@ -2031,7 +2033,6 @@
 # MAGIC   SELECT
 # MAGIC     nation_id,
 # MAGIC     metric_type,
-# MAGIC     bin_scheme_id,
 # MAGIC     bin_index,
 # MAGIC     CAST(COUNT(*) AS INT) AS games,
 # MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END) AS INT)   AS wins,
@@ -2039,16 +2040,16 @@
 # MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END) AS INT)   AS losses,
 # MAGIC     ROUND(CAST(SUM(result_numeric) AS DOUBLE) / NULLIF(COUNT(*), 0), 3)   AS ppg
 # MAGIC   FROM bucketed
-# MAGIC   GROUP BY nation_id, metric_type, bin_scheme_id, bin_index
+# MAGIC   GROUP BY nation_id, metric_type, bin_index
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
 # MAGIC   sp.nation_id,
 # MAGIC   sp.metric_type,
-# MAGIC   sp.bin_scheme_id,
 # MAGIC   sp.bin_index,
-# MAGIC   sp.bin_min_global_elo,
-# MAGIC   sp.bin_max_global_elo,
+# MAGIC   sp.bin_min,
+# MAGIC   sp.bin_max,
+# MAGIC   sp.bin_label,
 # MAGIC   COALESCE(a.games, 0)    AS games,
 # MAGIC   COALESCE(a.wins, 0)     AS wins,
 # MAGIC   COALESCE(a.draws, 0)    AS draws,
@@ -2059,7 +2060,6 @@
 # MAGIC LEFT JOIN agg a
 # MAGIC   ON sp.nation_id = a.nation_id
 # MAGIC   AND sp.metric_type = a.metric_type
-# MAGIC   AND sp.bin_scheme_id = a.bin_scheme_id
 # MAGIC   AND sp.bin_index = a.bin_index;
 # MAGIC
 
@@ -2228,14 +2228,20 @@
 # MAGIC --                naf_catalog.gold_summary.nation_coach_race_elo_peak (race ELO peaks)
 # MAGIC --                naf_catalog.gold_summary.coach_form_summary         (supplementary)
 # MAGIC --                naf_catalog.gold_summary.coach_race_relative_strength (supplementary)
-# MAGIC -- NOTES        : - Eligibility gate: is_valid_glo = TRUE (50+ global games).
+# MAGIC -- NOTES        : - Eligibility gate: is_valid_glo = TRUE (50+ global games)
+# MAGIC --                  AND active (played in current or previous calendar year).
 # MAGIC --                - Median race ELO = median of elo_peak across valid races per coach.
 # MAGIC --                  Coaches with no valid race ELO get race_elo_median = NULL → pctl = 0.
+# MAGIC --                - Computes both within-nation AND global percentiles:
+# MAGIC --                  glo_pctl / race_pctl / opponent_pctl          = within-nation
+# MAGIC --                  glo_pctl_global / race_pctl_global / opponent_pctl_global = across all nations
 # MAGIC --                - Selector focus weights:
 # MAGIC --                  GLO:      50/25/25
 # MAGIC --                  RACE:     25/50/25
 # MAGIC --                  OPPONENT: 25/25/50
 # MAGIC --                  BALANCED: 33.3/33.3/33.3
+# MAGIC --                - selector_score uses within-nation percentiles (team selection).
+# MAGIC --                - selector_score_global uses global percentiles (power ranking).
 # MAGIC --                - Supplementary columns (not in score): form_score, versatility.
 # MAGIC -- PHASE        : 6
 # MAGIC -- =====================================================================
@@ -2243,7 +2249,7 @@
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_team_candidate_scores
 # MAGIC USING DELTA AS
 # MAGIC
-# MAGIC -- 1. Eligible coaches per nation (valid GLO, excluding Unknown nation)
+# MAGIC -- 1. Eligible coaches per nation (valid GLO, active, excluding Unknown nation)
 # MAGIC WITH eligible AS (
 # MAGIC   SELECT
 # MAGIC     m.nation_id,
@@ -2252,8 +2258,12 @@
 # MAGIC     m.glo_median,
 # MAGIC     COALESCE(m.avg_opponent_glo_peak, 0.0) AS avg_opponent_glo
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS m
+# MAGIC   INNER JOIN naf_catalog.gold_summary.coach_performance_summary cps
+# MAGIC     ON m.coach_id = cps.coach_id
 # MAGIC   WHERE m.is_valid_glo = TRUE
 # MAGIC     AND m.nation_id <> 0
+# MAGIC     -- Activity filter: played in current or previous calendar year
+# MAGIC     AND CAST(cps.date_last_game_id / 10000 AS INT) >= YEAR(CURRENT_DATE()) - 1
 # MAGIC ),
 # MAGIC
 # MAGIC -- 2. Median race ELO per coach (median of elo_peak across valid races)
@@ -2301,13 +2311,18 @@
 # MAGIC   LEFT JOIN versatility_data v ON e.coach_id = v.coach_id
 # MAGIC ),
 # MAGIC
-# MAGIC -- 6. Within-nation percentile scores (0–100) for the 3 core components
+# MAGIC -- 6. Within-nation AND global percentile scores (0–100) for the 3 core components
 # MAGIC scored AS (
 # MAGIC   SELECT
 # MAGIC     *,
+# MAGIC     -- Within-nation percentiles (for team selection within a nation)
 # MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY glo_median        ASC) * 100.0 AS DOUBLE) AS glo_pctl,
 # MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY race_elo_median   ASC) * 100.0 AS DOUBLE) AS race_pctl,
-# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY avg_opponent_glo  ASC) * 100.0 AS DOUBLE) AS opponent_pctl
+# MAGIC     CAST(PERCENT_RANK() OVER (PARTITION BY nation_id ORDER BY avg_opponent_glo  ASC) * 100.0 AS DOUBLE) AS opponent_pctl,
+# MAGIC     -- Global percentiles (for cross-nation power ranking)
+# MAGIC     CAST(PERCENT_RANK() OVER (ORDER BY glo_median        ASC) * 100.0 AS DOUBLE) AS glo_pctl_global,
+# MAGIC     CAST(PERCENT_RANK() OVER (ORDER BY race_elo_median   ASC) * 100.0 AS DOUBLE) AS race_pctl_global,
+# MAGIC     CAST(PERCENT_RANK() OVER (ORDER BY avg_opponent_glo  ASC) * 100.0 AS DOUBLE) AS opponent_pctl_global
 # MAGIC   FROM combined
 # MAGIC ),
 # MAGIC
@@ -2334,10 +2349,16 @@
 # MAGIC     s.form_score,
 # MAGIC     s.races_above_world_median,
 # MAGIC     s.races_played_eligible,
+# MAGIC     -- Within-nation percentiles + score
 # MAGIC     s.glo_pctl,
 # MAGIC     s.race_pctl,
 # MAGIC     s.opponent_pctl,
-# MAGIC     ROUND(fw.w_glo * s.glo_pctl + fw.w_race * s.race_pctl + fw.w_opponent * s.opponent_pctl, 2) AS selector_score
+# MAGIC     ROUND(fw.w_glo * s.glo_pctl + fw.w_race * s.race_pctl + fw.w_opponent * s.opponent_pctl, 2) AS selector_score,
+# MAGIC     -- Global percentiles + score (for power ranking)
+# MAGIC     s.glo_pctl_global,
+# MAGIC     s.race_pctl_global,
+# MAGIC     s.opponent_pctl_global,
+# MAGIC     ROUND(fw.w_glo * s.glo_pctl_global + fw.w_race * s.race_pctl_global + fw.w_opponent * s.opponent_pctl_global, 2) AS selector_score_global
 # MAGIC   FROM scored s
 # MAGIC   CROSS JOIN focus_weights fw
 # MAGIC )
@@ -2358,6 +2379,11 @@
 # MAGIC   opponent_pctl,
 # MAGIC   selector_score,
 # MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score DESC) AS INT) AS selector_rank,
+# MAGIC   glo_pctl_global,
+# MAGIC   race_pctl_global,
+# MAGIC   opponent_pctl_global,
+# MAGIC   selector_score_global,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score_global DESC) AS INT) AS selector_rank_global,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM selector;
 # MAGIC
@@ -2367,43 +2393,55 @@
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_power_ranking
 # MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Ranks nations by the average selector_score of their top 8 candidates.
+# MAGIC -- PURPOSE      : Ranks nations by the average GLOBAL selector_score of their top 8 candidates.
+# MAGIC --                Uses selector_score_global (global percentiles) for cross-nation comparison.
 # MAGIC --                Answers: "Which nation could field the strongest team?"
 # MAGIC --                Pre-computes per selector_focus variant (GLO/RACE/OPPONENT/BALANCED).
 # MAGIC -- LAYER        : GOLD_SUMMARY
 # MAGIC -- GRAIN        : 1 row per (nation_id, selector_focus)
 # MAGIC -- PRIMARY KEY  : (nation_id, selector_focus)
 # MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_team_candidate_scores
-# MAGIC -- NOTES        : - "Top 8" = coaches at selector_rank <= 8 per focus variant.
+# MAGIC -- NOTES        : - "Top 8" = coaches ranked by selector_score_global (global percentiles).
 # MAGIC --                - Nations with fewer than 8 eligible coaches are still ranked.
-# MAGIC --                - power_rank: DENSE_RANK by top_8_avg_selector_score DESC per focus.
+# MAGIC --                - power_rank: DENSE_RANK by top_8_avg_selector_score_global DESC per focus.
 # MAGIC -- PHASE        : 6
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_power_ranking
 # MAGIC USING DELTA AS
 # MAGIC
-# MAGIC WITH top_candidates AS (
+# MAGIC -- Rank candidates within each nation by global selector score
+# MAGIC WITH ranked AS (
 # MAGIC   SELECT
 # MAGIC     nation_id,
 # MAGIC     selector_focus,
 # MAGIC     coach_id,
 # MAGIC     selector_score,
+# MAGIC     selector_score_global,
 # MAGIC     glo_peak,
 # MAGIC     glo_median,
-# MAGIC     selector_rank
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY nation_id, selector_focus
+# MAGIC       ORDER BY selector_score_global DESC
+# MAGIC     ) AS global_rank_within_nation
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
-# MAGIC   WHERE selector_rank <= 8
+# MAGIC ),
+# MAGIC
+# MAGIC top_candidates AS (
+# MAGIC   SELECT *
+# MAGIC   FROM ranked
+# MAGIC   WHERE global_rank_within_nation <= 8
 # MAGIC ),
 # MAGIC
 # MAGIC agg AS (
 # MAGIC   SELECT
 # MAGIC     nation_id,
 # MAGIC     selector_focus,
-# MAGIC     CAST(COUNT(*)            AS INT)    AS coaches_in_top_8,
-# MAGIC     ROUND(AVG(selector_score), 2)       AS top_8_avg_selector_score,
-# MAGIC     ROUND(AVG(glo_peak), 1)             AS top_8_avg_glo_peak,
-# MAGIC     ROUND(AVG(glo_median), 1)           AS top_8_avg_glo_median
+# MAGIC     CAST(COUNT(*)            AS INT)          AS coaches_in_top_8,
+# MAGIC     ROUND(AVG(selector_score), 2)             AS top_8_avg_selector_score,
+# MAGIC     ROUND(AVG(selector_score_global), 2)      AS top_8_avg_selector_score_global,
+# MAGIC     ROUND(AVG(glo_peak), 1)                   AS top_8_avg_glo_peak,
+# MAGIC     ROUND(AVG(glo_median), 1)                 AS top_8_avg_glo_median
 # MAGIC   FROM top_candidates
 # MAGIC   GROUP BY nation_id, selector_focus
 # MAGIC ),
@@ -2421,10 +2459,11 @@
 # MAGIC   a.selector_focus,
 # MAGIC   a.coaches_in_top_8,
 # MAGIC   a.top_8_avg_selector_score,
+# MAGIC   a.top_8_avg_selector_score_global,
 # MAGIC   a.top_8_avg_glo_peak,
 # MAGIC   a.top_8_avg_glo_median,
 # MAGIC   ec.coaches_eligible,
-# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY a.selector_focus ORDER BY a.top_8_avg_selector_score DESC) AS INT) AS power_rank,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY a.selector_focus ORDER BY a.top_8_avg_selector_score_global DESC) AS INT) AS power_rank,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM agg a
 # MAGIC LEFT JOIN eligible_counts ec

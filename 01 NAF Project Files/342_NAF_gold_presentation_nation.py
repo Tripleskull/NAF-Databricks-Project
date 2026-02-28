@@ -772,42 +772,63 @@
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_rivalry_display AS
+# MAGIC WITH base AS (
+# MAGIC   SELECT
+# MAGIC     s.nation_id,
+# MAGIC     ni.nation_name_display,
+# MAGIC     ni.flag_emoji,
+# MAGIC
+# MAGIC     s.opponent_nation_id,
+# MAGIC     oni.nation_name_display AS opponent_nation_name_display,
+# MAGIC     oni.flag_emoji          AS opponent_flag_emoji,
+# MAGIC
+# MAGIC     CAST(s.games_played AS INT) AS games,
+# MAGIC     CAST(s.wins   AS INT)       AS wins,
+# MAGIC     CAST(s.draws  AS INT)       AS draws,
+# MAGIC     CAST(s.losses AS INT)       AS losses,
+# MAGIC     ROUND(s.avg_score_for, 3)   AS ppg,
+# MAGIC     ROUND(s.glo_exchange_mean, 2) AS avg_glo_exchange,
+# MAGIC     ROUND(s.glo_exchange_total, 1) AS total_glo_exchange,
+# MAGIC
+# MAGIC     -- PPG closeness to 0.5 (lower = more competitive rivalry)
+# MAGIC     ROUND(ABS(s.avg_score_for - 0.5), 3) AS ppg_closeness,
+# MAGIC
+# MAGIC     -- Top 10 most played, then ranked by PPG closeness
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY s.nation_id
+# MAGIC       ORDER BY s.games_played DESC
+# MAGIC     ) AS games_rank
+# MAGIC   FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
+# MAGIC   LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
+# MAGIC     ON s.nation_id = ni.nation_id
+# MAGIC   LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS oni
+# MAGIC     ON s.opponent_nation_id = oni.nation_id
+# MAGIC   WHERE s.nation_id <> 0
+# MAGIC     AND s.opponent_nation_id <> 0
+# MAGIC     AND s.nation_id <> s.opponent_nation_id
+# MAGIC )
 # MAGIC SELECT
-# MAGIC   s.nation_id,
-# MAGIC   ni.nation_name_display,
-# MAGIC   ni.flag_emoji,
-# MAGIC
-# MAGIC   s.opponent_nation_id,
-# MAGIC   oni.nation_name_display AS opponent_nation_name_display,
-# MAGIC   oni.flag_emoji          AS opponent_flag_emoji,
-# MAGIC
-# MAGIC   CAST(s.games_played AS INT) AS games,
-# MAGIC   CAST(s.wins   AS INT)       AS wins,
-# MAGIC   CAST(s.draws  AS INT)       AS draws,
-# MAGIC   CAST(s.losses AS INT)       AS losses,
-# MAGIC   ROUND(s.avg_score_for, 3)   AS ppg,
-# MAGIC   ROUND(s.glo_exchange_mean, 2) AS avg_glo_exchange,
-# MAGIC
-# MAGIC   COALESCE(r.rivalry_score, 0) AS rivalry_score,
-# MAGIC   COALESCE(r.closeness_score, 0) AS closeness_score,
-# MAGIC
+# MAGIC   nation_id,
+# MAGIC   nation_name_display,
+# MAGIC   flag_emoji,
+# MAGIC   opponent_nation_id,
+# MAGIC   opponent_nation_name_display,
+# MAGIC   opponent_flag_emoji,
+# MAGIC   games,
+# MAGIC   wins,
+# MAGIC   draws,
+# MAGIC   losses,
+# MAGIC   ppg,
+# MAGIC   avg_glo_exchange,
+# MAGIC   total_glo_exchange,
+# MAGIC   ppg_closeness,
 # MAGIC   DENSE_RANK() OVER (
-# MAGIC     PARTITION BY s.nation_id
-# MAGIC     ORDER BY COALESCE(r.rivalry_score, 0) DESC, s.games_played DESC
+# MAGIC     PARTITION BY nation_id
+# MAGIC     ORDER BY ppg_closeness ASC, games DESC
 # MAGIC   ) AS rivalry_rank,
-# MAGIC
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
-# MAGIC LEFT JOIN naf_catalog.gold_summary.nation_rivalry_summary AS r
-# MAGIC   ON s.nation_id = r.nation_id
-# MAGIC   AND s.opponent_nation_id = r.opponent_nation_id
-# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
-# MAGIC   ON s.nation_id = ni.nation_id
-# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS oni
-# MAGIC   ON s.opponent_nation_id = oni.nation_id
-# MAGIC WHERE s.nation_id <> 0
-# MAGIC   AND s.opponent_nation_id <> 0
-# MAGIC   AND s.nation_id <> s.opponent_nation_id;
+# MAGIC FROM base
+# MAGIC WHERE games_rank <= 10;
 # MAGIC
 
 # COMMAND ----------
@@ -919,7 +940,37 @@
 # MAGIC   FROM team_str
 # MAGIC ),
 # MAGIC
-# MAGIC -- 7. Most played race
+# MAGIC -- 7a. Race diversity index (normalised Shannon entropy, 0–1)
+# MAGIC race_diversity AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     -- Shannon entropy: -SUM(p * ln(p)), normalised by ln(N) where N = number of races played
+# MAGIC     CASE WHEN COUNT(*) <= 1 THEN 0.0
+# MAGIC     ELSE ROUND(
+# MAGIC       -SUM( (coaches_pct_nation / 100.0) * LN(coaches_pct_nation / 100.0) )
+# MAGIC       / LN(COUNT(*)),
+# MAGIC     3) END AS diversity_index
+# MAGIC   FROM naf_catalog.gold_summary.nation_race_summary
+# MAGIC   WHERE coaches_pct_nation > 0
+# MAGIC     AND nation_id <> 0
+# MAGIC   GROUP BY nation_id
+# MAGIC ),
+# MAGIC race_diversity_ranked AS (
+# MAGIC   SELECT *, DENSE_RANK() OVER (ORDER BY diversity_index DESC) AS rank_diversity
+# MAGIC   FROM race_diversity
+# MAGIC ),
+# MAGIC
+# MAGIC -- 7b. International play stats
+# MAGIC intl_play AS (
+# MAGIC   SELECT
+# MAGIC     s.nation_id,
+# MAGIC     ROUND(100.0 * s.games_away / NULLIF(s.games_home + s.games_away, 0), 1) AS pct_abroad,
+# MAGIC     ROUND(100.0 * s.games_vs_foreign / NULLIF(s.games_home + s.games_away, 0), 1) AS pct_vs_foreign,
+# MAGIC     ROUND(s.win_frac_vs_foreign, 3) AS ppg_vs_foreign
+# MAGIC   FROM naf_catalog.gold_summary.nation_domestic_summary AS s
+# MAGIC ),
+# MAGIC
+# MAGIC -- 7c. Most played race
 # MAGIC top_race AS (
 # MAGIC   SELECT
 # MAGIC     s.nation_id,
@@ -984,11 +1035,16 @@
 # MAGIC     COALESCE(p.power_rank, 999)  AS power_rank,
 # MAGIC     COALESCE(p.coaches_eligible, 0) AS coaches_eligible,
 # MAGIC     tr.race_name AS top_race_name, tr.race_pct AS top_race_pct,
+# MAGIC     COALESCE(rdr.diversity_index, 0) AS diversity_index,
+# MAGIC     COALESCE(rdr.rank_diversity, 999) AS rank_diversity,
 # MAGIC     COALESCE(ts.top8_avg_selector, 0) AS top8_avg_selector,
 # MAGIC     COALESCE(tsr.rank_team_score, 999) AS rank_team_score,
 # MAGIC     COALESCE(ts.top8_avg_glo_peak, 0)  AS top8_avg_glo_peak,
 # MAGIC     COALESCE(tsr.rank_team_peak, 999)   AS rank_team_peak,
 # MAGIC     h.most_played_opp, h.best_record_opp, h.worst_record_opp,
+# MAGIC     COALESCE(ip.pct_abroad, 0)      AS pct_abroad,
+# MAGIC     COALESCE(ip.pct_vs_foreign, 0)  AS pct_vs_foreign,
+# MAGIC     ip.ppg_vs_foreign,
 # MAGIC     o.load_timestamp
 # MAGIC   FROM overview o
 # MAGIC   LEFT JOIN active_ranked ar ON o.nation_id = ar.nation_id
@@ -996,9 +1052,11 @@
 # MAGIC   LEFT JOIN glo g            ON o.nation_id = g.nation_id
 # MAGIC   LEFT JOIN power p          ON o.nation_id = p.nation_id
 # MAGIC   LEFT JOIN top_race tr      ON o.nation_id = tr.nation_id
+# MAGIC   LEFT JOIN race_diversity_ranked rdr ON o.nation_id = rdr.nation_id
 # MAGIC   LEFT JOIN team_str_ranked tsr ON o.nation_id = tsr.nation_id
 # MAGIC   LEFT JOIN team_str ts      ON o.nation_id = ts.nation_id
 # MAGIC   LEFT JOIN h2h_joined h     ON o.nation_id = h.nation_id
+# MAGIC   LEFT JOIN intl_play ip     ON o.nation_id = ip.nation_id
 # MAGIC )
 # MAGIC
 # MAGIC -- 11. Unpivot into long format
@@ -1038,6 +1096,18 @@
 # MAGIC     'Race Profile', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 41,
 # MAGIC     ' • Most played race', CONCAT(COALESCE(top_race_name, 'N/A'), ' (', COALESCE(CAST(top_race_pct AS STRING), '?'), '%)'), load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 42,
+# MAGIC     ' • Race diversity index', CONCAT(CAST(diversity_index AS STRING), ' (#', CAST(rank_diversity AS STRING), ')'), load_timestamp FROM combined
+# MAGIC
+# MAGIC   -- INTERNATIONAL PLAY
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 45,
+# MAGIC     'International Play', '', load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 46,
+# MAGIC     ' • Games abroad', CONCAT(CAST(pct_abroad AS STRING), '%'), load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 47,
+# MAGIC     ' • Games vs foreign', CONCAT(CAST(pct_vs_foreign AS STRING), '%'), load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 48,
+# MAGIC     ' • PPG vs foreign', COALESCE(CAST(ppg_vs_foreign AS STRING), 'N/A'), load_timestamp FROM combined
 # MAGIC
 # MAGIC   -- NATIONAL TEAM STRENGTH
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 50,
@@ -1250,14 +1320,13 @@
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for nation W/D/L by opponent rating bin.
 # MAGIC --   Supports GLO Metric filter via metric_type (PEAK/MEDIAN).
-# MAGIC --   Joins bin labels for display-ready output.
+# MAGIC --   Fixed bins: 0-150, 150-200, 200-250, 250-300, 300+.
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, metric_type, bin_scheme_id, bin_index)
+# MAGIC --   1 row per (nation_id, metric_type, bin_index)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
-# MAGIC --   - naf_catalog.gold_presentation.global_elo_bin_scheme
 # MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
 # MAGIC -- PHASE: 5
 # MAGIC -- =====================================================================
@@ -1268,11 +1337,10 @@
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
 # MAGIC   s.metric_type,
-# MAGIC   s.bin_scheme_id,
 # MAGIC   s.bin_index,
-# MAGIC   bs.bin_label_display,
-# MAGIC   s.bin_min_global_elo,
-# MAGIC   s.bin_max_global_elo,
+# MAGIC   s.bin_label,
+# MAGIC   s.bin_min,
+# MAGIC   s.bin_max,
 # MAGIC   s.games,
 # MAGIC   s.wins,
 # MAGIC   s.draws,
@@ -1280,9 +1348,6 @@
 # MAGIC   s.ppg,
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl AS s
-# MAGIC LEFT JOIN naf_catalog.gold_presentation.global_elo_bin_scheme AS bs
-# MAGIC   ON s.bin_scheme_id = bs.bin_scheme_id
-# MAGIC   AND s.bin_index = bs.bin_index
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
 # MAGIC   ON s.nation_id = ni.nation_id;
 # MAGIC
@@ -1373,6 +1438,13 @@
 # MAGIC   ROUND(tc.race_pctl,     1) AS race_pctl,
 # MAGIC   ROUND(tc.opponent_pctl, 1) AS opponent_pctl,
 # MAGIC
+# MAGIC   -- Global percentiles (0–100, across all nations)
+# MAGIC   ROUND(tc.glo_pctl_global,      1) AS glo_pctl_global,
+# MAGIC   ROUND(tc.race_pctl_global,     1) AS race_pctl_global,
+# MAGIC   ROUND(tc.opponent_pctl_global, 1) AS opponent_pctl_global,
+# MAGIC   tc.selector_score_global,
+# MAGIC   tc.selector_rank_global,
+# MAGIC
 # MAGIC   -- Raw metric values
 # MAGIC   tc.glo_peak,
 # MAGIC   tc.glo_median,
@@ -1436,6 +1508,7 @@
 # MAGIC   ni.flag_emoji,
 # MAGIC   pr.selector_focus,
 # MAGIC   pr.top_8_avg_selector_score,
+# MAGIC   pr.top_8_avg_selector_score_global,
 # MAGIC   pr.top_8_avg_glo_peak,
 # MAGIC   pr.top_8_avg_glo_median,
 # MAGIC   pr.coaches_in_top_8,
