@@ -2240,7 +2240,7 @@
 # MAGIC --                  RACE:     25/50/25
 # MAGIC --                  OPPONENT: 25/25/50
 # MAGIC --                  BALANCED: 33.3/33.3/33.3
-# MAGIC --                - selector_score uses within-nation percentiles (team selection).
+# MAGIC --                - selector_score_national uses within-nation percentiles (team selection).
 # MAGIC --                - selector_score_global uses global percentiles (power ranking).
 # MAGIC --                - Supplementary columns (not in score): form_score, versatility.
 # MAGIC -- PHASE        : 6
@@ -2353,7 +2353,7 @@
 # MAGIC     s.glo_pctl,
 # MAGIC     s.race_pctl,
 # MAGIC     s.opponent_pctl,
-# MAGIC     ROUND(fw.w_glo * s.glo_pctl + fw.w_race * s.race_pctl + fw.w_opponent * s.opponent_pctl, 2) AS selector_score,
+# MAGIC     ROUND(fw.w_glo * s.glo_pctl + fw.w_race * s.race_pctl + fw.w_opponent * s.opponent_pctl, 2) AS selector_score_national,
 # MAGIC     -- Global percentiles + score (for power ranking)
 # MAGIC     s.glo_pctl_global,
 # MAGIC     s.race_pctl_global,
@@ -2377,8 +2377,8 @@
 # MAGIC   glo_pctl,
 # MAGIC   race_pctl,
 # MAGIC   opponent_pctl,
-# MAGIC   selector_score,
-# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score DESC) AS INT) AS selector_rank,
+# MAGIC   selector_score_national,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score_national DESC) AS INT) AS selector_rank_national,
 # MAGIC   glo_pctl_global,
 # MAGIC   race_pctl_global,
 # MAGIC   opponent_pctl_global,
@@ -2416,7 +2416,7 @@
 # MAGIC     nation_id,
 # MAGIC     selector_focus,
 # MAGIC     coach_id,
-# MAGIC     selector_score,
+# MAGIC     selector_score_national,
 # MAGIC     selector_score_global,
 # MAGIC     glo_peak,
 # MAGIC     glo_median,
@@ -2438,7 +2438,7 @@
 # MAGIC     nation_id,
 # MAGIC     selector_focus,
 # MAGIC     CAST(COUNT(*)            AS INT)          AS coaches_in_top_8,
-# MAGIC     ROUND(AVG(selector_score), 2)             AS top_8_avg_selector_score,
+# MAGIC     ROUND(AVG(selector_score_national), 2)     AS top_8_avg_selector_score_national,
 # MAGIC     ROUND(AVG(selector_score_global), 2)      AS top_8_avg_selector_score_global,
 # MAGIC     ROUND(AVG(glo_peak), 1)                   AS top_8_avg_glo_peak,
 # MAGIC     ROUND(AVG(glo_median), 1)                 AS top_8_avg_glo_median
@@ -2458,7 +2458,7 @@
 # MAGIC   a.nation_id,
 # MAGIC   a.selector_focus,
 # MAGIC   a.coaches_in_top_8,
-# MAGIC   a.top_8_avg_selector_score,
+# MAGIC   a.top_8_avg_selector_score_national,
 # MAGIC   a.top_8_avg_selector_score_global,
 # MAGIC   a.top_8_avg_glo_peak,
 # MAGIC   a.top_8_avg_glo_median,
