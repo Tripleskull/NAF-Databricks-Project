@@ -807,9 +807,9 @@
 # MAGIC -- =====================================================================
 # MAGIC -- Returns ONLY failing checks. Empty result = all pass.
 # MAGIC
-# MAGIC -- PK: nation_opponent_elo_bin_wdl (nation_id, bin_scheme_id, bin_index)
+# MAGIC -- PK: nation_opponent_elo_bin_wdl (nation_id, metric_type, bin_index) — fixed bins, no bin_scheme_id
 # MAGIC SELECT 'nation_opponent_elo_bin_wdl: PK duplicates' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM (SELECT nation_id, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl GROUP BY nation_id, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
+# MAGIC FROM (SELECT nation_id, metric_type, bin_index FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl GROUP BY nation_id, metric_type, bin_index HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- Non-empty check
 # MAGIC SELECT 'nation_opponent_elo_bin_wdl: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
@@ -829,6 +829,15 @@
 # MAGIC SELECT 'nation_opponent_elo_bin_wdl: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC WHERE nation_id = 0
+# MAGIC UNION ALL
+# MAGIC -- Spine completeness: every nation should have 5 bins per metric_type
+# MAGIC SELECT 'nation_opponent_elo_bin_wdl: inconsistent bin count per nation' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (
+# MAGIC   SELECT nation_id, metric_type, COUNT(*) AS bin_count
+# MAGIC   FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
+# MAGIC   GROUP BY nation_id, metric_type
+# MAGIC   HAVING COUNT(*) <> 5
+# MAGIC )
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_game_quality_bin_wdl (nation_id, bin_scheme_id, bin_index)
 # MAGIC SELECT 'nation_game_quality_bin_wdl: PK duplicates' AS check_name, COUNT(*) AS fail_rows
@@ -852,15 +861,6 @@
 # MAGIC SELECT 'nation_game_quality_bin_wdl: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
 # MAGIC WHERE nation_id = 0
-# MAGIC UNION ALL
-# MAGIC -- Spine completeness: every nation should have same number of bins per scheme
-# MAGIC SELECT 'nation_opponent_elo_bin_wdl: inconsistent bin count per nation' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM (
-# MAGIC   SELECT nation_id, bin_scheme_id, COUNT(*) AS bin_count
-# MAGIC   FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
-# MAGIC   GROUP BY nation_id, bin_scheme_id
-# MAGIC   HAVING COUNT(*) <> (SELECT MAX(num_bins) FROM naf_catalog.gold_summary.global_elo_bin_scheme WHERE bin_scheme_id = nation_opponent_elo_bin_wdl.bin_scheme_id)
-# MAGIC )
 # MAGIC UNION ALL
 # MAGIC -- Presentation view non-empty
 # MAGIC SELECT 'nation_opponent_elo_bin_wdl_display: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
