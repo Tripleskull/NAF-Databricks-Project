@@ -852,10 +852,10 @@
 # MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
 # MAGIC WHERE games > 0 AND (wins + draws + losses) <> games
 # MAGIC UNION ALL
-# MAGIC -- win_frac between 0-1
-# MAGIC SELECT 'nation_game_quality_bin_wdl: win_frac outside [0,1]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC -- ppg between 0-1
+# MAGIC SELECT 'nation_game_quality_bin_wdl: ppg outside [0,1]' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC WHERE win_frac IS NOT NULL AND (win_frac < 0 OR win_frac > 1)
+# MAGIC WHERE ppg IS NOT NULL AND (ppg < 0 OR ppg > 1)
 # MAGIC UNION ALL
 # MAGIC -- No Unknown nation
 # MAGIC SELECT 'nation_game_quality_bin_wdl: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
