@@ -2188,12 +2188,8 @@
 # MAGIC   SELECT 'ERROR', 'nation_power_ranking: top_8_avg_selector_score_national outside [0,100]', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
 # MAGIC   WHERE top_8_avg_selector_score_national < 0 OR top_8_avg_selector_score_national > 100
-# MAGIC   UNION ALL
-# MAGIC   -- Config integrity: selector weights must sum to 1.0
-# MAGIC   SELECT 'WARN', 'analytical_config: selector weights do not sum to 1.0', CAST(CASE
-# MAGIC     WHEN ABS(selector_w_rating + selector_w_form + selector_w_opponent + selector_w_versatility + selector_w_international - 1.0) > 0.001
-# MAGIC     THEN 1 ELSE 0 END AS BIGINT)
-# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC   -- NOTE: Old 5-weight selector config check removed. Selector now uses
+# MAGIC   -- deterministic 3-component focus weights (GLO/Race/Opponent) hardcoded in 332.
 # MAGIC ),
 # MAGIC
 # MAGIC -- -----------------------------------------------------------------
