@@ -1053,10 +1053,6 @@
                       "expression": "`nation_label`"
                     },
                     {
-                      "name": "race_name",
-                      "expression": "`race_name`"
-                    },
-                    {
                       "name": "min(peak_elo)",
                       "expression": "MIN(`peak_elo`)"
                     },
@@ -1091,15 +1087,7 @@
               "widgetType": "box",
               "encodings": {
                 "x": {
-                  "fieldName": "race_name",
-                  "displayName": "Race",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                },
-                "color": {
                   "fieldName": "nation_label",
-                  "displayName": "Nation",
                   "scale": {
                     "type": "categorical"
                   }
@@ -1646,10 +1634,6 @@
                       "expression": "`avg_glo_exchange`"
                     },
                     {
-                      "name": "opp_selector_score_national",
-                      "expression": "`opp_selector_score_national`"
-                    },
-                    {
                       "name": "opp_selector_score_global",
                       "expression": "`opp_selector_score_global`"
                     }
@@ -1687,9 +1671,6 @@
                     "fieldName": "avg_glo_exchange"
                   },
                   {
-                    "fieldName": "opp_selector_score_national"
-                  },
-                  {
                     "fieldName": "opp_selector_score_global"
                   }
                 ]
@@ -1713,28 +1694,28 @@
                   "datasetName": "w13_team_candidates",
                   "fields": [
                     {
-                      "name": "selector_rank_national",
-                      "expression": "`selector_rank_national`"
+                      "name": "selector_rank_global",
+                      "expression": "`selector_rank_global`"
                     },
                     {
                       "name": "coach_name",
                       "expression": "`coach_name`"
                     },
                     {
-                      "name": "selector_score_national",
-                      "expression": "`selector_score_national`"
+                      "name": "selector_score_global",
+                      "expression": "`selector_score_global`"
                     },
                     {
-                      "name": "glo_pctl",
-                      "expression": "`glo_pctl`"
+                      "name": "glo_pctl_global",
+                      "expression": "`glo_pctl_global`"
                     },
                     {
-                      "name": "race_pctl",
-                      "expression": "`race_pctl`"
+                      "name": "race_pctl_global",
+                      "expression": "`race_pctl_global`"
                     },
                     {
-                      "name": "opponent_pctl",
-                      "expression": "`opponent_pctl`"
+                      "name": "opponent_pctl_global",
+                      "expression": "`opponent_pctl_global`"
                     }
                   ],
                   "disaggregated": true
@@ -1752,22 +1733,13 @@
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "selector_rank_national"
+                    "fieldName": "selector_rank_global"
                   },
                   {
                     "fieldName": "coach_name"
                   },
                   {
-                    "fieldName": "selector_score_national"
-                  },
-                  {
-                    "fieldName": "glo_pctl"
-                  },
-                  {
-                    "fieldName": "race_pctl"
-                  },
-                  {
-                    "fieldName": "opponent_pctl"
+                    "fieldName": "selector_score_global"
                   },
                   {
                     "fieldName": "glo_pctl_global"
@@ -1777,36 +1749,6 @@
                   },
                   {
                     "fieldName": "opponent_pctl_global"
-                  },
-                  {
-                    "fieldName": "selector_score_global"
-                  },
-                  {
-                    "fieldName": "selector_rank_global"
-                  },
-                  {
-                    "fieldName": "glo_peak"
-                  },
-                  {
-                    "fieldName": "glo_median"
-                  },
-                  {
-                    "fieldName": "race_elo_median"
-                  },
-                  {
-                    "fieldName": "avg_opponent_glo"
-                  },
-                  {
-                    "fieldName": "form_score"
-                  },
-                  {
-                    "fieldName": "races_above_world_median"
-                  },
-                  {
-                    "fieldName": "world_specialist_count"
-                  },
-                  {
-                    "fieldName": "national_specialist_count"
                   }
                 ]
               }
