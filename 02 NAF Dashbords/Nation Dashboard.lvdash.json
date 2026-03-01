@@ -75,7 +75,8 @@
         "    SELECT opponent_nation_id\r\n",
         "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
         "    WHERE nation_name_display = :nation_name_display\r\n",
-        "      AND rivalry_rank <= 3\r\n",
+        "    ORDER BY rivalry_score ASC\r\n",
+        "    LIMIT 3\r\n",
         "  )\r\n",
         "ORDER BY iso_week, nation_name_display"
       ],
@@ -90,22 +91,6 @@
               "values": [
                 {
                   "value": "Denmark"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
                 }
               ]
             }
@@ -125,7 +110,13 @@
         "WHERE metric_type = :glo_metric\r\n",
         "  AND (\r\n",
         "    nation_name_display = :nation_name_display\r\n",
-        "    OR array_contains(:compare_nations, nation_name_display)\r\n",
+        "    OR nation_id IN (\r\n",
+        "      SELECT opponent_nation_id\r\n",
+        "      FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
+        "      WHERE nation_name_display = :nation_name_display\r\n",
+        "      ORDER BY rivalry_score ASC\r\n",
+        "      LIMIT 3\r\n",
+        "    )\r\n",
         "    OR nation_name_display = 'World'\r\n",
         "  )\r\n",
         "ORDER BY nation_name_display"
@@ -147,22 +138,6 @@
           }
         },
         {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
-                }
-              ]
-            }
-          }
-        },
-        {
           "displayName": "glo_metric",
           "keyword": "glo_metric",
           "dataType": "STRING",
@@ -171,7 +146,7 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "PEAK"
+                  "value": "MEDIAN"
                 }
               ]
             }
@@ -221,7 +196,13 @@
         "    coach_id,\r\n",
         "    elo_value\r\n",
         "  FROM base\r\n",
-        "  WHERE array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
+        "  WHERE nation_id IN (\r\n",
+        "    SELECT opponent_nation_id\r\n",
+        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
+        "    WHERE nation_name_display = :nation_name_display\r\n",
+        "    ORDER BY rivalry_score ASC\r\n",
+        "    LIMIT 3\r\n",
+        "  )\r\n",
         "    AND nation_name_display <> :nation_name_display\r\n",
         ")\r\n",
         "SELECT * FROM world_data\r\n",
@@ -249,22 +230,6 @@
               "values": [
                 {
                   "value": "Denmark"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
                 }
               ]
             }
@@ -316,7 +281,13 @@
         "WHERE metric_type = :glo_metric\r\r\n",
         "  AND (\r\r\n",
         "    nation_name_display = :nation_name_display\r\r\n",
-        "    OR array_contains(:compare_nations, nation_name_display)\r\r\n",
+        "    OR nation_id IN (\r\r\n",
+        "      SELECT opponent_nation_id\r\r\n",
+        "      FROM naf_catalog.gold_presentation.nation_rivalry_display\r\r\n",
+        "      WHERE nation_name_display = :nation_name_display\r\r\n",
+        "      ORDER BY rivalry_score ASC\r\r\n",
+        "      LIMIT 3\r\r\n",
+        "    )\r\r\n",
         "    OR nation_id = 0\r\r\n",
         "  )\r\r\n",
         "ORDER BY glo_bin, nation_name_display\r\n"
@@ -338,22 +309,6 @@
           }
         },
         {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
-                }
-              ]
-            }
-          }
-        },
-        {
           "displayName": "glo_metric",
           "keyword": "glo_metric",
           "dataType": "STRING",
@@ -362,7 +317,7 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "PEAK"
+                  "value": "MEDIAN"
                 }
               ]
             }
@@ -382,7 +337,13 @@
         "WHERE metric_type = :glo_metric\r\n",
         "  AND (\r\n",
         "    nation_name_display = :nation_name_display\r\n",
-        "    OR array_contains(:compare_nations, nation_name_display)\r\n",
+        "    OR nation_id IN (\r\n",
+        "      SELECT opponent_nation_id\r\n",
+        "      FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
+        "      WHERE nation_name_display = :nation_name_display\r\n",
+        "      ORDER BY rivalry_score ASC\r\n",
+        "      LIMIT 3\r\n",
+        "    )\r\n",
         "    OR nation_id = 0\r\n",
         "  )\r\n",
         "ORDER BY glo_value, nation_name_display\r\n"
@@ -404,22 +365,6 @@
           }
         },
         {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
-                }
-              ]
-            }
-          }
-        },
-        {
           "displayName": "glo_metric",
           "keyword": "glo_metric",
           "dataType": "STRING",
@@ -428,7 +373,7 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "PEAK"
+                  "value": "MEDIAN"
                 }
               ]
             }
@@ -447,7 +392,13 @@
         "  nation_name_display\n",
         "FROM naf_catalog.gold_presentation.nation_race_meta\n",
         "WHERE (nation_name_display = :nation_name_display\n",
-        "  OR array_contains(coalesce(:compare_nations, array()), nation_name_display)\n",
+        "  OR nation_id IN (\n",
+        "    SELECT opponent_nation_id\n",
+        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\n",
+        "    WHERE nation_name_display = :nation_name_display\n",
+        "    ORDER BY rivalry_score ASC\n",
+        "    LIMIT 3\n",
+        "  )\n",
         "  OR nation_name_display = 'World')\n",
         "  AND (SIZE(coalesce(:race_name, array())) = 0 OR array_contains(:race_name, race_name))\n",
         "ORDER BY race_name"
@@ -463,22 +414,6 @@
               "values": [
                 {
                   "value": "Denmark"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
                 }
               ]
             }
@@ -590,10 +525,11 @@
         "  losses,\r\n",
         "  ppg,\r\n",
         "  avg_glo_exchange,\r\n",
-        "  opp_selector_score_global\r\n",
+        "  opp_selector_score_global,\r\n",
+        "  rivalry_score\r\n",
         "FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY opp_selector_score_global DESC\r\n"
+        "ORDER BY rivalry_score ASC\r\n"
       ],
       "parameters": [
         {
@@ -624,9 +560,9 @@
         "  glo_pctl,\r\n",
         "  race_pctl,\r\n",
         "  opponent_pctl,\r\n",
-        "  glo_pctl_global,\r\n",
-        "  race_pctl_global,\r\n",
-        "  opponent_pctl_global,\r\n",
+        "  glo_rank_global,\r\n",
+        "  race_rank_global,\r\n",
+        "  opponent_rank_global,\r\n",
         "  selector_score_global,\r\n",
         "  selector_rank_global,\r\n",
         "  glo_peak,\r\n",
@@ -640,7 +576,7 @@
         "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
         "  AND selector_focus = :selector_focus\r\n",
-        "ORDER BY selector_rank_national\r\n"
+        "ORDER BY selector_rank_global ASC\r\n"
       ],
       "parameters": [
         {
@@ -741,7 +677,13 @@
         "  nation_name_display\n",
         "FROM naf_catalog.gold_presentation.nation_race_meta\n",
         "WHERE (nation_name_display = :nation_name_display\n",
-        "  OR array_contains(coalesce(:compare_nations, array()), nation_name_display)\n",
+        "  OR nation_id IN (\n",
+        "    SELECT opponent_nation_id\n",
+        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\n",
+        "    WHERE nation_name_display = :nation_name_display\n",
+        "    ORDER BY rivalry_score ASC\n",
+        "    LIMIT 3\n",
+        "  )\n",
         "  OR nation_name_display = 'World')\n",
         "  AND (SIZE(coalesce(:race_name, array())) = 0 OR array_contains(:race_name, race_name))\n",
         "ORDER BY race_name"
@@ -757,22 +699,6 @@
               "values": [
                 {
                   "value": "Denmark"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "compare_nations",
-          "keyword": "compare_nations",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Sweden"
                 }
               ]
             }
@@ -1659,6 +1585,10 @@
                     {
                       "name": "opp_selector_score_global",
                       "expression": "`opp_selector_score_global`"
+                    },
+                    {
+                      "name": "rivalry_score",
+                      "expression": "`rivalry_score`"
                     }
                   ],
                   "disaggregated": true
@@ -1677,6 +1607,9 @@
                 "columns": [
                   {
                     "fieldName": "opponent_nation_name_display"
+                  },
+                  {
+                    "fieldName": "rivalry_score"
                   },
                   {
                     "fieldName": "games"
@@ -1732,16 +1665,16 @@
                       "expression": "`selector_score_global`"
                     },
                     {
-                      "name": "glo_pctl_global",
-                      "expression": "`glo_pctl_global`"
+                      "name": "glo_rank_global",
+                      "expression": "`glo_rank_global`"
                     },
                     {
-                      "name": "race_pctl_global",
-                      "expression": "`race_pctl_global`"
+                      "name": "race_rank_global",
+                      "expression": "`race_rank_global`"
                     },
                     {
-                      "name": "opponent_pctl_global",
-                      "expression": "`opponent_pctl_global`"
+                      "name": "opponent_rank_global",
+                      "expression": "`opponent_rank_global`"
                     }
                   ],
                   "disaggregated": true
@@ -1768,13 +1701,13 @@
                     "fieldName": "selector_score_global"
                   },
                   {
-                    "fieldName": "glo_pctl_global"
+                    "fieldName": "glo_rank_global"
                   },
                   {
-                    "fieldName": "race_pctl_global"
+                    "fieldName": "race_rank_global"
                   },
                   {
-                    "fieldName": "opponent_pctl_global"
+                    "fieldName": "opponent_rank_global"
                   }
                 ]
               }

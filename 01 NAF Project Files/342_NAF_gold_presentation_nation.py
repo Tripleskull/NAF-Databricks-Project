@@ -850,69 +850,35 @@
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_rivalry_display AS
-# MAGIC WITH base AS (
-# MAGIC   SELECT
-# MAGIC     s.nation_id,
-# MAGIC     ni.nation_name_display,
-# MAGIC     ni.flag_emoji,
-# MAGIC
-# MAGIC     s.opponent_nation_id,
-# MAGIC     oni.nation_name_display AS opponent_nation_name_display,
-# MAGIC     oni.flag_emoji          AS opponent_flag_emoji,
-# MAGIC
-# MAGIC     CAST(s.games_played AS INT) AS games,
-# MAGIC     CAST(s.wins   AS INT)       AS wins,
-# MAGIC     CAST(s.draws  AS INT)       AS draws,
-# MAGIC     CAST(s.losses AS INT)       AS losses,
-# MAGIC     ROUND(s.avg_score_for, 3)   AS ppg,
-# MAGIC     ROUND(s.glo_exchange_mean, 2) AS avg_glo_exchange,
-# MAGIC     ROUND(s.glo_exchange_total, 1) AS total_glo_exchange,
-# MAGIC
-# MAGIC     -- PPG closeness to 0.5 (lower = more competitive rivalry)
-# MAGIC     ROUND(ABS(s.avg_score_for - 0.5), 3) AS ppg_closeness,
-# MAGIC
-# MAGIC     -- Top 10 most played, then ranked by PPG closeness
-# MAGIC     ROW_NUMBER() OVER (
-# MAGIC       PARTITION BY s.nation_id
-# MAGIC       ORDER BY s.games_played DESC
-# MAGIC     ) AS games_rank
-# MAGIC   FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
-# MAGIC   LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
-# MAGIC     ON s.nation_id = ni.nation_id
-# MAGIC   LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS oni
-# MAGIC     ON s.opponent_nation_id = oni.nation_id
-# MAGIC   WHERE s.nation_id <> 0
-# MAGIC     AND s.opponent_nation_id <> 0
-# MAGIC     AND s.nation_id <> s.opponent_nation_id
-# MAGIC )
 # MAGIC SELECT
-# MAGIC   b.nation_id,
-# MAGIC   b.nation_name_display,
-# MAGIC   b.flag_emoji,
-# MAGIC   b.opponent_nation_id,
-# MAGIC   b.opponent_nation_name_display,
-# MAGIC   b.opponent_flag_emoji,
-# MAGIC   b.games,
-# MAGIC   b.wins,
-# MAGIC   b.draws,
-# MAGIC   b.losses,
-# MAGIC   b.ppg,
-# MAGIC   b.avg_glo_exchange,
-# MAGIC   b.total_glo_exchange,
-# MAGIC   b.ppg_closeness,
-# MAGIC   DENSE_RANK() OVER (
-# MAGIC     PARTITION BY b.nation_id
-# MAGIC     ORDER BY b.ppg_closeness ASC, b.games DESC
-# MAGIC   ) AS rivalry_rank,
-# MAGIC   -- Opponent nation's selector scores (BALANCED focus)
-# MAGIC   pr.top_8_avg_selector_score_national AS opp_selector_score_national,
-# MAGIC   pr.top_8_avg_selector_score_global   AS opp_selector_score_global,
+# MAGIC   s.nation_id,
+# MAGIC   ni.nation_name_display,
+# MAGIC   ni.flag_emoji,
+# MAGIC   s.opponent_nation_id,
+# MAGIC   oni.nation_name_display AS opponent_nation_name_display,
+# MAGIC   oni.flag_emoji AS opponent_flag_emoji,
+# MAGIC   CAST(s.games_played AS INT) AS games,
+# MAGIC   CAST(s.wins AS INT) AS wins,
+# MAGIC   CAST(s.draws AS INT) AS draws,
+# MAGIC   CAST(s.losses AS INT) AS losses,
+# MAGIC   ROUND(s.avg_score_for, 3) AS ppg,
+# MAGIC   ROUND(s.glo_exchange_mean, 2) AS avg_glo_exchange,
+# MAGIC   ROUND(s.glo_exchange_total, 1) AS total_glo_exchange,
+# MAGIC   r.games_rank,
+# MAGIC   r.closeness_rank,
+# MAGIC   r.rivalry_score,
+# MAGIC   pr.top_8_avg_selector_score_global AS opp_selector_score_global,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM base AS b
+# MAGIC FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
+# MAGIC INNER JOIN naf_catalog.gold_summary.nation_rivalry_summary AS r
+# MAGIC   ON s.nation_id = r.nation_id AND s.opponent_nation_id = r.opponent_nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
+# MAGIC   ON s.nation_id = ni.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS oni
+# MAGIC   ON s.opponent_nation_id = oni.nation_id
 # MAGIC LEFT JOIN naf_catalog.gold_summary.nation_power_ranking AS pr
-# MAGIC   ON b.opponent_nation_id = pr.nation_id
-# MAGIC   AND pr.selector_focus = 'BALANCED'
-# MAGIC WHERE b.games_rank <= 10;
+# MAGIC   ON s.opponent_nation_id = pr.nation_id AND pr.selector_focus = 'BALANCED'
+# MAGIC QUALIFY DENSE_RANK() OVER (PARTITION BY s.nation_id ORDER BY r.rivalry_score ASC) <= 10;
 # MAGIC
 
 # COMMAND ----------
@@ -1065,7 +1031,7 @@
 # MAGIC ),
 # MAGIC team_str_ranked AS (
 # MAGIC   SELECT *,
-# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_selector_global DESC) AS rank_team_score,
+# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_selector_global ASC) AS rank_team_score,
 # MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_glo_peak DESC) AS rank_team_peak
 # MAGIC   FROM team_str
 # MAGIC ),
