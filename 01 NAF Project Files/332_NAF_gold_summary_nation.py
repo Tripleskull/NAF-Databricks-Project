@@ -1730,6 +1730,8 @@
 # MAGIC
 # MAGIC   -- Post-threshold peak (already NULL if coach hasn't reached burn-in)
 # MAGIC   crs.elo_peak_post_threshold AS elo_peak,
+# MAGIC   -- Post-threshold median (career median after burn-in)
+# MAGIC   crs.elo_median_post_threshold AS elo_median,
 # MAGIC   crs.games_with_race,
 # MAGIC   crs.threshold_games,
 # MAGIC   (crs.games_with_race >= crs.threshold_games) AS is_valid_elo,

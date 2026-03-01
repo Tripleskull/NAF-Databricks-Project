@@ -38,7 +38,7 @@
         "SELECT label, profile, sort_order, nation_id, nation_name_display, load_timestamp\r\n",
         "FROM naf_catalog.gold_presentation.nation_profile_long\r\n",
         "WHERE sort_order = 23\r\n",
-        "   OR sort_order BETWEEN 30 AND 35\r\n",
+        "   OR sort_order BETWEEN 30 AND 36\r\n",
         "   OR sort_order BETWEEN 60 AND 64\r\n",
         "   OR sort_order BETWEEN 70 AND 73\r\n",
         "ORDER BY sort_order"
@@ -71,7 +71,12 @@
         "  nation_name_display\r\n",
         "FROM naf_catalog.gold_presentation.nation_members_cumulative_weekly_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
-        "  OR array_contains(:compare_nations, nation_name_display)\r\n",
+        "  OR nation_id IN (\r\n",
+        "    SELECT opponent_nation_id\r\n",
+        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
+        "    WHERE nation_name_display = :nation_name_display\r\n",
+        "      AND rivalry_rank <= 3\r\n",
+        "  )\r\n",
         "ORDER BY iso_week, nation_name_display"
       ],
       "parameters": [
@@ -183,7 +188,7 @@
         "    nd.nation_name_display,\r\n",
         "    rd.race_name,\r\n",
         "    ncrp.coach_id,\r\n",
-        "    ncrp.elo_peak AS peak_elo\r\n",
+        "    CASE WHEN :race_elo_metric = 'MEDIAN' THEN ncrp.elo_median ELSE ncrp.elo_peak END AS elo_value\r\n",
         "  FROM naf_catalog.gold_summary.nation_coach_race_elo_peak ncrp\r\n",
         "  JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
         "    ON ncrp.nation_id = nd.nation_id\r\n",
@@ -197,7 +202,7 @@
         "    'World' AS nation_label,\r\n",
         "    race_name,\r\n",
         "    coach_id,\r\n",
-        "    peak_elo\r\n",
+        "    elo_value\r\n",
         "  FROM base\r\n",
         "),\r\n",
         "selected AS (\r\n",
@@ -205,7 +210,7 @@
         "    nation_name_display AS nation_label,\r\n",
         "    race_name,\r\n",
         "    coach_id,\r\n",
-        "    peak_elo\r\n",
+        "    elo_value\r\n",
         "  FROM base\r\n",
         "  WHERE nation_name_display = :nation_name_display\r\n",
         "),\r\n",
@@ -214,7 +219,7 @@
         "    nation_name_display AS nation_label,\r\n",
         "    race_name,\r\n",
         "    coach_id,\r\n",
-        "    peak_elo\r\n",
+        "    elo_value\r\n",
         "  FROM base\r\n",
         "  WHERE array_contains(coalesce(:compare_nations, array()), nation_name_display)\r\n",
         "    AND nation_name_display <> :nation_name_display\r\n",
@@ -276,6 +281,21 @@
               "values": [
                 {
                   "value": "Amazon"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "race_elo_metric",
+          "keyword": "race_elo_metric",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "PEAK"
                 }
               ]
             }
@@ -563,18 +583,17 @@
       "displayName": "Top 10 Rivalries",
       "queryLines": [
         "SELECT\r\n",
-        "  rivalry_rank,\r\n",
         "  opponent_nation_name_display,\r\n",
+        "  games,\r\n",
         "  wins,\r\n",
         "  draws,\r\n",
         "  losses,\r\n",
         "  ppg,\r\n",
         "  avg_glo_exchange,\r\n",
-        "  opp_selector_score_national,\r\n",
         "  opp_selector_score_global\r\n",
         "FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY rivalry_rank\r\n"
+        "ORDER BY opp_selector_score_global DESC\r\n"
       ],
       "parameters": [
         {
@@ -1053,24 +1072,24 @@
                       "expression": "`nation_label`"
                     },
                     {
-                      "name": "min(peak_elo)",
-                      "expression": "MIN(`peak_elo`)"
+                      "name": "min(elo_value)",
+                      "expression": "MIN(`elo_value`)"
                     },
                     {
-                      "name": "q1(peak_elo)",
-                      "expression": "PERCENTILE(`peak_elo`, 0.25)"
+                      "name": "q1(elo_value)",
+                      "expression": "PERCENTILE(`elo_value`, 0.25)"
                     },
                     {
-                      "name": "median(peak_elo)",
-                      "expression": "MEDIAN(`peak_elo`)"
+                      "name": "median(elo_value)",
+                      "expression": "MEDIAN(`elo_value`)"
                     },
                     {
-                      "name": "q3(peak_elo)",
-                      "expression": "PERCENTILE(`peak_elo`, 0.75)"
+                      "name": "q3(elo_value)",
+                      "expression": "PERCENTILE(`elo_value`, 0.75)"
                     },
                     {
-                      "name": "max(peak_elo)",
-                      "expression": "MAX(`peak_elo`)"
+                      "name": "max(elo_value)",
+                      "expression": "MAX(`elo_value`)"
                     }
                   ],
                   "disaggregated": false
@@ -1094,19 +1113,19 @@
                 },
                 "y": {
                   "whiskerStart": {
-                    "fieldName": "min(peak_elo)"
+                    "fieldName": "min(elo_value)"
                   },
                   "boxStart": {
-                    "fieldName": "q1(peak_elo)"
+                    "fieldName": "q1(elo_value)"
                   },
                   "boxMid": {
-                    "fieldName": "median(peak_elo)"
+                    "fieldName": "median(elo_value)"
                   },
                   "boxEnd": {
-                    "fieldName": "q3(peak_elo)"
+                    "fieldName": "q3(elo_value)"
                   },
                   "whiskerEnd": {
-                    "fieldName": "max(peak_elo)"
+                    "fieldName": "max(elo_value)"
                   },
                   "scale": {
                     "type": "quantitative"
@@ -1614,6 +1633,10 @@
                       "expression": "`opponent_nation_name_display`"
                     },
                     {
+                      "name": "games",
+                      "expression": "`games`"
+                    },
+                    {
                       "name": "wins",
                       "expression": "`wins`"
                     },
@@ -1654,6 +1677,9 @@
                 "columns": [
                   {
                     "fieldName": "opponent_nation_name_display"
+                  },
+                  {
+                    "fieldName": "games"
                   },
                   {
                     "fieldName": "wins"
