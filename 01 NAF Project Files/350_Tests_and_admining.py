@@ -839,9 +839,9 @@
 # MAGIC   HAVING COUNT(*) <> 5
 # MAGIC )
 # MAGIC UNION ALL
-# MAGIC -- PK: nation_game_quality_bin_wdl (nation_id, bin_scheme_id, bin_index)
+# MAGIC -- PK: nation_game_quality_bin_wdl (nation_id, metric_type, bin_scheme_id, bin_index)
 # MAGIC SELECT 'nation_game_quality_bin_wdl: PK duplicates' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM (SELECT nation_id, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl GROUP BY nation_id, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
+# MAGIC FROM (SELECT nation_id, metric_type, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl GROUP BY nation_id, metric_type, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- Non-empty check
 # MAGIC SELECT 'nation_game_quality_bin_wdl: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
@@ -2127,7 +2127,7 @@
 # MAGIC   FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl WHERE nation_id = 0
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: PK duplicates', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM (SELECT nation_id, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl GROUP BY nation_id, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
+# MAGIC   FROM (SELECT nation_id, metric_type, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl GROUP BY nation_id, metric_type, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
@@ -2148,7 +2148,7 @@
 # MAGIC phase6_checks AS (
 # MAGIC   -- nation_team_candidate_scores
 # MAGIC   SELECT 'ERROR' AS severity, 'nation_team_candidate_scores: PK duplicates' AS check_name, CAST(COUNT(*) AS BIGINT) AS fail_rows
-# MAGIC   FROM (SELECT nation_id, coach_id FROM naf_catalog.gold_summary.nation_team_candidate_scores GROUP BY nation_id, coach_id HAVING COUNT(*) > 1)
+# MAGIC   FROM (SELECT nation_id, coach_id, selector_focus FROM naf_catalog.gold_summary.nation_team_candidate_scores GROUP BY nation_id, coach_id, selector_focus HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
@@ -2173,7 +2173,7 @@
 # MAGIC   UNION ALL
 # MAGIC   -- nation_power_ranking
 # MAGIC   SELECT 'ERROR', 'nation_power_ranking: PK duplicates', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM (SELECT nation_id FROM naf_catalog.gold_summary.nation_power_ranking GROUP BY nation_id HAVING COUNT(*) > 1)
+# MAGIC   FROM (SELECT nation_id, selector_focus FROM naf_catalog.gold_summary.nation_power_ranking GROUP BY nation_id, selector_focus HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_power_ranking: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
