@@ -188,37 +188,59 @@
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_race_meta AS
-# MAGIC SELECT
-# MAGIC   -- Nation identity + display
-# MAGIC   n.nation_id,
-# MAGIC   n.nation_name,
-# MAGIC   n.nation_name_display,
-# MAGIC   n.fifa_code,
-# MAGIC   n.flag_code,
-# MAGIC
-# MAGIC   -- Race identity + display
-# MAGIC   s.race_id,
-# MAGIC   r.race_name,
-# MAGIC
-# MAGIC   -- Participation within the nation (from summary)
-# MAGIC   COALESCE(s.coaches_count, 0)               AS coaches_count,
-# MAGIC   COALESCE(s.coach_participations_count, 0)  AS coach_participations_count,
-# MAGIC   COALESCE(s.tournaments_attended_count, 0)  AS tournaments_attended_count,
-# MAGIC
-# MAGIC   -- Share within nation (from summary)
-# MAGIC   s.coaches_pct_nation,
-# MAGIC   s.coach_participations_pct_nation,
-# MAGIC   s.tournaments_attended_pct_nation,
-# MAGIC
-# MAGIC   -- Performance (from summary)
-# MAGIC   s.avg_points_per_game AS points_per_game,
-# MAGIC
-# MAGIC   s.load_timestamp
-# MAGIC FROM naf_catalog.gold_summary.nation_race_summary AS s
-# MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
-# MAGIC   ON s.nation_id = n.nation_id
-# MAGIC LEFT JOIN naf_catalog.gold_dim.race_dim AS r
-# MAGIC   ON s.race_id = r.race_id;
+# MAGIC WITH nation_rows AS (
+# MAGIC   SELECT
+# MAGIC     n.nation_id,
+# MAGIC     n.nation_name,
+# MAGIC     n.nation_name_display,
+# MAGIC     n.fifa_code,
+# MAGIC     n.flag_code,
+# MAGIC     s.race_id,
+# MAGIC     r.race_name,
+# MAGIC     COALESCE(s.coaches_count, 0)               AS coaches_count,
+# MAGIC     COALESCE(s.coach_participations_count, 0)  AS coach_participations_count,
+# MAGIC     COALESCE(s.tournaments_attended_count, 0)  AS tournaments_attended_count,
+# MAGIC     s.coaches_pct_nation,
+# MAGIC     s.coach_participations_pct_nation,
+# MAGIC     s.tournaments_attended_pct_nation,
+# MAGIC     s.avg_points_per_game AS points_per_game,
+# MAGIC     s.load_timestamp
+# MAGIC   FROM naf_catalog.gold_summary.nation_race_summary AS s
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON s.nation_id = n.nation_id
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.race_dim AS r   ON s.race_id = r.race_id
+# MAGIC ),
+# MAGIC -- World aggregate: all nations combined, computed in-line
+# MAGIC world_totals AS (
+# MAGIC   SELECT
+# MAGIC     SUM(coaches_count)               AS total_coaches,
+# MAGIC     SUM(coach_participations_count)  AS total_participations,
+# MAGIC     SUM(tournaments_attended_count)  AS total_tournaments
+# MAGIC   FROM nation_rows
+# MAGIC ),
+# MAGIC world_rows AS (
+# MAGIC   SELECT
+# MAGIC     0                          AS nation_id,
+# MAGIC     'World'                    AS nation_name,
+# MAGIC     'World'                    AS nation_name_display,
+# MAGIC     CAST(NULL AS STRING)       AS fifa_code,
+# MAGIC     CAST(NULL AS STRING)       AS flag_code,
+# MAGIC     nr.race_id,
+# MAGIC     nr.race_name,
+# MAGIC     CAST(SUM(nr.coaches_count) AS INT)               AS coaches_count,
+# MAGIC     CAST(SUM(nr.coach_participations_count) AS INT)  AS coach_participations_count,
+# MAGIC     CAST(SUM(nr.tournaments_attended_count) AS INT)  AS tournaments_attended_count,
+# MAGIC     ROUND(100.0 * SUM(nr.coaches_count)               / NULLIF(wt.total_coaches, 0), 2)        AS coaches_pct_nation,
+# MAGIC     ROUND(100.0 * SUM(nr.coach_participations_count)  / NULLIF(wt.total_participations, 0), 2) AS coach_participations_pct_nation,
+# MAGIC     ROUND(100.0 * SUM(nr.tournaments_attended_count)  / NULLIF(wt.total_tournaments, 0), 2)    AS tournaments_attended_pct_nation,
+# MAGIC     AVG(nr.points_per_game)    AS points_per_game,
+# MAGIC     MAX(nr.load_timestamp)     AS load_timestamp
+# MAGIC   FROM nation_rows AS nr
+# MAGIC   CROSS JOIN world_totals AS wt
+# MAGIC   GROUP BY nr.race_id, nr.race_name, wt.total_coaches, wt.total_participations, wt.total_tournaments
+# MAGIC )
+# MAGIC SELECT * FROM nation_rows
+# MAGIC UNION ALL
+# MAGIC SELECT * FROM world_rows;
 # MAGIC
 
 # COMMAND ----------
@@ -413,6 +435,57 @@
 # MAGIC FROM naf_catalog.gold_summary.nation_glo_binned_distribution AS d
 # MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
 # MAGIC   ON d.nation_id = n.nation_id;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_smooth_cdf_display
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Smooth cumulative distribution function for GLO values.
+# MAGIC --                Computes CUME_DIST at each individual coach GLO value
+# MAGIC --                instead of using pre-binned histogram data.
+# MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=0).
+# MAGIC -- GRAIN        : 1 row per (nation_id, metric_type, glo_value) — one point per coach
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_coach_glo_metrics
+# MAGIC --                naf_catalog.gold_dim.nation_dim
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_smooth_cdf_display AS
+# MAGIC WITH base AS (
+# MAGIC   SELECT
+# MAGIC     g.nation_id,
+# MAGIC     CASE WHEN g.nation_id = 0 THEN 'World'
+# MAGIC          ELSE n.nation_name_display
+# MAGIC     END AS nation_name_display,
+# MAGIC     'PEAK' AS metric_type,
+# MAGIC     ROUND(g.glo_peak, 1)   AS glo_value,
+# MAGIC     CUME_DIST() OVER (PARTITION BY g.nation_id ORDER BY g.glo_peak) AS cume_pct
+# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
+# MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC
+# MAGIC   SELECT
+# MAGIC     g.nation_id,
+# MAGIC     CASE WHEN g.nation_id = 0 THEN 'World'
+# MAGIC          ELSE n.nation_name_display
+# MAGIC     END AS nation_name_display,
+# MAGIC     'MEDIAN' AS metric_type,
+# MAGIC     ROUND(g.glo_median, 1) AS glo_value,
+# MAGIC     CUME_DIST() OVER (PARTITION BY g.nation_id ORDER BY g.glo_median) AS cume_pct
+# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
+# MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC )
+# MAGIC SELECT
+# MAGIC   nation_id,
+# MAGIC   nation_name_display,
+# MAGIC   metric_type,
+# MAGIC   glo_value,
+# MAGIC   ROUND(cume_pct * 100, 2) AS cumulative_pct
+# MAGIC FROM base;
 # MAGIC
 
 # COMMAND ----------
@@ -810,27 +883,33 @@
 # MAGIC     AND s.nation_id <> s.opponent_nation_id
 # MAGIC )
 # MAGIC SELECT
-# MAGIC   nation_id,
-# MAGIC   nation_name_display,
-# MAGIC   flag_emoji,
-# MAGIC   opponent_nation_id,
-# MAGIC   opponent_nation_name_display,
-# MAGIC   opponent_flag_emoji,
-# MAGIC   games,
-# MAGIC   wins,
-# MAGIC   draws,
-# MAGIC   losses,
-# MAGIC   ppg,
-# MAGIC   avg_glo_exchange,
-# MAGIC   total_glo_exchange,
-# MAGIC   ppg_closeness,
+# MAGIC   b.nation_id,
+# MAGIC   b.nation_name_display,
+# MAGIC   b.flag_emoji,
+# MAGIC   b.opponent_nation_id,
+# MAGIC   b.opponent_nation_name_display,
+# MAGIC   b.opponent_flag_emoji,
+# MAGIC   b.games,
+# MAGIC   b.wins,
+# MAGIC   b.draws,
+# MAGIC   b.losses,
+# MAGIC   b.ppg,
+# MAGIC   b.avg_glo_exchange,
+# MAGIC   b.total_glo_exchange,
+# MAGIC   b.ppg_closeness,
 # MAGIC   DENSE_RANK() OVER (
-# MAGIC     PARTITION BY nation_id
-# MAGIC     ORDER BY ppg_closeness ASC, games DESC
+# MAGIC     PARTITION BY b.nation_id
+# MAGIC     ORDER BY b.ppg_closeness ASC, b.games DESC
 # MAGIC   ) AS rivalry_rank,
+# MAGIC   -- Opponent nation's selector scores (BALANCED focus)
+# MAGIC   pr.top_8_avg_selector_score_national AS opp_selector_score_national,
+# MAGIC   pr.top_8_avg_selector_score_global   AS opp_selector_score_global,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM base
-# MAGIC WHERE games_rank <= 10;
+# MAGIC FROM base AS b
+# MAGIC LEFT JOIN naf_catalog.gold_summary.nation_power_ranking AS pr
+# MAGIC   ON b.opponent_nation_id = pr.nation_id
+# MAGIC   AND pr.selector_focus = 'BALANCED'
+# MAGIC WHERE b.games_rank <= 10;
 # MAGIC
 
 # COMMAND ----------
@@ -1017,15 +1096,31 @@
 # MAGIC   FROM naf_catalog.gold_summary.nation_domestic_summary AS s
 # MAGIC ),
 # MAGIC
-# MAGIC -- 7c. Most played race
-# MAGIC top_race AS (
+# MAGIC -- 7c. Top 5 races (by participation share)
+# MAGIC top_races AS (
 # MAGIC   SELECT
 # MAGIC     s.nation_id,
 # MAGIC     r.race_name,
-# MAGIC     ROUND(s.coaches_pct_nation, 1) AS race_pct
+# MAGIC     ROUND(s.coach_participations_pct_nation, 1) AS participations_pct,
+# MAGIC     ROUND(s.coaches_pct_nation, 1)              AS coaches_pct,
+# MAGIC     ROW_NUMBER() OVER (PARTITION BY s.nation_id ORDER BY s.coach_participations_pct_nation DESC) AS race_rank
 # MAGIC   FROM naf_catalog.gold_summary.nation_race_summary AS s
 # MAGIC   INNER JOIN naf_catalog.gold_dim.race_dim AS r ON s.race_id = r.race_id
-# MAGIC   QUALIFY ROW_NUMBER() OVER (PARTITION BY s.nation_id ORDER BY s.coaches_pct_nation DESC) = 1
+# MAGIC   WHERE s.nation_id <> 0
+# MAGIC   QUALIFY race_rank <= 5
+# MAGIC ),
+# MAGIC
+# MAGIC -- 7d. Top 3 rivals (by games played)
+# MAGIC top_rivals AS (
+# MAGIC   SELECT
+# MAGIC     s.nation_id,
+# MAGIC     n.nation_name_display AS rival_name,
+# MAGIC     s.games_played AS rival_games,
+# MAGIC     ROW_NUMBER() OVER (PARTITION BY s.nation_id ORDER BY s.games_played DESC) AS rival_rank
+# MAGIC   FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
+# MAGIC   INNER JOIN naf_catalog.gold_dim.nation_dim AS n ON s.opponent_nation_id = n.nation_id
+# MAGIC   WHERE s.nation_id <> 0 AND s.opponent_nation_id <> 0 AND s.nation_id <> s.opponent_nation_id
+# MAGIC   QUALIFY rival_rank <= 3
 # MAGIC ),
 # MAGIC
 # MAGIC -- 8. Head-to-head: most played, best PPG, worst PPG opponent
@@ -1083,7 +1178,29 @@
 # MAGIC     COALESCE(gc.rank_median_career, 999) AS rank_glo_median_career,
 # MAGIC     COALESCE(p.power_rank, 999)  AS power_rank,
 # MAGIC     COALESCE(p.coaches_eligible, 0) AS coaches_eligible,
-# MAGIC     tr.race_name AS top_race_name, tr.race_pct AS top_race_pct,
+# MAGIC     -- Top 5 races (by participation share)
+# MAGIC     MAX(CASE WHEN tr.race_rank = 1 THEN tr.race_name END) AS race_1_name,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 1 THEN tr.participations_pct END) AS race_1_part_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 1 THEN tr.coaches_pct END) AS race_1_coach_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 2 THEN tr.race_name END) AS race_2_name,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 2 THEN tr.participations_pct END) AS race_2_part_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 2 THEN tr.coaches_pct END) AS race_2_coach_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 3 THEN tr.race_name END) AS race_3_name,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 3 THEN tr.participations_pct END) AS race_3_part_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 3 THEN tr.coaches_pct END) AS race_3_coach_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 4 THEN tr.race_name END) AS race_4_name,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 4 THEN tr.participations_pct END) AS race_4_part_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 4 THEN tr.coaches_pct END) AS race_4_coach_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 5 THEN tr.race_name END) AS race_5_name,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 5 THEN tr.participations_pct END) AS race_5_part_pct,
+# MAGIC     MAX(CASE WHEN tr.race_rank = 5 THEN tr.coaches_pct END) AS race_5_coach_pct,
+# MAGIC     -- Top 3 rivals
+# MAGIC     MAX(CASE WHEN rv.rival_rank = 1 THEN rv.rival_name END) AS rival_1_name,
+# MAGIC     MAX(CASE WHEN rv.rival_rank = 1 THEN rv.rival_games END) AS rival_1_games,
+# MAGIC     MAX(CASE WHEN rv.rival_rank = 2 THEN rv.rival_name END) AS rival_2_name,
+# MAGIC     MAX(CASE WHEN rv.rival_rank = 2 THEN rv.rival_games END) AS rival_2_games,
+# MAGIC     MAX(CASE WHEN rv.rival_rank = 3 THEN rv.rival_name END) AS rival_3_name,
+# MAGIC     MAX(CASE WHEN rv.rival_rank = 3 THEN rv.rival_games END) AS rival_3_games,
 # MAGIC     COALESCE(rdr.diversity_index, 0) AS diversity_index,
 # MAGIC     COALESCE(rdr.rank_diversity, 999) AS rank_diversity,
 # MAGIC     COALESCE(ts.top8_avg_selector_global, 0) AS top8_avg_selector_global,
@@ -1102,12 +1219,31 @@
 # MAGIC   LEFT JOIN glo_peak gp      ON o.nation_id = gp.nation_id
 # MAGIC   LEFT JOIN glo_career gc    ON o.nation_id = gc.nation_id
 # MAGIC   LEFT JOIN power p          ON o.nation_id = p.nation_id
-# MAGIC   LEFT JOIN top_race tr      ON o.nation_id = tr.nation_id
+# MAGIC   LEFT JOIN top_races tr      ON o.nation_id = tr.nation_id
+# MAGIC   LEFT JOIN top_rivals rv      ON o.nation_id = rv.nation_id
 # MAGIC   LEFT JOIN race_diversity_ranked rdr ON o.nation_id = rdr.nation_id
 # MAGIC   LEFT JOIN team_str_ranked tsr ON o.nation_id = tsr.nation_id
 # MAGIC   LEFT JOIN team_str ts      ON o.nation_id = ts.nation_id
 # MAGIC   LEFT JOIN h2h_joined h     ON o.nation_id = h.nation_id
 # MAGIC   LEFT JOIN intl_play ip     ON o.nation_id = ip.nation_id
+# MAGIC   GROUP BY
+# MAGIC     o.nation_id, o.nation_name_display, o.flag_emoji,
+# MAGIC     o.coaches_count, o.rank_coaches,
+# MAGIC     ar.active_coaches, ar.rank_active,
+# MAGIC     o.games_count, o.rank_games,
+# MAGIC     o.tournaments_hosted_count, o.rank_hosted,
+# MAGIC     w.total_wins, w.total_draws, w.total_losses,
+# MAGIC     gp.glo_median_peak, gp.glo_peak_best, gp.glo_p90,
+# MAGIC     gp.rank_median_peak, gp.rank_peak, gp.rank_p90,
+# MAGIC     gc.glo_median_career, gc.rank_median_career,
+# MAGIC     p.power_rank, p.coaches_eligible,
+# MAGIC     rdr.diversity_index, rdr.rank_diversity,
+# MAGIC     ts.top8_avg_selector_global, tsr.rank_team_score,
+# MAGIC     ts.top8_avg_glo_peak, tsr.rank_team_peak,
+# MAGIC     ts.top8_avg_glo_median,
+# MAGIC     h.most_played_opp, h.best_record_opp, h.worst_record_opp,
+# MAGIC     ip.pct_abroad, ip.pct_vs_foreign, ip.ppg_vs_foreign,
+# MAGIC     o.load_timestamp
 # MAGIC )
 # MAGIC
 # MAGIC -- 11. Unpivot into long format
@@ -1144,45 +1280,79 @@
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 35,
 # MAGIC     ' • Power rank', CONCAT('#', CAST(power_rank AS STRING)), load_timestamp FROM combined
 # MAGIC
-# MAGIC   -- RACE PROFILE
+# MAGIC   -- RACE PROFILE (top 5 by participation share, showing both % metrics)
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 40,
-# MAGIC     'Race Profile', '', load_timestamp FROM combined
+# MAGIC     'Top Five Races', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 41,
-# MAGIC     ' • Most played race', CONCAT(COALESCE(top_race_name, 'N/A'), ' (', COALESCE(CAST(top_race_pct AS STRING), '?'), '%)'), load_timestamp FROM combined
+# MAGIC     CONCAT(' 1. ', COALESCE(race_1_name, 'N/A')),
+# MAGIC     CONCAT(CAST(race_1_part_pct AS STRING), '% games / ', CAST(race_1_coach_pct AS STRING), '% coaches'),
+# MAGIC     load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 42,
+# MAGIC     CONCAT(' 2. ', COALESCE(race_2_name, 'N/A')),
+# MAGIC     CONCAT(CAST(race_2_part_pct AS STRING), '% games / ', CAST(race_2_coach_pct AS STRING), '% coaches'),
+# MAGIC     load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 43,
+# MAGIC     CONCAT(' 3. ', COALESCE(race_3_name, 'N/A')),
+# MAGIC     CONCAT(CAST(race_3_part_pct AS STRING), '% games / ', CAST(race_3_coach_pct AS STRING), '% coaches'),
+# MAGIC     load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 44,
+# MAGIC     CONCAT(' 4. ', COALESCE(race_4_name, 'N/A')),
+# MAGIC     CONCAT(CAST(race_4_part_pct AS STRING), '% games / ', CAST(race_4_coach_pct AS STRING), '% coaches'),
+# MAGIC     load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 45,
+# MAGIC     CONCAT(' 5. ', COALESCE(race_5_name, 'N/A')),
+# MAGIC     CONCAT(CAST(race_5_part_pct AS STRING), '% games / ', CAST(race_5_coach_pct AS STRING), '% coaches'),
+# MAGIC     load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 46,
 # MAGIC     ' • Race diversity index', CONCAT(CAST(diversity_index AS STRING), ' (#', CAST(rank_diversity AS STRING), ')'), load_timestamp FROM combined
 # MAGIC
 # MAGIC   -- INTERNATIONAL PLAY
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 45,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 50,
 # MAGIC     'International Play', '', load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 46,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 51,
 # MAGIC     ' • Games abroad', CONCAT(CAST(pct_abroad AS STRING), '%'), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 47,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 52,
 # MAGIC     ' • Games vs foreign', CONCAT(CAST(pct_vs_foreign AS STRING), '%'), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 48,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 53,
 # MAGIC     ' • PPG vs foreign', COALESCE(CAST(ppg_vs_foreign AS STRING), 'N/A'), load_timestamp FROM combined
 # MAGIC
 # MAGIC   -- NATIONAL TEAM STRENGTH
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 50,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 60,
 # MAGIC     'National Team Strength', '', load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 51,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 61,
 # MAGIC     ' • Top-8 avg selector score (global)', CONCAT(CAST(ROUND(top8_avg_selector_global, 1) AS STRING), ' (#', CAST(rank_team_score AS STRING), ')'), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 52,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 62,
 # MAGIC     ' • Top-8 avg GLO peak', CONCAT(CAST(top8_avg_glo_peak AS STRING), ' (#', CAST(rank_team_peak AS STRING), ')'), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 53,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 63,
 # MAGIC     ' • Top-8 avg GLO median', CAST(top8_avg_glo_median AS STRING), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 54,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 64,
 # MAGIC     ' • Coach pool (eligible)', CAST(coaches_eligible AS STRING), load_timestamp FROM combined
 # MAGIC
 # MAGIC   -- HEAD-TO-HEAD
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 60,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 70,
 # MAGIC     'Head-to-Head', '', load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 61,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 71,
 # MAGIC     ' • Most played opponent', COALESCE(most_played_opp, 'N/A'), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 62,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 72,
 # MAGIC     ' • Best record vs', COALESCE(best_record_opp, 'N/A'), load_timestamp FROM combined
-# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 63,
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 73,
 # MAGIC     ' • Worst record vs', COALESCE(worst_record_opp, 'N/A'), load_timestamp FROM combined
+# MAGIC
+# MAGIC   -- TOP 3 RIVALS
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 80,
+# MAGIC     'Top 3 Rivals', '', load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 81,
+# MAGIC     CONCAT(' 1. ', COALESCE(rival_1_name, 'N/A')),
+# MAGIC     CONCAT(CAST(rival_1_games AS STRING), ' games'),
+# MAGIC     load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 82,
+# MAGIC     CONCAT(' 2. ', COALESCE(rival_2_name, 'N/A')),
+# MAGIC     CONCAT(CAST(rival_2_games AS STRING), ' games'),
+# MAGIC     load_timestamp FROM combined
+# MAGIC   UNION ALL SELECT nation_id, nation_name_display, 83,
+# MAGIC     CONCAT(' 3. ', COALESCE(rival_3_name, 'N/A')),
+# MAGIC     CONCAT(CAST(rival_3_games AS STRING), ' games'),
+# MAGIC     load_timestamp FROM combined
 # MAGIC ) x;
 # MAGIC
 

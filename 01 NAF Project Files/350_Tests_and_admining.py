@@ -2185,9 +2185,9 @@
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking s
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id WHERE d.nation_id IS NULL
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_power_ranking: top_8_avg_selector_score outside [0,100]', CAST(COUNT(*) AS BIGINT)
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: top_8_avg_selector_score_national outside [0,100]', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
-# MAGIC   WHERE top_8_avg_selector_score < 0 OR top_8_avg_selector_score > 100
+# MAGIC   WHERE top_8_avg_selector_score_national < 0 OR top_8_avg_selector_score_national > 100
 # MAGIC   UNION ALL
 # MAGIC   -- Config integrity: selector weights must sum to 1.0
 # MAGIC   SELECT 'WARN', 'analytical_config: selector weights do not sum to 1.0', CAST(CASE
