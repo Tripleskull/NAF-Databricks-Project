@@ -158,70 +158,11 @@
       "name": "w4_elo_boxplot",
       "displayName": "Race ELO Distribution",
       "queryLines": [
-        "WITH base AS (\r\n",
-        "  SELECT\r\n",
-        "    nd.nation_name_display,\r\n",
-        "    rd.race_name,\r\n",
-        "    ncrp.coach_id,\r\n",
-        "    CASE WHEN :race_elo_metric = 'MEDIAN' THEN ncrp.elo_median ELSE ncrp.elo_peak END AS elo_value\r\n",
-        "  FROM naf_catalog.gold_summary.nation_coach_race_elo_peak ncrp\r\n",
-        "  JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
-        "    ON ncrp.nation_id = nd.nation_id\r\n",
-        "  JOIN naf_catalog.gold_dim.race_dim rd\r\n",
-        "    ON ncrp.race_id = rd.race_id\r\n",
-        "  WHERE array_contains(:race_name, rd.race_name)\r\n",
-        "    AND ncrp.elo_peak IS NOT NULL\r\n",
-        "),\r\n",
-        "world_data AS (\r\n",
-        "  SELECT\r\n",
-        "    'World' AS nation_label,\r\n",
-        "    race_name,\r\n",
-        "    coach_id,\r\n",
-        "    elo_value\r\n",
-        "  FROM base\r\n",
-        "),\r\n",
-        "selected AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    race_name,\r\n",
-        "    coach_id,\r\n",
-        "    elo_value\r\n",
-        "  FROM base\r\n",
-        "  WHERE nation_name_display = :nation_name_display\r\n",
-        "),\r\n",
-        "comparisons AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    race_name,\r\n",
-        "    coach_id,\r\n",
-        "    elo_value\r\n",
-        "  FROM base\r\n",
-        "  WHERE nation_id IN (\r\n",
-        "    SELECT opponent_nation_id\r\n",
-        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
-        "    WHERE nation_name_display = :nation_name_display\r\n",
-        "    ORDER BY rivalry_score ASC\r\n",
-        "    LIMIT 3\r\n",
-        "  )\r\n",
-        "    AND nation_name_display <> :nation_name_display\r\n",
-        ")\r\n",
-        "SELECT * FROM world_data\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM selected\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM comparisons\r\n",
-        "ORDER BY\r\n",
-        "  race_name,\r\n",
-        "  CASE\r\n",
-        "    WHEN nation_label = 'World' THEN 0\r\n",
-        "    WHEN nation_label = :nation_name_display THEN 1\r\n",
-        "    ELSE 2\r\n",
-        "  END,\r\n",
-        "  nation_label\r\n"
+        "SELECT \r\n  nrsc.nation_name_display,\r\n  nrsc.race_name,\r\n  nrsc.scope,\r\n  nrsc.elo_peak_p10,\r\n  nrsc.elo_peak_p25,\r\n  nrsc.elo_peak_p50,\r\n  nrsc.elo_peak_p75,\r\n  nrsc.elo_peak_p90,\r\n  nrsc.coaches_count\r\nFROM naf_catalog.gold_presentation.nation_race_strength_comparison nrsc\r\nWHERE nrsc.scope = 'NATION'\r\n  AND nrsc.nation_name_display IN (:nation_name_display, :compare_nation_1, :compare_nation_2, :compare_nation_3)\r\n  AND nrsc.coaches_count >= 5\r\nORDER BY nrsc.race_name, nrsc.nation_name_display"
       ],
       "parameters": [
         {
-          "displayName": "nation_name_display",
+          "displayName": "Nation Name Display",
           "keyword": "nation_name_display",
           "dataType": "STRING",
           "defaultSelection": {
@@ -229,30 +170,25 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "Denmark"
+                  "value": "World"
                 }
               ]
             }
           }
         },
         {
-          "displayName": "race_name",
+          "displayName": "Race Name",
           "keyword": "race_name",
           "dataType": "STRING",
           "complexType": "MULTI",
           "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "Amazon"
-                }
-              ]
+            "operator": {
+              "operator": "AND"
             }
           }
         },
         {
-          "displayName": "race_elo_metric",
+          "displayName": "Race ELO Metric",
           "keyword": "race_elo_metric",
           "dataType": "STRING",
           "defaultSelection": {
@@ -266,7 +202,9 @@
             }
           }
         }
-      ]
+      ],
+      "catalog": "naf_catalog",
+      "schema": "gold_summary"
     },
     {
       "name": "w5_glo_histogram",
@@ -517,19 +455,7 @@
       "name": "w12_nation_rivalries",
       "displayName": "Top 10 Rivalries",
       "queryLines": [
-        "SELECT\r\n",
-        "  opponent_nation_name_display,\r\n",
-        "  games,\r\n",
-        "  wins,\r\n",
-        "  draws,\r\n",
-        "  losses,\r\n",
-        "  ppg,\r\n",
-        "  avg_glo_exchange,\r\n",
-        "  opp_selector_score_global,\r\n",
-        "  rivalry_score\r\n",
-        "FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
-        "WHERE nation_name_display = :nation_name_display\r\n",
-        "ORDER BY rivalry_score ASC\r\n"
+        "SELECT\r\n  opponent_nation_name_display,\r\n  rivalry_score,\r\n  ppg,\r\n  avg_glo_exchange,\r\n  opp_selector_score_global,\r\n  CONCAT(games, ' (', wins, '-', draws, '-', losses, ')') AS record\r\nFROM naf_catalog.gold_presentation.nation_rivalry_display\r\nWHERE nation_name_display = :nation_name_display\r\nORDER BY rivalry_score ASC"
       ],
       "parameters": [
         {
@@ -557,9 +483,6 @@
         "  selector_rank_national,\r\n",
         "  coach_name,\r\n",
         "  selector_score_national,\r\n",
-        "  glo_pctl,\r\n",
-        "  race_pctl,\r\n",
-        "  opponent_pctl,\r\n",
         "  glo_rank_global,\r\n",
         "  race_rank_global,\r\n",
         "  opponent_rank_global,\r\n",
@@ -776,7 +699,11 @@
                     "fieldName": "label"
                   },
                   {
-                    "fieldName": "profile"
+                    "fieldName": "profile",
+                    "fieldEncoding": {
+                      "displayName": "value"
+                    },
+                    "displayName": "value"
                   }
                 ]
               }
@@ -824,7 +751,11 @@
                     "fieldName": "label"
                   },
                   {
-                    "fieldName": "profile"
+                    "fieldName": "profile",
+                    "fieldEncoding": {
+                      "displayName": "value"
+                    },
+                    "displayName": "value"
                   }
                 ]
               }
@@ -874,19 +805,26 @@
               "encodings": {
                 "x": {
                   "fieldName": "iso_week",
-                  "displayName": "Week",
+                  "displayName": " ",
                   "scale": {
                     "type": "temporal"
                   }
                 },
                 "y": {
                   "fieldName": "cumulative_coaches",
+                  "axis": {
+                    "hideLabels": false,
+                    "title": " "
+                  },
                   "scale": {
                     "type": "quantitative"
                   }
                 },
                 "color": {
                   "fieldName": "nation_name_display",
+                  "legend": {
+                    "title": "Nation"
+                  },
                   "scale": {
                     "type": "categorical"
                   }
@@ -943,13 +881,18 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "GLO Distribution"
+                "showDescription": true,
+                "title": "GLO Distribution",
+                "description": "Distribution of MEDIAN global ELO ratings"
               },
               "widgetType": "box",
               "encodings": {
                 "x": {
                   "fieldName": "nation_name_display",
+                  "axis": {
+                    "title": "Nation",
+                    "hideTitle": true
+                  },
                   "scale": {
                     "type": "categorical"
                   }
@@ -969,6 +912,9 @@
                   },
                   "whiskerEnd": {
                     "fieldName": "max(metric_value)"
+                  },
+                  "axis": {
+                    "title": " "
                   },
                   "scale": {
                     "type": "quantitative"
@@ -1026,8 +972,9 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "Race ELO Distribution"
+                "showDescription": true,
+                "title": "Race ELO Distribution",
+                "description": "Distribution of MEDIAN race ELO ratings"
               },
               "widgetType": "box",
               "encodings": {
@@ -1052,6 +999,9 @@
                   },
                   "whiskerEnd": {
                     "fieldName": "max(elo_value)"
+                  },
+                  "axis": {
+                    "title": "ELO"
                   },
                   "scale": {
                     "type": "quantitative"
@@ -1185,8 +1135,9 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "GLO Cumulative Distribution"
+                "showDescription": true,
+                "title": "GLO Cumulative Distribution",
+                "description": "Cumulative distribution of global ELO ratings by nation compared to the world"
               },
               "widgetType": "line",
               "encodings": {
@@ -1234,16 +1185,16 @@
                   "datasetName": "w7_race_popularity",
                   "fields": [
                     {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
+                    },
+                    {
                       "name": "race_name",
                       "expression": "`race_name`"
                     },
                     {
                       "name": "coaches_pct_nation",
                       "expression": "`coaches_pct_nation`"
-                    },
-                    {
-                      "name": "nation_name_display",
-                      "expression": "`nation_name_display`"
                     }
                   ],
                   "disaggregated": true
@@ -1252,18 +1203,22 @@
             ],
             "spec": {
               "version": 3,
-              "widgetType": "bar",
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "Race Popularity (% of coaches)"
+                "showDescription": true,
+                "title": "Race Coverage",
+                "description": "Proportion of coaching that have played any race"
               },
               "mark": {
                 "layout": "group"
               },
+              "widgetType": "bar",
               "encodings": {
                 "x": {
                   "fieldName": "race_name",
+                  "axis": {
+                    "title": " "
+                  },
                   "displayName": "Race",
                   "scale": {
                     "type": "categorical"
@@ -1303,16 +1258,16 @@
                   "datasetName": "w7b_race_participations",
                   "fields": [
                     {
+                      "name": "nation_name_display",
+                      "expression": "`nation_name_display`"
+                    },
+                    {
                       "name": "race_name",
                       "expression": "`race_name`"
                     },
                     {
                       "name": "coach_participations_pct_nation",
                       "expression": "`coach_participations_pct_nation`"
-                    },
-                    {
-                      "name": "nation_name_display",
-                      "expression": "`nation_name_display`"
                     }
                   ],
                   "disaggregated": true
@@ -1321,7 +1276,6 @@
             ],
             "spec": {
               "version": 3,
-              "widgetType": "bar",
               "frame": {
                 "showTitle": true,
                 "showDescription": false,
@@ -1330,9 +1284,13 @@
               "mark": {
                 "layout": "group"
               },
+              "widgetType": "bar",
               "encodings": {
                 "x": {
                   "fieldName": "race_name",
+                  "axis": {
+                    "title": " "
+                  },
                   "displayName": "Race",
                   "scale": {
                     "type": "categorical"
@@ -1396,8 +1354,9 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "Results by Opponent Rating"
+                "showDescription": true,
+                "title": "Results by Opponent Rating",
+                "description": "Loss, Draw, Win record versus opponents sorted in bins based on MEDIAN global ELO"
               },
               "mark": {
                 "colors": [
@@ -1499,8 +1458,9 @@
               "version": 3,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "GLO Exchange vs Other Nations"
+                "showDescription": true,
+                "title": "GLO Exchange vs Other Nations",
+                "description": "Total global rating exchange (hight) and average global rating exchange per game (colour) against other nations"
               },
               "widgetType": "bar",
               "encodings": {
@@ -1516,12 +1476,16 @@
                 },
                 "y": {
                   "fieldName": "total_glo_exchange",
+                  "axis": {
+                    "title": "Total GLO exchange"
+                  },
                   "scale": {
                     "type": "quantitative"
                   }
                 },
                 "color": {
                   "fieldName": "avg_glo_exchange",
+                  "displayName": "Exchange per game",
                   "scale": {
                     "type": "quantitative",
                     "colorRamp": {
@@ -1559,6 +1523,10 @@
                       "expression": "`opponent_nation_name_display`"
                     },
                     {
+                      "name": "rivalry_score",
+                      "expression": "`rivalry_score`"
+                    },
+                    {
                       "name": "games",
                       "expression": "`games`"
                     },
@@ -1585,10 +1553,6 @@
                     {
                       "name": "opp_selector_score_global",
                       "expression": "`opp_selector_score_global`"
-                    },
-                    {
-                      "name": "rivalry_score",
-                      "expression": "`rivalry_score`"
                     }
                   ],
                   "disaggregated": true
@@ -1599,38 +1563,54 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "Top 10 Rivalries"
+                "showDescription": true,
+                "title": "Top 10 Rivalries",
+                "description": "Top rivals based on equal weighting by rank of number of games and closeness of games (point per game close to 0.5)"
               },
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "opponent_nation_name_display"
+                    "fieldName": "opponent_nation_name_display",
+                    "fieldEncoding": {
+                      "displayName": "Opponent"
+                    },
+                    "displayName": "Opponent"
                   },
                   {
-                    "fieldName": "rivalry_score"
+                    "fieldName": "rivalry_score",
+                    "fieldEncoding": {
+                      "displayName": "Score"
+                    },
+                    "displayName": "Score"
                   },
                   {
-                    "fieldName": "games"
+                    "fieldName": "ppg",
+                    "fieldEncoding": {
+                      "displayName": "PPG"
+                    },
+                    "displayName": "PPG"
                   },
                   {
-                    "fieldName": "wins"
+                    "fieldName": "avg_glo_exchange",
+                    "fieldEncoding": {
+                      "displayName": "Avg GLO Exch"
+                    },
+                    "displayName": "Avg GLO Exch"
                   },
                   {
-                    "fieldName": "draws"
+                    "fieldName": "opp_selector_score_global",
+                    "fieldEncoding": {
+                      "displayName": "Opp SSG"
+                    },
+                    "displayName": "Opp SSG"
                   },
                   {
-                    "fieldName": "losses"
-                  },
-                  {
-                    "fieldName": "ppg"
-                  },
-                  {
-                    "fieldName": "avg_glo_exchange"
-                  },
-                  {
-                    "fieldName": "opp_selector_score_global"
+                    "fieldName": "record",
+                    "fieldEncoding": {
+                      "displayName": "Record (W-D-L)"
+                    },
+                    "displayName": "Record (W-D-L)"
                   }
                 ]
               }
@@ -1685,29 +1665,54 @@
               "version": 2,
               "frame": {
                 "showTitle": true,
-                "showDescription": false,
-                "title": "National Team Candidates"
+                "showDescription": true,
+                "title": "National Team Candidates",
+                "description": "National ranking of players by Global Selector Score. Selector Score is an equal weighting of MEDIAN GLO, MEDIAN ELO and MEDIAN opponent GLO career"
               },
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "selector_rank_global"
+                    "fieldName": "selector_rank_global",
+                    "fieldEncoding": {
+                      "displayName": "Rank"
+                    },
+                    "displayName": "Rank"
                   },
                   {
-                    "fieldName": "coach_name"
+                    "fieldName": "coach_name",
+                    "fieldEncoding": {
+                      "displayName": "Coach"
+                    },
+                    "displayName": "Coach"
                   },
                   {
-                    "fieldName": "selector_score_global"
+                    "fieldName": "selector_score_global",
+                    "fieldEncoding": {
+                      "displayName": "Selector Score"
+                    },
+                    "displayName": "Selector Score"
                   },
                   {
-                    "fieldName": "glo_rank_global"
+                    "fieldName": "glo_rank_global",
+                    "fieldEncoding": {
+                      "displayName": "GLO Rank"
+                    },
+                    "displayName": "GLO Rank"
                   },
                   {
-                    "fieldName": "race_rank_global"
+                    "fieldName": "race_rank_global",
+                    "fieldEncoding": {
+                      "displayName": "Race Rank"
+                    },
+                    "displayName": "Race Rank"
                   },
                   {
-                    "fieldName": "opponent_rank_global"
+                    "fieldName": "opponent_rank_global",
+                    "fieldEncoding": {
+                      "displayName": "Opp Rank"
+                    },
+                    "displayName": "Opp Rank"
                   }
                 ]
               }
@@ -1758,10 +1763,6 @@
                       "expression": "`top_8_avg_glo_median`"
                     },
                     {
-                      "name": "coaches_in_top_8",
-                      "expression": "`coaches_in_top_8`"
-                    },
-                    {
                       "name": "coaches_eligible",
                       "expression": "`coaches_eligible`"
                     }
@@ -1781,31 +1782,60 @@
               "encodings": {
                 "columns": [
                   {
-                    "fieldName": "power_rank"
+                    "fieldName": "power_rank",
+                    "fieldEncoding": {
+                      "displayName": "Rank"
+                    },
+                    "displayName": "Rank"
                   },
                   {
-                    "fieldName": "flag_emoji"
+                    "fieldName": "flag_emoji",
+                    "fieldEncoding": {
+                      "displayName": "Flag"
+                    },
+                    "displayName": "Flag"
                   },
                   {
-                    "fieldName": "nation_name_display"
+                    "fieldName": "nation_name_display",
+                    "fieldEncoding": {
+                      "displayName": "Nation"
+                    },
+                    "displayName": "Nation"
                   },
                   {
-                    "fieldName": "top_8_avg_selector_score_national"
+                    "fieldName": "top_8_avg_selector_score_national",
+                    "fieldEncoding": {
+                      "displayName": "Top 8 SSN"
+                    },
+                    "displayName": "Top 8 SSN"
                   },
                   {
-                    "fieldName": "top_8_avg_selector_score_global"
+                    "fieldName": "top_8_avg_selector_score_global",
+                    "fieldEncoding": {
+                      "displayName": "Top 8 SSG"
+                    },
+                    "displayName": "Top 8 SSG"
                   },
                   {
-                    "fieldName": "top_8_avg_glo_peak"
+                    "fieldName": "top_8_avg_glo_peak",
+                    "fieldEncoding": {
+                      "displayName": "Top 8 GLO Peak"
+                    },
+                    "displayName": "Top 8 GLO Peak"
                   },
                   {
-                    "fieldName": "top_8_avg_glo_median"
+                    "fieldName": "top_8_avg_glo_median",
+                    "fieldEncoding": {
+                      "displayName": "Top 8 GLO Med"
+                    },
+                    "displayName": "Top 8 GLO Med"
                   },
                   {
-                    "fieldName": "coaches_in_top_8"
-                  },
-                  {
-                    "fieldName": "coaches_eligible"
+                    "fieldName": "coaches_eligible",
+                    "fieldEncoding": {
+                      "displayName": "Pool"
+                    },
+                    "displayName": "Pool"
                   }
                 ]
               }
