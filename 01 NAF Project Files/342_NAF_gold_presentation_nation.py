@@ -1636,15 +1636,15 @@
 # MAGIC   tc.selector_rank_national,
 # MAGIC   tc.selector_score_national,
 # MAGIC
-# MAGIC   -- Core component percentiles (0–100, within-nation)
-# MAGIC   ROUND(tc.glo_pctl,      1) AS glo_pctl,
-# MAGIC   ROUND(tc.race_pctl,     1) AS race_pctl,
-# MAGIC   ROUND(tc.opponent_pctl, 1) AS opponent_pctl,
+# MAGIC   -- Core component ranks (within-nation, 1 = best)
+# MAGIC   tc.glo_rank,
+# MAGIC   tc.race_rank,
+# MAGIC   tc.opponent_rank,
 # MAGIC
-# MAGIC   -- Global percentiles (0–100, across all nations)
-# MAGIC   ROUND(tc.glo_pctl_global,      1) AS glo_pctl_global,
-# MAGIC   ROUND(tc.race_pctl_global,     1) AS race_pctl_global,
-# MAGIC   ROUND(tc.opponent_pctl_global, 1) AS opponent_pctl_global,
+# MAGIC   -- Global ranks (across all nations, 1 = best)
+# MAGIC   tc.glo_rank_global,
+# MAGIC   tc.race_rank_global,
+# MAGIC   tc.opponent_rank_global,
 # MAGIC   tc.selector_score_global,
 # MAGIC   tc.selector_rank_global,
 # MAGIC
