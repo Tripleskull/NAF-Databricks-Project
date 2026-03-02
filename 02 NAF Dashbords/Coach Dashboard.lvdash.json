@@ -95,36 +95,36 @@
         "  p2.load_timestamp\r\n",
         "FROM p2\r\n",
         "LATERAL VIEW explode(array(\r\n",
-        "  named_struct('sort_order',  1, 'label', '\ud83d\udc64 NAF Name',   'profile', coalesce(p2.coach_name, 'Unknown coach')),\r\n",
-        "  named_struct('sort_order',  2, 'label', '\ud83d\udd22 NAF Number', 'profile', cast(p2.coach_id as string)),\r\n",
-        "  named_struct('sort_order',  3, 'label', '\ud83c\udf0d Nation',     'profile', concat(coalesce(p2.flag_emoji, '\ud83c\udf10'), ' ', coalesce(p2.nation_name_display, 'Unknown'))),\r\n",
+        "  named_struct('sort_order',  1, 'label', '👤 NAF Name',   'profile', coalesce(p2.coach_name, 'Unknown coach')),\r\n",
+        "  named_struct('sort_order',  2, 'label', '🔢 NAF Number', 'profile', cast(p2.coach_id as string)),\r\n",
+        "  named_struct('sort_order',  3, 'label', '🌍 Nation',     'profile', concat(coalesce(p2.flag_emoji, '🌐'), ' ', coalesce(p2.nation_name_display, 'Unknown'))),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 10, 'label', '\ud83d\udcca Overview', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 11, 'label', ' \u2022 Total games (all)', 'profile', concat(cast(p2.games_played_all as string), ' (', cast(p2.wins as string), '/', cast(p2.draws as string), '/', cast(p2.losses as string), ')')),\r\n",
-        "  named_struct('sort_order', 12, 'label', ' \u2022 Last 50 games (W/D/L)', 'profile', CASE WHEN p2.last50_wins IS NOT NULL THEN concat(cast(p2.last50_wins as string), '/', cast(p2.last50_draws as string), '/', cast(p2.last50_losses as string)) ELSE 'N/A' END),\r\n",
-        "  named_struct('sort_order', 13, 'label', ' \u2022 Tournaments',       'profile', coalesce(cast(p2.tournaments_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 14, 'label', ' \u2022 Nations played',    'profile', coalesce(cast(p2.nations_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 15, 'label', ' \u2022 Opponents faced',   'profile', coalesce(cast(p2.opponents_count as string), '0')),\r\n",
-        "  named_struct('sort_order', 16, 'label', ' \u2022 Active since / Last active years', 'profile', concat(cast(p2.active_since_year as string), ' / ', cast(p2.last_active_year as string))),\r\n",
+        "  named_struct('sort_order', 10, 'label', '📊 Overview', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 11, 'label', ' • Total games (all)', 'profile', concat(cast(p2.games_played_all as string), ' (', cast(p2.wins as string), '/', cast(p2.draws as string), '/', cast(p2.losses as string), ')')),\r\n",
+        "  named_struct('sort_order', 12, 'label', ' • Last 50 games (W/D/L)', 'profile', CASE WHEN p2.last50_wins IS NOT NULL THEN concat(cast(p2.last50_wins as string), '/', cast(p2.last50_draws as string), '/', cast(p2.last50_losses as string)) ELSE 'N/A' END),\r\n",
+        "  named_struct('sort_order', 13, 'label', ' • Tournaments',       'profile', coalesce(cast(p2.tournaments_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 14, 'label', ' • Nations played',    'profile', coalesce(cast(p2.nations_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 15, 'label', ' • Opponents faced',   'profile', coalesce(cast(p2.opponents_count as string), '0')),\r\n",
+        "  named_struct('sort_order', 16, 'label', ' • Active since / Last active years', 'profile', concat(cast(p2.active_since_year as string), ' / ', cast(p2.last_active_year as string))),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 20, 'label', '\ud83d\udcc8 Ratings', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 21, 'label', ' \u2022 Current GLO',                'profile', coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 22, 'label', ' \u2022 Peak GLO (last 50)',         'profile', coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 23, 'label', ' \u2022 Median GLO',                 'profile', coalesce(cast(round(p2.global_elo_median_all, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 24, 'label', ' \u2022 Opp median GLO (weighted)',  'profile', coalesce(cast(round(p2.opponent_global_elo_median_weighted, 1) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 25, 'label', ' \u2022 World rank (current) / Nation rank (current)', 'profile', concat(cast(p2.world_rank_current as string), ' / ', cast(p2.nation_rank_current as string))),\r\n",
-        "  named_struct('sort_order', 26, 'label', ' \u2022 World rank (peak) / Nation rank (peak)', 'profile', concat(cast(p2.world_rank_peak as string), ' / ', cast(p2.nation_rank_peak as string))),\r\n",
+        "  named_struct('sort_order', 20, 'label', '📈 Ratings', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 21, 'label', ' • Current GLO',                'profile', coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 22, 'label', ' • Peak GLO (last 50)',         'profile', coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 23, 'label', ' • Median GLO',                 'profile', coalesce(cast(round(p2.global_elo_median_all, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 24, 'label', ' • Opp median GLO (weighted)',  'profile', coalesce(cast(round(p2.opponent_global_elo_median_weighted, 1) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 25, 'label', ' • World rank (current) / Nation rank (current)', 'profile', concat(cast(p2.world_rank_current as string), ' / ', cast(p2.nation_rank_current as string))),\r\n",
+        "  named_struct('sort_order', 26, 'label', ' • World rank (peak) / Nation rank (peak)', 'profile', concat(cast(p2.world_rank_peak as string), ' / ', cast(p2.nation_rank_peak as string))),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 30, 'label', '\ud83d\udee1 Favourite race', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 31, 'label', ' \u2022 Race',                 'profile', coalesce(p2.main_race_name, 'N/A')),\r\n",
-        "  named_struct('sort_order', 32, 'label', ' \u2022 Games with race',      'profile', coalesce(cast(p2.main_race_games_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 33, 'label', ' \u2022 Race PPG',             'profile', coalesce(cast(round(p2.main_race_ppg, 2) as string), 'N/A')),\r\n",
-        "  named_struct('sort_order', 34, 'label', ' \u2022 Distinct races played', 'profile', coalesce(cast(p2.distinct_races_played as string), '0')),\r\n",
-        "  named_struct('sort_order', 35, 'label', ' \u2022 Median race PPG',       'profile', coalesce(cast(round(p2.median_race_ppg, 2) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 30, 'label', '🛡 Favourite race', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 31, 'label', ' • Race',                 'profile', coalesce(p2.main_race_name, 'N/A')),\r\n",
+        "  named_struct('sort_order', 32, 'label', ' • Games with race',      'profile', coalesce(cast(p2.main_race_games_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 33, 'label', ' • Race PPG',             'profile', coalesce(cast(round(p2.main_race_ppg, 2) as string), 'N/A')),\r\n",
+        "  named_struct('sort_order', 34, 'label', ' • Distinct races played', 'profile', coalesce(cast(p2.distinct_races_played as string), '0')),\r\n",
+        "  named_struct('sort_order', 35, 'label', ' • Median race PPG',       'profile', coalesce(cast(round(p2.median_race_ppg, 2) as string), 'N/A')),\r\n",
         "\r\n",
-        "  named_struct('sort_order', 40, 'label', '\ud83d\udd25 Streaks', 'profile', ''),\r\n",
-        "  named_struct('sort_order', 41, 'label', ' \u2022 Best win / Current win',             'profile', concat(cast(p2.best_win_streak as string), ' / ', cast(p2.current_win_streak as string))),\r\n",
-        "  named_struct('sort_order', 42, 'label', ' \u2022 Best unbeaten / Current unbeaten',   'profile', concat(cast(p2.best_unbeaten_streak as string), ' / ', cast(p2.current_unbeaten_streak as string)))\r\n",
+        "  named_struct('sort_order', 40, 'label', '🔥 Streaks', 'profile', ''),\r\n",
+        "  named_struct('sort_order', 41, 'label', ' • Best win / Current win',             'profile', concat(cast(p2.best_win_streak as string), ' / ', cast(p2.current_win_streak as string))),\r\n",
+        "  named_struct('sort_order', 42, 'label', ' • Best unbeaten / Current unbeaten',   'profile', concat(cast(p2.best_unbeaten_streak as string), ' / ', cast(p2.current_unbeaten_streak as string)))\r\n",
         ")) e AS row\r\n",
         "ORDER BY\r\n",
         "  p2.coach_id,\r\n",
@@ -477,7 +477,7 @@
   "pages": [
     {
       "name": "9dbe70f2",
-      "displayName": "Overview",
+      "displayName": "Coach Dashboard",
       "layout": [
         {
           "widget": {
@@ -920,15 +920,7 @@
             "width": 7,
             "height": 5
           }
-        }
-      ],
-      "pageType": "PAGE_TYPE_CANVAS",
-      "layoutVersion": "GRID_V1"
-    },
-    {
-      "name": "ratings_page_9dbe70f2",
-      "displayName": "Ratings",
-      "layout": [
+        },
         {
           "widget": {
             "name": "8212b971",
@@ -994,7 +986,7 @@
           },
           "position": {
             "x": 0,
-            "y": 0,
+            "y": 20,
             "width": 12,
             "height": 7
           }
@@ -1069,7 +1061,7 @@
           },
           "position": {
             "x": 0,
-            "y": 8,
+            "y": 28,
             "width": 12,
             "height": 7
           }
@@ -1114,19 +1106,11 @@
           },
           "position": {
             "x": 0,
-            "y": 7,
+            "y": 27,
             "width": 12,
             "height": 1
           }
-        }
-      ],
-      "pageType": "PAGE_TYPE_CANVAS",
-      "layoutVersion": "GRID_V1"
-    },
-    {
-      "name": "opponents_page_9dbe70f2",
-      "displayName": "Opponents",
-      "layout": [
+        },
         {
           "widget": {
             "name": "79167813",
@@ -1265,7 +1249,7 @@
           },
           "position": {
             "x": 0,
-            "y": 0,
+            "y": 35,
             "width": 12,
             "height": 7
           }
@@ -1364,7 +1348,7 @@
           },
           "position": {
             "x": 0,
-            "y": 7,
+            "y": 42,
             "width": 6,
             "height": 6
           }
@@ -1415,10 +1399,10 @@
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "150\u2013200",
-                        "200\u2013250",
-                        "250\u2013300",
-                        "300\u2013350",
+                        "150–200",
+                        "200–250",
+                        "250–300",
+                        "300–350",
                         "Overall"
                       ]
                     }
@@ -1482,7 +1466,7 @@
           },
           "position": {
             "x": 6,
-            "y": 7,
+            "y": 42,
             "width": 6,
             "height": 6
           }
