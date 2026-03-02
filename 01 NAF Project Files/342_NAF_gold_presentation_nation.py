@@ -282,7 +282,7 @@
 # MAGIC   COALESCE(s.wins, 0)         AS wins,
 # MAGIC   COALESCE(s.draws, 0)        AS draws,
 # MAGIC   COALESCE(s.losses, 0)       AS losses,
-# MAGIC   s.win_pct,
+# MAGIC   ROUND((COALESCE(s.wins, 0) + 0.5 * COALESCE(s.draws, 0)) / NULLIF(s.games_played, 0), 3) AS ppg,
 # MAGIC   s.avg_score_for,
 # MAGIC   s.avg_score_against,
 # MAGIC
@@ -806,20 +806,15 @@
 # MAGIC   n2.flag_code           AS opponent_flag_code,
 # MAGIC
 # MAGIC   s.games_played,
-# MAGIC   s.win_pct,
 # MAGIC   s.avg_score_for,
-# MAGIC   s.avg_score_against,
-# MAGIC   s.avg_score_diff,
-# MAGIC   s.glo_exchange_total,
-# MAGIC
-# MAGIC   s.games_score,
-# MAGIC   s.closeness_score,
-# MAGIC   s.games_share,
+# MAGIC   s.ppg_closeness,
+# MAGIC   s.games_rank,
+# MAGIC   s.closeness_rank,
 # MAGIC   s.rivalry_score,
 # MAGIC
 # MAGIC   DENSE_RANK() OVER (
 # MAGIC     PARTITION BY s.nation_id
-# MAGIC     ORDER BY s.rivalry_score DESC, s.games_played DESC, s.opponent_nation_id
+# MAGIC     ORDER BY s.rivalry_score ASC, s.games_played DESC, s.opponent_nation_id
 # MAGIC   ) AS rivalry_rank,
 # MAGIC
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
