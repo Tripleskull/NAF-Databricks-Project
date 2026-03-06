@@ -170,7 +170,7 @@
         "    ON ncrp.nation_id = nd.nation_id\r\n",
         "  JOIN naf_catalog.gold_dim.race_dim rd\r\n",
         "    ON ncrp.race_id = rd.race_id\r\n",
-        "  WHERE array_contains(:race_name, rd.race_name)\r\n",
+        "  WHERE (SIZE(COALESCE(:race_name, ARRAY())) = 0 OR array_contains(:race_name, rd.race_name))\r\n",
         "    AND ncrp.elo_peak IS NOT NULL\r\n",
         "),\r\n",
         "world_data AS (\r\n",
@@ -1007,6 +1007,10 @@
                   "datasetName": "w4_elo_boxplot",
                   "fields": [
                     {
+                      "name": "race_name",
+                      "expression": "`race_name`"
+                    },
+                    {
                       "name": "nation_label",
                       "expression": "`nation_label`"
                     },
@@ -1046,9 +1050,12 @@
               "widgetType": "box",
               "encodings": {
                 "x": {
-                  "fieldName": "nation_label",
+                  "fieldName": "race_name",
                   "scale": {
                     "type": "categorical"
+                  },
+                  "axis": {
+                    "title": "Race"
                   }
                 },
                 "y": {
@@ -1072,6 +1079,12 @@
                   },
                   "scale": {
                     "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "nation_label",
+                  "scale": {
+                    "type": "categorical"
                   }
                 }
               }
