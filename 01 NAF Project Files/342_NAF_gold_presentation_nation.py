@@ -421,23 +421,40 @@
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_binned_distribution_display AS
 # MAGIC SELECT
-# MAGIC   d.nation_id,
-# MAGIC   CASE WHEN d.nation_id = 0 THEN 'World'
+# MAGIC   merged.nation_id,
+# MAGIC   CASE WHEN merged.nation_id = 0 THEN 'World'
 # MAGIC        ELSE n.nation_name_display
 # MAGIC   END AS nation_name_display,
-# MAGIC   d.metric_type,
-# MAGIC   d.glo_bin,
-# MAGIC   CASE WHEN d.glo_bin >= 325 THEN CONCAT(CAST(d.glo_bin AS STRING), '+')
-# MAGIC        ELSE CONCAT(CAST(d.glo_bin AS STRING), '–', CAST(d.glo_bin + 25 AS STRING))
-# MAGIC   END AS glo_bin_label,
-# MAGIC   d.coach_count,
-# MAGIC   d.total_coaches,
-# MAGIC   ROUND(d.density * 100, 2) AS density_pct,
-# MAGIC   ROUND(d.cumulative_density * 100, 2) AS cumulative_density_pct,
-# MAGIC   d.load_timestamp
-# MAGIC FROM naf_catalog.gold_summary.nation_glo_binned_distribution AS d
+# MAGIC   merged.metric_type,
+# MAGIC   merged.glo_bin,
+# MAGIC   merged.glo_bin_label,
+# MAGIC   merged.coach_count,
+# MAGIC   merged.total_coaches,
+# MAGIC   ROUND(merged.density * 100, 2) AS density_pct,
+# MAGIC   ROUND(merged.cumulative_density * 100, 2) AS cumulative_density_pct,
+# MAGIC   merged.load_timestamp
+# MAGIC FROM (
+# MAGIC   SELECT
+# MAGIC     d.nation_id,
+# MAGIC     d.metric_type,
+# MAGIC     CASE WHEN d.glo_bin >= 300 THEN 300 ELSE d.glo_bin END AS glo_bin,
+# MAGIC     CASE WHEN d.glo_bin >= 300 THEN '300+'
+# MAGIC          ELSE CONCAT(CAST(d.glo_bin AS STRING), '–', CAST(d.glo_bin + 25 AS STRING))
+# MAGIC     END AS glo_bin_label,
+# MAGIC     SUM(d.coach_count) AS coach_count,
+# MAGIC     MAX(d.total_coaches) AS total_coaches,
+# MAGIC     SUM(d.density) AS density,
+# MAGIC     MAX(d.cumulative_density) AS cumulative_density,
+# MAGIC     MAX(d.load_timestamp) AS load_timestamp
+# MAGIC   FROM naf_catalog.gold_summary.nation_glo_binned_distribution AS d
+# MAGIC   GROUP BY d.nation_id, d.metric_type,
+# MAGIC     CASE WHEN d.glo_bin >= 300 THEN 300 ELSE d.glo_bin END,
+# MAGIC     CASE WHEN d.glo_bin >= 300 THEN '300+'
+# MAGIC          ELSE CONCAT(CAST(d.glo_bin AS STRING), '–', CAST(d.glo_bin + 25 AS STRING))
+# MAGIC     END
+# MAGIC # MAGIC ) merged
 # MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
-# MAGIC   ON d.nation_id = n.nation_id;
+# MAGIC   ON merged.nation_id = n.nation_id;
 # MAGIC
 
 # COMMAND ----------
@@ -1217,7 +1234,7 @@
 # MAGIC SELECT nation_id, nation_name_display, sort_order, label, profile, load_timestamp FROM (
 # MAGIC   -- IDENTITY
 # MAGIC   SELECT nation_id, nation_name_display, 10 AS sort_order,
-# MAGIC     'Identity' AS label, CONCAT(flag_emoji, ' ', nation_name_display) AS profile, load_timestamp FROM combined
+# MAGIC     '🏳 Identity' AS label, CONCAT(flag_emoji, ' ', nation_name_display) AS profile, load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 11,
 # MAGIC     ' • NAF member coaches', CONCAT(CAST(coaches_count AS STRING), ' (#', CAST(rank_coaches AS STRING), ')'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 12,
@@ -1225,7 +1242,7 @@
 # MAGIC
 # MAGIC   -- OVERVIEW
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 20,
-# MAGIC     'Overview', '', load_timestamp FROM combined
+# MAGIC     '📊 Overview', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 21,
 # MAGIC     ' • Total games', CONCAT(CAST(games_count AS STRING), ' (#', CAST(rank_games AS STRING), ')'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 22,
@@ -1235,7 +1252,7 @@
 # MAGIC
 # MAGIC   -- RATINGS (GLO)
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 30,
-# MAGIC     'Ratings (GLO)', '', load_timestamp FROM combined
+# MAGIC     '📈 Ratings (GLO)', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 31,
 # MAGIC     ' • Median GLO peak', CONCAT(COALESCE(CAST(ROUND(glo_median_peak, 1) AS STRING), 'N/A'), ' (#', CAST(rank_glo_median_peak AS STRING), ')'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 32,
@@ -1251,7 +1268,7 @@
 # MAGIC
 # MAGIC   -- RACE PROFILE (top 5 by participation share, showing both % metrics)
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 40,
-# MAGIC     'Top Five Races', '', load_timestamp FROM combined
+# MAGIC     '🎲 Top Five Races', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 41,
 # MAGIC     CONCAT(' 1. ', COALESCE(race_1_name, 'N/A')),
 # MAGIC     CONCAT(CAST(race_1_part_pct AS STRING), '% games / ', CAST(race_1_coach_pct AS STRING), '% coaches'),
@@ -1277,7 +1294,7 @@
 # MAGIC
 # MAGIC   -- INTERNATIONAL PLAY
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 50,
-# MAGIC     'International Play', '', load_timestamp FROM combined
+# MAGIC     '🌍 International Play', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 51,
 # MAGIC     ' • Games abroad', CONCAT(CAST(pct_abroad AS STRING), '%'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 52,
@@ -1287,7 +1304,7 @@
 # MAGIC
 # MAGIC   -- NATIONAL TEAM STRENGTH
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 60,
-# MAGIC     'National Team Strength', '', load_timestamp FROM combined
+# MAGIC     '🏆 National Team Strength', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 61,
 # MAGIC     ' • Top-8 avg selector score (global)', CONCAT(CAST(ROUND(top8_avg_selector_global, 1) AS STRING), ' (#', CAST(rank_team_score AS STRING), ')'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 62,
@@ -1299,7 +1316,7 @@
 # MAGIC
 # MAGIC   -- HEAD-TO-HEAD
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 70,
-# MAGIC     'Head-to-Head', '', load_timestamp FROM combined
+# MAGIC     '⚡ Head-to-Head', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 71,
 # MAGIC     ' • Most played opponent', COALESCE(most_played_opp, 'N/A'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 72,
@@ -1309,7 +1326,7 @@
 # MAGIC
 # MAGIC   -- TOP 3 RIVALS
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 80,
-# MAGIC     'Top 3 Rivals', '', load_timestamp FROM combined
+# MAGIC     '⚔ Top 3 Rivals', '', load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 81,
 # MAGIC     CONCAT(' 1. ', COALESCE(rival_1_name, 'N/A')),
 # MAGIC     CONCAT(CAST(rival_1_games AS STRING), ' games'),
