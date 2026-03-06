@@ -473,14 +473,14 @@
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_smooth_cdf_display AS
-# MAGIC WITH base AS (
+# MAGIC WITH raw AS (
 # MAGIC   SELECT
 # MAGIC     g.nation_id,
 # MAGIC     CASE WHEN g.nation_id = 0 THEN 'World'
 # MAGIC          ELSE n.nation_name_display
 # MAGIC     END AS nation_name_display,
 # MAGIC     'PEAK' AS metric_type,
-# MAGIC     ROUND(g.glo_peak, 1)   AS glo_value,
+# MAGIC     ROUND(g.glo_peak, 0)   AS glo_value,
 # MAGIC     CUME_DIST() OVER (PARTITION BY g.nation_id ORDER BY g.glo_peak) AS cume_pct
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
@@ -494,11 +494,22 @@
 # MAGIC          ELSE n.nation_name_display
 # MAGIC     END AS nation_name_display,
 # MAGIC     'MEDIAN' AS metric_type,
-# MAGIC     ROUND(g.glo_median, 1) AS glo_value,
+# MAGIC     ROUND(g.glo_median, 0) AS glo_value,
 # MAGIC     CUME_DIST() OVER (PARTITION BY g.nation_id ORDER BY g.glo_median) AS cume_pct
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
 # MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC ),
+# MAGIC -- Aggregate by rounded glo_value to guarantee monotonicity and smooth the curve
+# MAGIC deduped AS (
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     nation_name_display,
+# MAGIC     metric_type,
+# MAGIC     glo_value,
+# MAGIC     MAX(cume_pct) AS cume_pct
+# MAGIC   FROM raw
+# MAGIC   GROUP BY nation_id, nation_name_display, metric_type, glo_value
 # MAGIC )
 # MAGIC SELECT
 # MAGIC   nation_id,
@@ -506,7 +517,7 @@
 # MAGIC   metric_type,
 # MAGIC   glo_value,
 # MAGIC   ROUND(cume_pct * 100, 2) AS cumulative_pct
-# MAGIC FROM base;
+# MAGIC FROM deduped;
 # MAGIC
 
 # COMMAND ----------
@@ -832,7 +843,7 @@
 # MAGIC
 # MAGIC   DENSE_RANK() OVER (
 # MAGIC     PARTITION BY s.nation_id
-# MAGIC     ORDER BY s.rivalry_score_raw ASC, s.games_played DESC, s.opponent_nation_id
+# MAGIC     ORDER BY s.rivalry_score ASC, s.games_played DESC, s.opponent_nation_id
 # MAGIC   ) AS rivalry_rank,
 # MAGIC
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
@@ -888,7 +899,7 @@
 # MAGIC   ON s.nation_id = ni.nation_id
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS oni
 # MAGIC   ON s.opponent_nation_id = oni.nation_id
-# MAGIC QUALIFY DENSE_RANK() OVER (PARTITION BY s.nation_id ORDER BY r.rivalry_score_raw ASC) <= 10;
+# MAGIC QUALIFY DENSE_RANK() OVER (PARTITION BY s.nation_id ORDER BY r.rivalry_score ASC) <= 10;
 # MAGIC
 
 # COMMAND ----------
@@ -1042,7 +1053,7 @@
 # MAGIC ),
 # MAGIC team_str_ranked AS (
 # MAGIC   SELECT *,
-# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_selector_global DESC) AS rank_team_score,
+# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_selector_global ASC) AS rank_team_score,
 # MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_glo_peak DESC) AS rank_team_peak,
 # MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_glo_median DESC) AS rank_team_median
 # MAGIC   FROM team_str

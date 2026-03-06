@@ -75,7 +75,7 @@
         "    SELECT opponent_nation_id\r\n",
         "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
         "    WHERE nation_name_display = :nation_name_display\r\n",
-        "    ORDER BY rivalry_score DESC\r\n",
+        "    ORDER BY rivalry_score ASC\r\n",
         "    LIMIT 3\r\n",
         "  )\r\n",
         "ORDER BY iso_week, nation_name_display"
@@ -114,7 +114,7 @@
         "      SELECT opponent_nation_id\r\n",
         "      FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
         "      WHERE nation_name_display = :nation_name_display\r\n",
-        "      ORDER BY rivalry_score DESC\r\n",
+        "      ORDER BY rivalry_score ASC\r\n",
         "      LIMIT 3\r\n",
         "    )\r\n",
         "    OR nation_name_display = 'World'\r\n",
@@ -171,7 +171,7 @@
         "      SELECT opponent_nation_id\r\r\n",
         "      FROM naf_catalog.gold_presentation.nation_rivalry_display\r\r\n",
         "      WHERE nation_name_display = :nation_name_display\r\r\n",
-        "      ORDER BY rivalry_score DESC\r\r\n",
+        "      ORDER BY rivalry_score ASC\r\r\n",
         "      LIMIT 3\r\r\n",
         "    )\r\r\n",
         "    OR nation_id = 0\r\r\n",
@@ -227,7 +227,7 @@
         "      SELECT opponent_nation_id\r\n",
         "      FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
         "      WHERE nation_name_display = :nation_name_display\r\n",
-        "      ORDER BY rivalry_score DESC\r\n",
+        "      ORDER BY rivalry_score ASC\r\n",
         "      LIMIT 3\r\n",
         "    )\r\n",
         "    OR nation_id = 0\r\n",
@@ -282,7 +282,7 @@
         "    SELECT opponent_nation_id\n",
         "    FROM naf_catalog.gold_presentation.nation_rivalry_display\n",
         "    WHERE nation_name_display = :nation_name_display\n",
-        "    ORDER BY rivalry_score DESC\n",
+        "    ORDER BY rivalry_score ASC\n",
         "    LIMIT 3\n",
         "  )\n",
         "  OR nation_name_display = 'World')\n",
@@ -411,7 +411,7 @@
         "  rivalry_score\n",
         "FROM naf_catalog.gold_presentation.nation_rivalry_display\n",
         "WHERE nation_name_display = :nation_name_display\n",
-        "ORDER BY rivalry_score DESC"
+        "ORDER BY rivalry_score ASC"
       ],
       "parameters": [
         {
@@ -560,7 +560,7 @@
         "    SELECT opponent_nation_id\n",
         "    FROM naf_catalog.gold_presentation.nation_rivalry_display\n",
         "    WHERE nation_name_display = :nation_name_display\n",
-        "    ORDER BY rivalry_score DESC\n",
+        "    ORDER BY rivalry_score ASC\n",
         "    LIMIT 3\n",
         "  )\n",
         "  OR nation_name_display = 'World')\n",

@@ -135,6 +135,45 @@
 # MAGIC   GROUP BY coach_id
 # MAGIC ),
 # MAGIC
+# MAGIC -- Best race Elo peak per coach (across all races) + world rank
+# MAGIC best_race_elo AS (
+# MAGIC   SELECT
+# MAGIC     coach_id,
+# MAGIC     MAX(elo_peak_all) AS best_race_elo_peak,
+# MAGIC     MAX_BY(race_id, elo_peak_all) AS best_race_elo_race_id,
+# MAGIC     MAX_BY(rd.race_name, elo_peak_all) AS best_race_elo_race_name
+# MAGIC   FROM naf_catalog.gold_summary.coach_race_summary AS crs
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.race_dim AS rd ON crs.race_id = rd.race_id
+# MAGIC   WHERE crs.rating_system = 'NAF_ELO'
+# MAGIC     AND crs.elo_peak_all IS NOT NULL
+# MAGIC   GROUP BY coach_id
+# MAGIC ),
+# MAGIC best_race_elo_ranked AS (
+# MAGIC   SELECT
+# MAGIC     *,
+# MAGIC     DENSE_RANK() OVER (ORDER BY best_race_elo_peak DESC) AS world_rank_best_race_elo
+# MAGIC   FROM best_race_elo
+# MAGIC ),
+# MAGIC
+# MAGIC -- Favourite race (most played) Elo peak + rank among coaches who play the same race
+# MAGIC fav_race_elo AS (
+# MAGIC   SELECT
+# MAGIC     crs.coach_id,
+# MAGIC     tr.race_1_id AS fav_race_id,
+# MAGIC     rd.race_name AS fav_race_name,
+# MAGIC     crs.elo_peak_all AS fav_race_elo_peak,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY tr.race_1_id
+# MAGIC       ORDER BY crs.elo_peak_all DESC
+# MAGIC     ) AS race_rank_fav
+# MAGIC   FROM top_races AS tr
+# MAGIC   JOIN naf_catalog.gold_summary.coach_race_summary AS crs
+# MAGIC     ON tr.coach_id = crs.coach_id AND tr.race_1_id = crs.race_id
+# MAGIC   LEFT JOIN naf_catalog.gold_dim.race_dim AS rd ON tr.race_1_id = rd.race_id
+# MAGIC   WHERE crs.rating_system = 'NAF_ELO'
+# MAGIC     AND crs.elo_peak_all IS NOT NULL
+# MAGIC ),
+# MAGIC
 # MAGIC streak_global AS (
 # MAGIC   SELECT
 # MAGIC     coach_id,
@@ -154,6 +193,7 @@
 # MAGIC     ci.nation_id,
 # MAGIC     rg.global_elo_current,
 # MAGIC     rg.global_elo_peak_last_50,
+# MAGIC     rg.global_elo_median_all,
 # MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_current DESC)   AS world_rank_current,
 # MAGIC     DENSE_RANK() OVER (
 # MAGIC       PARTITION BY ci.nation_id
@@ -163,12 +203,32 @@
 # MAGIC     DENSE_RANK() OVER (
 # MAGIC       PARTITION BY ci.nation_id
 # MAGIC       ORDER BY rg.global_elo_peak_last_50 DESC
-# MAGIC     ) AS nation_rank_peak
+# MAGIC     ) AS nation_rank_peak,
+# MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_median_all DESC) AS world_rank_median,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY rg.global_elo_median_all DESC
+# MAGIC     ) AS nation_rank_median
 # MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary AS rg
 # MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
 # MAGIC     ON rg.coach_id = ci.coach_id
 # MAGIC   WHERE rg.rating_system = 'NAF_ELO'
 # MAGIC     AND rg.global_elo_current IS NOT NULL
+# MAGIC ),
+# MAGIC
+# MAGIC opp_glo_ranks AS (
+# MAGIC   SELECT
+# MAGIC     og.coach_id,
+# MAGIC     ci.nation_id,
+# MAGIC     DENSE_RANK() OVER (ORDER BY og.opponent_global_elo_median_weighted DESC) AS world_rank_opp_median,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY og.opponent_global_elo_median_weighted DESC
+# MAGIC     ) AS nation_rank_opp_median
+# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v AS og
+# MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
+# MAGIC     ON og.coach_id = ci.coach_id
+# MAGIC   WHERE og.rating_system = 'NAF_ELO'
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -259,11 +319,15 @@
 # MAGIC     ELSE 0.0
 # MAGIC   END AS rated_games_pct,
 # MAGIC
-# MAGIC   -- GLO ranks (world and nation, current and peak)
+# MAGIC   -- GLO ranks (world and nation, current, peak, median, opp median)
 # MAGIC   gr.world_rank_current,
 # MAGIC   gr.nation_rank_current,
 # MAGIC   gr.world_rank_peak,
 # MAGIC   gr.nation_rank_peak,
+# MAGIC   gr.world_rank_median,
+# MAGIC   gr.nation_rank_median,
+# MAGIC   ogr.world_rank_opp_median,
+# MAGIC   ogr.nation_rank_opp_median,
 # MAGIC
 # MAGIC   -- Opponent strength (weighted mean of opponent median GLO)
 # MAGIC   og.opponent_global_elo_median_weighted,
@@ -310,6 +374,14 @@
 # MAGIC   (100.0D * COALESCE(ra.best_race_win_frac, 0.0))  AS best_race_win_pct,
 # MAGIC   COALESCE(ra.median_race_ppg, 0.0)               AS median_race_ppg,
 # MAGIC
+# MAGIC   -- Race Elo ratings
+# MAGIC   bre.best_race_elo_peak,
+# MAGIC   bre.best_race_elo_race_name,
+# MAGIC   bre.world_rank_best_race_elo,
+# MAGIC   fre.fav_race_name,
+# MAGIC   fre.fav_race_elo_peak,
+# MAGIC   fre.race_rank_fav,
+# MAGIC
 # MAGIC   -- Streaks
 # MAGIC   sg.best_win_streak,
 # MAGIC   sg.best_unbeaten_streak,
@@ -345,12 +417,18 @@
 # MAGIC   ON ci.coach_id = tr.coach_id
 # MAGIC LEFT JOIN race_agg AS ra
 # MAGIC   ON ci.coach_id = ra.coach_id
+# MAGIC LEFT JOIN best_race_elo_ranked AS bre
+# MAGIC   ON ci.coach_id = bre.coach_id
+# MAGIC LEFT JOIN fav_race_elo AS fre
+# MAGIC   ON ci.coach_id = fre.coach_id
 # MAGIC LEFT JOIN streak_global AS sg
 # MAGIC   ON ci.coach_id = sg.coach_id
 # MAGIC LEFT JOIN naf_catalog.gold_summary.coach_form_summary AS fs
 # MAGIC   ON ci.coach_id = fs.coach_id
 # MAGIC LEFT JOIN glo_ranks AS gr
 # MAGIC   ON ci.coach_id = gr.coach_id
+# MAGIC LEFT JOIN opp_glo_ranks AS ogr
+# MAGIC   ON ci.coach_id = ogr.coach_id
 # MAGIC LEFT JOIN naf_catalog.gold_summary.nation_team_candidate_scores AS sel
 # MAGIC   ON ci.coach_id = sel.coach_id
 # MAGIC  AND sel.selector_focus = 'BALANCED'
@@ -1463,14 +1541,7 @@
 # MAGIC     ROUND((
 # MAGIC       CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY games_played DESC) AS DOUBLE)
 # MAGIC       + CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY ABS(win_points_per_game - 0.5) ASC) AS DOUBLE)
-# MAGIC     ) / 2.0, 1) AS rivalry_score_raw,
-# MAGIC     ROUND(100 * (1.0 - PERCENT_RANK() OVER (
-# MAGIC       PARTITION BY coach_id
-# MAGIC       ORDER BY (
-# MAGIC         CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY games_played DESC) AS DOUBLE)
-# MAGIC         + CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY ABS(win_points_per_game - 0.5) ASC) AS DOUBLE)
-# MAGIC       ) / 2.0 ASC
-# MAGIC     )), 1) AS rivalry_score
+# MAGIC     ) / 2.0, 1) AS rivalry_score
 # MAGIC   FROM opp_enriched
 # MAGIC ),
 # MAGIC top5 AS (
@@ -1478,7 +1549,7 @@
 # MAGIC     *,
 # MAGIC     ROW_NUMBER() OVER (
 # MAGIC       PARTITION BY coach_id
-# MAGIC       ORDER BY rivalry_score_raw ASC, games_played DESC, opponent_coach_id ASC
+# MAGIC       ORDER BY rivalry_score ASC, games_played DESC, opponent_coach_id ASC
 # MAGIC     ) AS rivalry_rank
 # MAGIC   FROM top5_scored
 # MAGIC ),
