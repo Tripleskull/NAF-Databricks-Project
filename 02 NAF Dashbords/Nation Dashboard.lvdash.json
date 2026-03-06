@@ -4,7 +4,7 @@
       "name": "w1a_nation_profile",
       "displayName": "Nation Profile (Left)",
       "queryLines": [
-        "SELECT label, profile, sort_order, nation_id, nation_name_display, load_timestamp\r\n",
+        "SELECT CASE sort_order WHEN 10 THEN '🏳 Identity' WHEN 11 THEN '🏳 Identity' WHEN 12 THEN '🏳 Identity' WHEN 20 THEN '📊 Overview' WHEN 21 THEN '📊 Overview' WHEN 22 THEN '📊 Overview' WHEN 40 THEN '🎲 Top Five Races' WHEN 41 THEN '🎲 Top Five Races' WHEN 42 THEN '🎲 Top Five Races' WHEN 43 THEN '🎲 Top Five Races' WHEN 44 THEN '🎲 Top Five Races' WHEN 45 THEN '🎲 Top Five Races' WHEN 46 THEN '🎲 Top Five Races' WHEN 50 THEN '🌍 International Play' WHEN 51 THEN '🌍 International Play' WHEN 52 THEN '🌍 International Play' WHEN 53 THEN '🌍 International Play' WHEN 80 THEN '⚔ Top 3 Rivals' WHEN 81 THEN '⚔ Top 3 Rivals' WHEN 82 THEN '⚔ Top 3 Rivals' WHEN 83 THEN '⚔ Top 3 Rivals' ELSE label END as label, profile, sort_order, nation_id, nation_name_display, load_timestamp\r\n",
         "FROM naf_catalog.gold_presentation.nation_profile_long\r\n",
         "WHERE sort_order BETWEEN 10 AND 12\r\n",
         "   OR sort_order BETWEEN 20 AND 22\r\n",
@@ -35,7 +35,7 @@
       "name": "w1b_performance",
       "displayName": "Performance & Strength (Right)",
       "queryLines": [
-        "SELECT label, profile, sort_order, nation_id, nation_name_display, load_timestamp\r\n",
+        "SELECT CASE sort_order WHEN 23 THEN '💪 Performance & Strength' WHEN 30 THEN '📈 Ratings (GLO)' WHEN 31 THEN '📈 Ratings (GLO)' WHEN 32 THEN '📈 Ratings (GLO)' WHEN 33 THEN '📈 Ratings (GLO)' WHEN 34 THEN '📈 Ratings (GLO)' WHEN 35 THEN '📈 Ratings (GLO)' WHEN 36 THEN '📈 Ratings (GLO)' WHEN 60 THEN '🏆 National Team Strength' WHEN 61 THEN '🏆 National Team Strength' WHEN 62 THEN '🏆 National Team Strength' WHEN 63 THEN '🏆 National Team Strength' WHEN 64 THEN '🏆 National Team Strength' WHEN 70 THEN '⚡ Head-to-Head' WHEN 71 THEN '⚡ Head-to-Head' WHEN 72 THEN '⚡ Head-to-Head' WHEN 73 THEN '⚡ Head-to-Head' ELSE label END as label, profile, sort_order, nation_id, nation_name_display, load_timestamp\r\n",
         "FROM naf_catalog.gold_presentation.nation_profile_long\r\n",
         "WHERE sort_order = 23\r\n",
         "   OR sort_order BETWEEN 30 AND 36\r\n",
@@ -1628,12 +1628,8 @@
                     "displayName": "Nation"
                   },
                   {
-                    "fieldName": "top_8_avg_selector_score_national",
-                    "displayName": "SSN"
-                  },
-                  {
                     "fieldName": "top_8_avg_selector_score_global",
-                    "displayName": "SSG"
+                    "displayName": "SSR Top 8"
                   },
                   {
                     "fieldName": "top_8_avg_glo_peak",

@@ -1984,14 +1984,13 @@
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC USING DELTA AS
 # MAGIC
-# MAGIC -- Fixed bin definitions: 0-150, 150-200, 200-250, 250-300, 300+
+# MAGIC -- Fixed bin definitions: 0-150, 150-200, 200-250, 250+
 # MAGIC WITH bin_def AS (
 # MAGIC   SELECT * FROM (VALUES
 # MAGIC     (1, 0.0,    150.0, '0–150'),
 # MAGIC     (2, 150.0,  200.0, '150–200'),
 # MAGIC     (3, 200.0,  250.0, '200–250'),
-# MAGIC     (4, 250.0,  300.0, '250–300'),
-# MAGIC     (5, 300.0, 9999.0, '300+')
+# MAGIC     (4, 250.0, 9999.0, '250+')
 # MAGIC   ) AS t(bin_index, bin_min, bin_max, bin_label)
 # MAGIC ),
 # MAGIC

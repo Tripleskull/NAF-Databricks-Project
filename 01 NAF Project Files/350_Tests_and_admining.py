@@ -832,13 +832,13 @@
 # MAGIC FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC WHERE nation_id = 0
 # MAGIC UNION ALL
-# MAGIC -- Spine completeness: every nation should have 5 bins per metric_type
+# MAGIC -- Spine completeness: every nation should have 4 bins per metric_type
 # MAGIC SELECT 'nation_opponent_elo_bin_wdl: inconsistent bin count per nation' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (
 # MAGIC   SELECT nation_id, metric_type, COUNT(*) AS bin_count
 # MAGIC   FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC   GROUP BY nation_id, metric_type
-# MAGIC   HAVING COUNT(*) <> 5
+# MAGIC   HAVING COUNT(*) <> 4
 # MAGIC )
 # MAGIC UNION ALL
 # MAGIC -- PK: nation_game_quality_bin_wdl (nation_id, metric_type, bin_scheme_id, bin_index)
@@ -895,19 +895,19 @@
 # MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
 # MAGIC WHERE games_played > 0 AND (wins + draws + losses) <> games_played
 # MAGIC UNION ALL
-# MAGIC -- Spine completeness: every coach should have 5 bins
+# MAGIC -- Spine completeness: every coach should have 4 bins
 # MAGIC SELECT 'coach_opponent_median_glo_bin_summary: inconsistent bin count per coach' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (
 # MAGIC   SELECT coach_id, COUNT(*) AS bin_count
 # MAGIC   FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
 # MAGIC   GROUP BY coach_id
-# MAGIC   HAVING COUNT(*) <> 5
+# MAGIC   HAVING COUNT(*) <> 4
 # MAGIC )
 # MAGIC UNION ALL
-# MAGIC -- bin_index range 1-5
-# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: bin_index outside [1,5]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC -- bin_index range 1-4
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: bin_index outside [1,4]' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
-# MAGIC WHERE bin_index NOT IN (1, 2, 3, 4, 5)
+# MAGIC WHERE bin_index NOT IN (1, 2, 3, 4)
 # MAGIC UNION ALL
 # MAGIC -- win_frac + draw_frac + loss_frac ≈ 1.0 for non-zero rows
 # MAGIC SELECT 'coach_opponent_median_glo_bin_summary: fractions dont sum to 1' AS check_name, COUNT(*) AS fail_rows

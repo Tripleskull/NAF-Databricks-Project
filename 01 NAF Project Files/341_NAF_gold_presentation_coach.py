@@ -1153,7 +1153,7 @@
 # MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary b
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.coach_identity_v ci
 # MAGIC   ON b.coach_id = ci.coach_id
-# MAGIC LATERAL VIEW EXPLODE(ARRAY(
+# MAGIC LATERAL VIEW INLINE(ARRAY(
 # MAGIC   NAMED_STRUCT('result', 'wins',   'result_order', 1, 'result_frac', b.win_frac),
 # MAGIC   NAMED_STRUCT('result', 'draws',  'result_order', 2, 'result_frac', b.draw_frac),
 # MAGIC   NAMED_STRUCT('result', 'losses', 'result_order', 3, 'result_frac', b.loss_frac)
