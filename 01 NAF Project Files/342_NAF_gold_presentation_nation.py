@@ -409,6 +409,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Fix SQL syntax error in nation_glo_binned_distribution_display view definition
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_binned_distribution_display
 # MAGIC -- =====================================================================
@@ -452,7 +453,7 @@
 # MAGIC     CASE WHEN d.glo_bin >= 300 THEN '300+'
 # MAGIC          ELSE CONCAT(CAST(d.glo_bin AS STRING), '–', CAST(d.glo_bin + 25 AS STRING))
 # MAGIC     END
-# MAGIC # MAGIC ) merged
+# MAGIC ) merged
 # MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
 # MAGIC   ON merged.nation_id = n.nation_id;
 # MAGIC

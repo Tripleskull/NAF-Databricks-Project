@@ -613,6 +613,13 @@
         "FROM naf_catalog.gold_summary.nation_coach_glo_metrics \r\n",
         "WHERE nation_id = 0 AND is_valid_glo = TRUE"
       ]
+    },
+    {
+      "name": "a94ee829",
+      "displayName": "Untitled dataset",
+      "queryLines": [
+        ""
+      ]
     }
   ],
   "pages": [
@@ -634,8 +641,8 @@
                       "expression": "`label`"
                     },
                     {
-                      "name": "profile",
-                      "expression": "`profile`"
+                      "name": "Value",
+                      "expression": "`Value`"
                     }
                   ],
                   "disaggregated": true
@@ -655,7 +662,7 @@
                     "fieldName": "label"
                   },
                   {
-                    "fieldName": "profile",
+                    "fieldName": "Value",
                     "displayName": "Value"
                   }
                 ]
@@ -683,8 +690,8 @@
                       "expression": "`label`"
                     },
                     {
-                      "name": "profile",
-                      "expression": "`profile`"
+                      "name": "Value",
+                      "expression": "`Value`"
                     }
                   ],
                   "disaggregated": true
@@ -704,7 +711,7 @@
                     "fieldName": "label"
                   },
                   {
-                    "fieldName": "profile",
+                    "fieldName": "Value",
                     "displayName": "Value"
                   }
                 ]
