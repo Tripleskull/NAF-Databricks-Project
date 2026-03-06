@@ -4,7 +4,301 @@
       "name": "7b732535",
       "displayName": "coach_profile",
       "queryLines": [
-        "-- Updated coach profile query with new layout\r\nWITH p AS (\r\n  SELECT\r\n    cp.coach_id,\r\n    cp.coach_name,\r\n    cp.nation_name_display,\r\n    cp.flag_emoji,\r\n    cp.games_played_all,\r\n    cp.wins,\r\n    cp.draws,\r\n    cp.losses,\r\n    cp.tournaments_played,\r\n    cp.nations_played,\r\n    cp.opponents_count,\r\n    cp.active_since_year,\r\n    cp.last_active_year,\r\n    cp.global_elo_current,\r\n    cp.global_elo_peak_last_50,\r\n    cp.global_elo_median_all,\r\n    cp.opponent_global_elo_median_weighted,\r\n    cp.world_rank_current,\r\n    cp.nation_rank_current,\r\n    cp.world_rank_peak,\r\n    cp.nation_rank_peak,\r\n    cp.selector_rank_national,\r\n    cp.selector_rank_global,\r\n    cp.best_win_streak,\r\n    cp.current_win_streak,\r\n    cp.best_unbeaten_streak,\r\n    cp.current_unbeaten_streak,\r\n    cp.load_timestamp\r\n  FROM\r\n    naf_catalog.gold_presentation.coach_profile cp\r\n),\r\nlast_50_stats AS (\r\n  SELECT\r\n    h.coach_id,\r\n    SUM(\r\n      CASE\r\n        WHEN h.result_numeric = 1.0 THEN 1\r\n        ELSE 0\r\n      END\r\n    ) AS last50_wins,\r\n    SUM(\r\n      CASE\r\n        WHEN h.result_numeric = 0.5 THEN 1\r\n        ELSE 0\r\n      END\r\n    ) AS last50_draws,\r\n    SUM(\r\n      CASE\r\n        WHEN h.result_numeric = 0.0 THEN 1\r\n        ELSE 0\r\n      END\r\n    ) AS last50_losses\r\n  FROM\r\n    (\r\n      SELECT\r\n        coach_id,\r\n        result_numeric,\r\n        ROW_NUMBER() OVER (PARTITION BY coach_id ORDER BY game_index DESC) AS rn\r\n      FROM\r\n        naf_catalog.gold_presentation.coach_global_elo_rating_history\r\n      WHERE\r\n        rating_system = 'NAF_ELO'\r\n    ) h\r\n      CROSS JOIN (\r\n        SELECT\r\n          CAST(last_n_games_window AS INT) AS n\r\n        FROM\r\n          naf_catalog.gold_dim.analytical_config\r\n      ) cfg\r\n  WHERE\r\n    h.rn <= cfg.n\r\n  GROUP BY\r\n    h.coach_id\r\n  HAVING\r\n    COUNT(*) >= MAX(cfg.n)\r\n),\r\np2 AS (\r\n  SELECT\r\n    p.*,\r\n    l50.last50_wins,\r\n    l50.last50_draws,\r\n    l50.last50_losses\r\n  FROM\r\n    p\r\n      LEFT JOIN last_50_stats l50\r\n        ON p.coach_id = l50.coach_id\r\n)\r\nSELECT\r\n  p2.coach_id,\r\n  row.sort_order,\r\n  row.label,\r\n  row.profile,\r\n  p2.load_timestamp\r\nFROM\r\n  p2\r\n  LATERAL VIEW\r\n    explode(\r\n      array(\r\n        named_struct(\r\n          'sort_order',\r\n          1,\r\n          'label',\r\n          '\ud83d\udc64 NAF Name',\r\n          'profile',\r\n          coalesce(p2.coach_name, 'Unknown coach')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          2,\r\n          'label',\r\n          '\ud83d\udd22 NAF Number',\r\n          'profile',\r\n          cast(p2.coach_id as string)\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          3,\r\n          'label',\r\n          '\ud83c\udf0d Nation',\r\n          'profile',\r\n          concat(coalesce(p2.flag_emoji, '\ud83c\udf10'), ' ', coalesce(p2.nation_name_display, 'Unknown'))\r\n        ),\r\n        named_struct('sort_order', 10, 'label', '\ud83d\udcca Overview', 'profile', ''),\r\n        named_struct(\r\n          'sort_order',\r\n          11,\r\n          'label',\r\n          ' \u2022 Total games (all)',\r\n          'profile',\r\n          concat(\r\n            cast(p2.games_played_all as string),\r\n            ' (',\r\n            cast(p2.wins as string),\r\n            '/',\r\n            cast(p2.draws as string),\r\n            '/',\r\n            cast(p2.losses as string),\r\n            ')'\r\n          )\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          12,\r\n          'label',\r\n          ' \u2022 Last 50 games (W/D/L)',\r\n          'profile',\r\n          CASE\r\n            WHEN\r\n              p2.last50_wins IS NOT NULL\r\n            THEN\r\n              concat(\r\n                cast(p2.last50_wins as string),\r\n                '/',\r\n                cast(p2.last50_draws as string),\r\n                '/',\r\n                cast(p2.last50_losses as string)\r\n              )\r\n            ELSE 'N/A'\r\n          END\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          13,\r\n          'label',\r\n          ' \u2022 Tournaments',\r\n          'profile',\r\n          coalesce(cast(p2.tournaments_played as string), '0')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          14,\r\n          'label',\r\n          ' \u2022 Nations played',\r\n          'profile',\r\n          coalesce(cast(p2.nations_played as string), '0')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          15,\r\n          'label',\r\n          ' \u2022 Opponents faced',\r\n          'profile',\r\n          coalesce(cast(p2.opponents_count as string), '0')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          16,\r\n          'label',\r\n          ' \u2022 Active since / Last active years',\r\n          'profile',\r\n          concat(cast(p2.active_since_year as string), ' / ', cast(p2.last_active_year as string))\r\n        ),\r\n        named_struct('sort_order', 20, 'label', '\ud83d\udcc8 Ratings', 'profile', ''),\r\n        named_struct(\r\n          'sort_order',\r\n          21,\r\n          'label',\r\n          ' \u2022 Current GLO',\r\n          'profile',\r\n          coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          22,\r\n          'label',\r\n          ' \u2022 Peak GLO (last 50)',\r\n          'profile',\r\n          coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          23,\r\n          'label',\r\n          ' \u2022 Median GLO',\r\n          'profile',\r\n          coalesce(cast(round(p2.global_elo_median_all, 1) as string), 'N/A')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          24,\r\n          'label',\r\n          ' \u2022 Opp median GLO (weighted)',\r\n          'profile',\r\n          coalesce(cast(round(p2.opponent_global_elo_median_weighted, 1) as string), 'N/A')\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          25,\r\n          'label',\r\n          ' \u2022 World rank (current) / Nation rank (current)',\r\n          'profile',\r\n          concat(\r\n            cast(p2.world_rank_current as string),\r\n            ' / ',\r\n            cast(p2.nation_rank_current as string)\r\n          )\r\n        ),\r\n        named_struct(\r\n          'sort_order',\r\n          26,\r\n          'label',\r\n          ' \u2022 World rank (peak) / Nation rank (peak)',\r\n          'profile',\r\n          concat(cast(p2.world_rank_peak as string), ' / ', cast(p2.nation_rank_peak as string))\r\n        ),\r\n        \r\n        '0')\r\n        ),\r\n        'N/A')\r\n        ),\r\n         '0')\r\n        ),\r\n        'N/A')\r\n        ),\r\n        named_struct('sort_order', 30, 'label', '\ud83d\udd25 Streaks', 'profile', ''),\r\n        named_struct(\r\n          'sort_order', 31,\r\n          'label',\r\n          ' \u2022 Best win / Current win',\r\n          'profile',\r\n          concat(cast(p2.best_win_streak as string), ' / ', cast(p2.current_win_streak as string))\r\n        ),\r\n        named_struct(\r\n          'sort_order', 32,\r\n          'label',\r\n          ' \u2022 Best unbeaten / Current unbeaten',\r\n          'profile',\r\n          concat(\r\n            cast(p2.best_unbeaten_streak as string),\r\n            ' / ',\r\n            cast(p2.current_unbeaten_streak as string)\r\n          )\r\n        ),\r\n        named_struct(\r\n          'sort_order', 27,\r\n          'label',\r\n          '\ud83c\udfc6 Selector rank',\r\n          'profile',\r\n          CASE\r\n            WHEN\r\n              p2.selector_rank_national IS NOT NULL\r\n            THEN\r\n              CONCAT(\r\n                '#',\r\n                CAST(p2.selector_rank_national AS STRING),\r\n                ' (Nation) / #',\r\n                CAST(p2.selector_rank_global AS STRING),\r\n                ' (Global)'\r\n              )\r\n            ELSE 'N/A'\r\n          END\r\n        )\r\n      )\r\n    ) e\r\n    AS row\r\nORDER BY\r\n  p2.coach_id,\r\n  row.sort_order;"
+        "-- Updated coach profile query with corrected named_struct array (no trailing comma)\n",
+        "WITH p AS (\n",
+        "  SELECT\n",
+        "    cp.coach_id,\n",
+        "    cp.coach_name,\n",
+        "    cp.nation_name_display,\n",
+        "    cp.flag_emoji,\n",
+        "    cp.games_played_all,\n",
+        "    cp.wins,\n",
+        "    cp.draws,\n",
+        "    cp.losses,\n",
+        "    cp.tournaments_played,\n",
+        "    cp.nations_played,\n",
+        "    cp.opponents_count,\n",
+        "    cp.active_since_year,\n",
+        "    cp.last_active_year,\n",
+        "    cp.global_elo_current,\n",
+        "    cp.global_elo_peak_last_50,\n",
+        "    cp.global_elo_median_all,\n",
+        "    cp.opponent_global_elo_median_weighted,\n",
+        "    cp.world_rank_current,\n",
+        "    cp.nation_rank_current,\n",
+        "    cp.world_rank_peak,\n",
+        "    cp.nation_rank_peak,\n",
+        "    cp.selector_rank_national,\n",
+        "    cp.selector_rank_global,\n",
+        "    cp.best_win_streak,\n",
+        "    cp.current_win_streak,\n",
+        "    cp.best_unbeaten_streak,\n",
+        "    cp.current_unbeaten_streak,\n",
+        "    cp.load_timestamp\n",
+        "  FROM\n",
+        "    naf_catalog.gold_presentation.coach_profile cp\n",
+        "),\n",
+        "last_50_stats AS (\n",
+        "  SELECT\n",
+        "    h.coach_id,\n",
+        "    SUM(\n",
+        "      CASE\n",
+        "        WHEN h.result_numeric = 1.0 THEN 1\n",
+        "        ELSE 0\n",
+        "      END\n",
+        "    ) AS last50_wins,\n",
+        "    SUM(\n",
+        "      CASE\n",
+        "        WHEN h.result_numeric = 0.5 THEN 1\n",
+        "        ELSE 0\n",
+        "      END\n",
+        "    ) AS last50_draws,\n",
+        "    SUM(\n",
+        "      CASE\n",
+        "        WHEN h.result_numeric = 0.0 THEN 1\n",
+        "        ELSE 0\n",
+        "      END\n",
+        "    ) AS last50_losses\n",
+        "  FROM\n",
+        "    (\n",
+        "      SELECT\n",
+        "        coach_id,\n",
+        "        result_numeric,\n",
+        "        ROW_NUMBER() OVER (PARTITION BY coach_id ORDER BY game_index DESC) AS rn\n",
+        "      FROM\n",
+        "        naf_catalog.gold_presentation.coach_global_elo_rating_history\n",
+        "      WHERE\n",
+        "        rating_system = 'NAF_ELO'\n",
+        "    ) h\n",
+        "      CROSS JOIN (\n",
+        "        SELECT\n",
+        "          CAST(last_n_games_window AS INT) AS n\n",
+        "        FROM\n",
+        "          naf_catalog.gold_dim.analytical_config\n",
+        "      ) cfg\n",
+        "  WHERE\n",
+        "    h.rn <= cfg.n\n",
+        "  GROUP BY\n",
+        "    h.coach_id\n",
+        "  HAVING\n",
+        "    COUNT(*) >= MAX(cfg.n)\n",
+        "),\n",
+        "p2 AS (\n",
+        "  SELECT\n",
+        "    p.*,\n",
+        "    l50.last50_wins,\n",
+        "    l50.last50_draws,\n",
+        "    l50.last50_losses\n",
+        "  FROM\n",
+        "    p\n",
+        "      LEFT JOIN last_50_stats l50\n",
+        "        ON p.coach_id = l50.coach_id\n",
+        ")\n",
+        "SELECT\n",
+        "  p2.coach_id,\n",
+        "  row.sort_order,\n",
+        "  row.label,\n",
+        "  row.profile,\n",
+        "  p2.load_timestamp\n",
+        "FROM\n",
+        "  p2\n",
+        "  LATERAL VIEW\n",
+        "    explode(\n",
+        "      array(\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          1,\n",
+        "          'label',\n",
+        "          '👤 NAF Name',\n",
+        "          'profile',\n",
+        "          coalesce(p2.coach_name, 'Unknown coach')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          2,\n",
+        "          'label',\n",
+        "          '🔢 NAF Number',\n",
+        "          'profile',\n",
+        "          cast(p2.coach_id as string)\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          3,\n",
+        "          'label',\n",
+        "          '🌍 Nation',\n",
+        "          'profile',\n",
+        "          concat(coalesce(p2.flag_emoji, '🌐'), ' ', coalesce(p2.nation_name_display, 'Unknown'))\n",
+        "        ),\n",
+        "        named_struct('sort_order', 10, 'label', '📊 Overview', 'profile', ''),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          11,\n",
+        "          'label',\n",
+        "          ' • Total games (all)',\n",
+        "          'profile',\n",
+        "          concat(\n",
+        "            cast(p2.games_played_all as string),\n",
+        "            ' (',\n",
+        "            cast(p2.wins as string),\n",
+        "            '/',\n",
+        "            cast(p2.draws as string),\n",
+        "            '/',\n",
+        "            cast(p2.losses as string),\n",
+        "            ')'\n",
+        "          )\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          12,\n",
+        "          'label',\n",
+        "          ' • Last 50 games (W/D/L)',\n",
+        "          'profile',\n",
+        "          CASE\n",
+        "            WHEN\n",
+        "              p2.last50_wins IS NOT NULL\n",
+        "            THEN\n",
+        "              concat(\n",
+        "                cast(p2.last50_wins as string),\n",
+        "                '/',\n",
+        "                cast(p2.last50_draws as string),\n",
+        "                '/',\n",
+        "                cast(p2.last50_losses as string)\n",
+        "              )\n",
+        "            ELSE 'N/A'\n",
+        "          END\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          13,\n",
+        "          'label',\n",
+        "          ' • Tournaments',\n",
+        "          'profile',\n",
+        "          coalesce(cast(p2.tournaments_played as string), '0')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          14,\n",
+        "          'label',\n",
+        "          ' • Nations played',\n",
+        "          'profile',\n",
+        "          coalesce(cast(p2.nations_played as string), '0')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          15,\n",
+        "          'label',\n",
+        "          ' • Opponents faced',\n",
+        "          'profile',\n",
+        "          coalesce(cast(p2.opponents_count as string), '0')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          16,\n",
+        "          'label',\n",
+        "          ' • Active since / Last active years',\n",
+        "          'profile',\n",
+        "          concat(cast(p2.active_since_year as string), ' / ', cast(p2.last_active_year as string))\n",
+        "        ),\n",
+        "        named_struct('sort_order', 20, 'label', '📈 Ratings', 'profile', ''),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          21,\n",
+        "          'label',\n",
+        "          ' • Current GLO',\n",
+        "          'profile',\n",
+        "          coalesce(cast(round(p2.global_elo_current, 1) as string), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          22,\n",
+        "          'label',\n",
+        "          ' • Peak GLO (last 50)',\n",
+        "          'profile',\n",
+        "          coalesce(cast(round(p2.global_elo_peak_last_50, 1) as string), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          23,\n",
+        "          'label',\n",
+        "          ' • Median GLO',\n",
+        "          'profile',\n",
+        "          coalesce(cast(round(p2.global_elo_median_all, 1) as string), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          24,\n",
+        "          'label',\n",
+        "          ' • Opp median GLO (weighted)',\n",
+        "          'profile',\n",
+        "          coalesce(cast(round(p2.opponent_global_elo_median_weighted, 1) as string), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          25,\n",
+        "          'label',\n",
+        "          ' • World rank (current) / Nation rank (current)',\n",
+        "          'profile',\n",
+        "          concat(\n",
+        "            cast(p2.world_rank_current as string),\n",
+        "            ' / ',\n",
+        "            cast(p2.nation_rank_current as string)\n",
+        "          )\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          26,\n",
+        "          'label',\n",
+        "          ' • World rank (peak) / Nation rank (peak)',\n",
+        "          'profile',\n",
+        "          concat(cast(p2.world_rank_peak as string), ' / ', cast(p2.nation_rank_peak as string))\n",
+        "        ),\n",
+        "        named_struct('sort_order', 30, 'label', '🔥 Streaks', 'profile', ''),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          31,\n",
+        "          'label',\n",
+        "          ' • Best win / Current win',\n",
+        "          'profile',\n",
+        "          concat(cast(p2.best_win_streak as string), ' / ', cast(p2.current_win_streak as string))\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          32,\n",
+        "          'label',\n",
+        "          ' • Best unbeaten / Current unbeaten',\n",
+        "          'profile',\n",
+        "          concat(\n",
+        "            cast(p2.best_unbeaten_streak as string),\n",
+        "            ' / ',\n",
+        "            cast(p2.current_unbeaten_streak as string)\n",
+        "          )\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          27,\n",
+        "          'label',\n",
+        "          '🏆 Selector rank',\n",
+        "          'profile',\n",
+        "          CASE\n",
+        "            WHEN\n",
+        "              p2.selector_rank_national IS NOT NULL\n",
+        "            THEN\n",
+        "              CONCAT(\n",
+        "                '#',\n",
+        "                CAST(p2.selector_rank_national AS STRING),\n",
+        "                ' (Nation) / #',\n",
+        "                CAST(p2.selector_rank_global AS STRING),\n",
+        "                ' (Global)'\n",
+        "              )\n",
+        "            ELSE 'N/A'\n",
+        "          END\n",
+        "        )\n",
+        "      )\n",
+        "    ) e\n",
+        "    AS row\n",
+        "ORDER BY\n",
+        "  p2.coach_id,\n",
+        "  row.sort_order;"
       ],
       "catalog": "naf_catalog",
       "schema": "gold_presentation"
@@ -296,24 +590,34 @@
         "    crp.draws,\n",
         "    crp.losses,\n",
         "    crp.points_per_game,\n",
-        "    crp.race_elo_peak,\n",
-        "    crp.race_elo_current,\n",
+        "    crp.elo_peak_all,\n",
+        "    crp.elo_current,\n",
         "    ROW_NUMBER() OVER (PARTITION BY crp.coach_id ORDER BY crp.games_played DESC) AS rn\n",
-        "  FROM naf_catalog.gold_presentation.coach_race_performance crp\n",
-        "  WHERE crp.race_id <> 0 AND crp.games_played > 0\n",
+        "  FROM\n",
+        "    naf_catalog.gold_presentation.coach_race_performance crp\n",
+        "  WHERE\n",
+        "    crp.race_id <> 0\n",
+        "    AND crp.games_played > 0\n",
         "),\n",
         "agg AS (\n",
         "  SELECT\n",
         "    coach_id,\n",
         "    COUNT(DISTINCT race_name) AS distinct_races,\n",
         "    ROUND(PERCENTILE_APPROX(points_per_game, 0.5), 2) AS median_race_ppg,\n",
-        "    ROUND(PERCENTILE_APPROX(race_elo_peak, 0.5), 1) AS median_race_elo,\n",
-        "    MAX(race_elo_peak) AS top_race_elo_peak\n",
-        "  FROM race_data\n",
-        "  GROUP BY coach_id\n",
+        "    ROUND(PERCENTILE_APPROX(elo_peak_all, 0.5), 1) AS median_race_elo,\n",
+        "    MAX(elo_peak_all) AS top_race_elo_peak\n",
+        "  FROM\n",
+        "    race_data\n",
+        "  GROUP BY\n",
+        "    coach_id\n",
         "),\n",
         "fav AS (\n",
-        "  SELECT * FROM race_data WHERE rn = 1\n",
+        "  SELECT\n",
+        "    *\n",
+        "  FROM\n",
+        "    race_data\n",
+        "  WHERE\n",
+        "    rn = 1\n",
         "),\n",
         "combined AS (\n",
         "  SELECT\n",
@@ -324,38 +628,110 @@
         "    f.draws AS fav_draws,\n",
         "    f.losses AS fav_losses,\n",
         "    f.points_per_game AS fav_ppg,\n",
-        "    f.race_elo_peak AS fav_elo_peak,\n",
-        "    f.race_elo_current AS fav_elo_current,\n",
+        "    f.elo_peak_all AS fav_elo_peak,\n",
+        "    f.elo_current AS fav_elo_current,\n",
         "    a.distinct_races,\n",
         "    a.median_race_ppg,\n",
         "    a.median_race_elo,\n",
         "    a.top_race_elo_peak\n",
-        "  FROM fav f\n",
-        "  JOIN agg a ON f.coach_id = a.coach_id\n",
+        "  FROM\n",
+        "    fav f\n",
+        "      JOIN agg a\n",
+        "        ON f.coach_id = a.coach_id\n",
         ")\n",
         "SELECT\n",
         "  c.coach_id,\n",
         "  row.sort_order,\n",
         "  row.label,\n",
         "  row.profile\n",
-        "FROM combined c\n",
-        "LATERAL VIEW EXPLODE(ARRAY(\n",
-        "  named_struct('sort_order', 1, 'label', '\ud83c\udfc6 Race Records', 'profile', ''),\n",
-        "  named_struct('sort_order', 2, 'label', ' \u2022 Favourite race', 'profile', c.fav_race_name),\n",
-        "  named_struct('sort_order', 3, 'label', ' \u2022 Games (W/D/L)', 'profile', CONCAT(CAST(c.fav_games AS STRING), ' (', CAST(c.fav_wins AS STRING), '/', CAST(c.fav_draws AS STRING), '/', CAST(c.fav_losses AS STRING), ')')),\n",
-        "  named_struct('sort_order', 4, 'label', ' \u2022 Race PPG', 'profile', CAST(ROUND(c.fav_ppg, 2) AS STRING)),\n",
-        "  named_struct('sort_order', 5, 'label', ' \u2022 Distinct races played', 'profile', CAST(c.distinct_races AS STRING)),\n",
-        "  named_struct('sort_order', 6, 'label', ' \u2022 Median race PPG', 'profile', CAST(c.median_race_ppg AS STRING)),\n",
-        "  named_struct('sort_order', 10, 'label', '\ud83d\udcca Race Ratings', 'profile', ''),\n",
-        "  named_struct('sort_order', 11, 'label', ' \u2022 Median ELO (all races)', 'profile', COALESCE(CAST(c.median_race_elo AS STRING), 'N/A')),\n",
-        "  named_struct('sort_order', 12, 'label', ' \u2022 Top race ELO peak', 'profile', COALESCE(CAST(c.top_race_elo_peak AS STRING), 'N/A')),\n",
-        "  named_struct('sort_order', 13, 'label', ' \u2022 Favourite race ELO (current)', 'profile', COALESCE(CAST(ROUND(c.fav_elo_current, 1) AS STRING), 'N/A')),\n",
-        "  named_struct('sort_order', 14, 'label', ' \u2022 Favourite race ELO (peak)', 'profile', COALESCE(CAST(ROUND(c.fav_elo_peak, 1) AS STRING), 'N/A'))\n",
-        ")) e AS row\n",
-        "ORDER BY c.coach_id, row.sort_order"
-      ],
-      "catalog": "naf_catalog",
-      "schema": "gold_presentation"
+        "FROM\n",
+        "  combined c\n",
+        "  LATERAL VIEW\n",
+        "    EXPLODE(\n",
+        "      ARRAY(\n",
+        "        named_struct('sort_order', 1, 'label', '🏆 Race Records', 'profile', ''),\n",
+        "        named_struct('sort_order', 2, 'label', ' • Favourite race', 'profile', c.fav_race_name),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          3,\n",
+        "          'label',\n",
+        "          ' • Games (W/D/L)',\n",
+        "          'profile',\n",
+        "          CONCAT(\n",
+        "            CAST(c.fav_games AS STRING),\n",
+        "            ' (',\n",
+        "            CAST(c.fav_wins AS STRING),\n",
+        "            '/',\n",
+        "            CAST(c.fav_draws AS STRING),\n",
+        "            '/',\n",
+        "            CAST(c.fav_losses AS STRING),\n",
+        "            ')'\n",
+        "          )\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          4,\n",
+        "          'label',\n",
+        "          ' • Race PPG',\n",
+        "          'profile',\n",
+        "          CAST(ROUND(c.fav_ppg, 2) AS STRING)\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          5,\n",
+        "          'label',\n",
+        "          ' • Distinct races played',\n",
+        "          'profile',\n",
+        "          CAST(c.distinct_races AS STRING)\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          6,\n",
+        "          'label',\n",
+        "          ' • Median race PPG',\n",
+        "          'profile',\n",
+        "          CAST(c.median_race_ppg AS STRING)\n",
+        "        ),\n",
+        "        named_struct('sort_order', 10, 'label', '📊 Race Ratings', 'profile', ''),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          11,\n",
+        "          'label',\n",
+        "          ' • Median ELO (all races)',\n",
+        "          'profile',\n",
+        "          COALESCE(CAST(c.median_race_elo AS STRING), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          12,\n",
+        "          'label',\n",
+        "          ' • Top race ELO peak',\n",
+        "          'profile',\n",
+        "          COALESCE(CAST(c.top_race_elo_peak AS STRING), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          13,\n",
+        "          'label',\n",
+        "          ' • Favourite race ELO (current)',\n",
+        "          'profile',\n",
+        "          COALESCE(CAST(ROUND(c.fav_elo_current, 1) AS STRING), 'N/A')\n",
+        "        ),\n",
+        "        named_struct(\n",
+        "          'sort_order',\n",
+        "          14,\n",
+        "          'label',\n",
+        "          ' • Favourite race ELO (peak)',\n",
+        "          'profile',\n",
+        "          COALESCE(CAST(ROUND(c.fav_elo_peak, 1) AS STRING), 'N/A')\n",
+        "        )\n",
+        "      )\n",
+        "    ) e\n",
+        "    AS row\n",
+        "ORDER BY\n",
+        "  c.coach_id,\n",
+        "  row.sort_order"
+      ]
     }
   ],
   "pages": [
@@ -426,7 +802,7 @@
             "x": 0,
             "y": 0,
             "width": 6,
-            "height": 15
+            "height": 13
           }
         },
         {
@@ -528,7 +904,7 @@
           },
           "position": {
             "x": 6,
-            "y": 20,
+            "y": 18,
             "width": 6,
             "height": 5
           }
@@ -624,7 +1000,7 @@
           },
           "position": {
             "x": 0,
-            "y": 15,
+            "y": 13,
             "width": 12,
             "height": 5
           }
@@ -680,7 +1056,7 @@
             "x": 6,
             "y": 0,
             "width": 6,
-            "height": 15
+            "height": 13
           }
         },
         {
@@ -776,7 +1152,7 @@
           },
           "position": {
             "x": 0,
-            "y": 20,
+            "y": 18,
             "width": 6,
             "height": 5
           }
@@ -857,7 +1233,7 @@
           },
           "position": {
             "x": 0,
-            "y": 25,
+            "y": 23,
             "width": 12,
             "height": 7
           }
@@ -932,7 +1308,7 @@
           },
           "position": {
             "x": 0,
-            "y": 33,
+            "y": 31,
             "width": 12,
             "height": 7
           }
@@ -977,7 +1353,7 @@
           },
           "position": {
             "x": 0,
-            "y": 32,
+            "y": 30,
             "width": 12,
             "height": 1
           }
@@ -1071,7 +1447,7 @@
           },
           "position": {
             "x": 0,
-            "y": 40,
+            "y": 38,
             "width": 12,
             "height": 7
           }
@@ -1170,7 +1546,7 @@
           },
           "position": {
             "x": 0,
-            "y": 47,
+            "y": 45,
             "width": 6,
             "height": 6
           }
@@ -1221,9 +1597,9 @@
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "0\u2013150",
-                        "150\u2013200",
-                        "200\u2013250",
+                        "0–150",
+                        "150–200",
+                        "200–250",
                         "250+"
                       ]
                     }
@@ -1287,7 +1663,7 @@
           },
           "position": {
             "x": 6,
-            "y": 47,
+            "y": 45,
             "width": 6,
             "height": 6
           }
@@ -1305,7 +1681,7 @@
             "name": "125c3cde",
             "queries": [
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b79ada30ca61dbb437c_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581854a0c14af5352cc4ad_coach_id",
                 "query": {
                   "datasetName": "7287b5e0",
                   "fields": [
@@ -1322,7 +1698,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b85af16e501d7bf84a0_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758185083252aa73806e8cf_coach_id",
                 "query": {
                   "datasetName": "52345e69",
                   "fields": [
@@ -1339,7 +1715,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b5999c92fbe82a3bbc8_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758183daff74c3fdfd2d556_coach_id",
                 "query": {
                   "datasetName": "7e6b0b4b",
                   "fields": [
@@ -1356,7 +1732,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b66a040343cd9518b85_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758184d8f2496fd0910e701_coach_id",
                 "query": {
                   "datasetName": "a59b382e",
                   "fields": [
@@ -1373,7 +1749,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b8fa09790bf5458bbf8_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f11978075818498bbf4c65cba53b28_coach_id",
                 "query": {
                   "datasetName": "92b53229",
                   "fields": [
@@ -1390,7 +1766,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b98bce9c67f4c1f08a6_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581857b0a58cd3f875e941_coach_id",
                 "query": {
                   "datasetName": "3660cd57",
                   "fields": [
@@ -1407,7 +1783,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61bac97c9333c83db3103_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758185b89112eaf8019cb05_coach_id",
                 "query": {
                   "datasetName": "15dbc912",
                   "fields": [
@@ -1424,7 +1800,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61bb8b8bdc2c2357cb83c_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758185e93b34ed2ac3616cf_coach_id",
                 "query": {
                   "datasetName": "f732672a",
                   "fields": [
@@ -1441,7 +1817,7 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b0a94a6895d4f0ce7f3_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f11978075818249603ff74819073bd_coach_id",
                 "query": {
                   "datasetName": "7b732535",
                   "fields": [
@@ -1458,9 +1834,26 @@
                 }
               },
               {
-                "name": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61be892c2a5695861f882_coach_id",
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581843abdd6fa242775b30_coach_id",
                 "query": {
                   "datasetName": "f9e6a4b3",
+                  "fields": [
+                    {
+                      "name": "coach_id",
+                      "expression": "`coach_id`"
+                    },
+                    {
+                      "name": "coach_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581862b97b4d09eaab017a_coach_id",
+                "query": {
+                  "datasetName": "coach_race_profile",
                   "fields": [
                     {
                       "name": "coach_id",
@@ -1498,43 +1891,47 @@
                 "fields": [
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b79ada30ca61dbb437c_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581854a0c14af5352cc4ad_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b85af16e501d7bf84a0_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758185083252aa73806e8cf_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b5999c92fbe82a3bbc8_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758183daff74c3fdfd2d556_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b66a040343cd9518b85_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758184d8f2496fd0910e701_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b8fa09790bf5458bbf8_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f11978075818498bbf4c65cba53b28_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b98bce9c67f4c1f08a6_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581857b0a58cd3f875e941_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61bac97c9333c83db3103_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758185b89112eaf8019cb05_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61bb8b8bdc2c2357cb83c_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f119780758185e93b34ed2ac3616cf_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61b0a94a6895d4f0ce7f3_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f11978075818249603ff74819073bd_coach_id"
                   },
                   {
                     "fieldName": "coach_id",
-                    "queryName": "dashboards/01f1109f0dc616b696da0192ae9229d8/datasets/01f1109f0dc61be892c2a5695861f882_coach_id"
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581843abdd6fa242775b30_coach_id"
+                  },
+                  {
+                    "fieldName": "coach_id",
+                    "queryName": "dashboards/01f110754c8510a689a1e10e57b7b49c/datasets/01f1197807581862b97b4d09eaab017a_coach_id"
                   }
                 ]
               }
