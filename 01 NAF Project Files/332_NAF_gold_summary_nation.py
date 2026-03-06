@@ -1651,7 +1651,11 @@
 # MAGIC   ppg_closeness,
 # MAGIC   games_rank,
 # MAGIC   closeness_rank,
-# MAGIC   ROUND((games_rank + closeness_rank) / 2.0, 1) AS rivalry_score,
+# MAGIC   ROUND((games_rank + closeness_rank) / 2.0, 1) AS rivalry_score_raw,
+# MAGIC   ROUND(100 * (1.0 - PERCENT_RANK() OVER (
+# MAGIC     PARTITION BY nation_id
+# MAGIC     ORDER BY (games_rank + closeness_rank) / 2.0 ASC
+# MAGIC   )), 1) AS rivalry_score,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM ranked;
 # MAGIC
@@ -2264,8 +2268,8 @@
 # MAGIC --                naf_catalog.gold_summary.coach_race_relative_strength (supplementary)
 # MAGIC -- NOTES        : - Eligibility gate: is_valid_glo = TRUE (50+ global games)
 # MAGIC --                  AND active (played in current or previous calendar year).
-# MAGIC --                - Median race ELO = median of elo_peak across valid races per coach.
-# MAGIC --                  Coaches with no valid race ELO get race_elo_median = NULL → rank = last.
+# MAGIC --                - race_elo_median = MEAN of elo_peak across ALL races (from race_dim).
+# MAGIC --                  Unplayed or invalid-ELO races count as 150 (starting Elo).
 # MAGIC --                - Computes both within-nation AND global rankings:
 # MAGIC --                  glo_rank / race_rank / opponent_rank             = within-nation
 # MAGIC --                  glo_rank_global / race_rank_global / opponent_rank_global = across all nations
@@ -2300,15 +2304,24 @@
 # MAGIC     AND CAST(cps.date_last_game_id / 10000 AS INT) >= YEAR(CURRENT_DATE()) - 1
 # MAGIC ),
 # MAGIC
-# MAGIC -- 2. Median race ELO per coach (median of elo_peak across valid races)
+# MAGIC -- 2. Mean race ELO per coach across ALL races (unplayed/invalid races count as 150)
 # MAGIC race_elo_data AS (
 # MAGIC   SELECT
-# MAGIC     coach_id,
-# MAGIC     PERCENTILE_APPROX(elo_peak, 0.5) AS race_elo_median
-# MAGIC   FROM naf_catalog.gold_summary.nation_coach_race_elo_peak
-# MAGIC   WHERE is_valid_elo = TRUE
-# MAGIC     AND elo_peak IS NOT NULL
-# MAGIC   GROUP BY coach_id
+# MAGIC     e.coach_id,
+# MAGIC     ROUND(AVG(
+# MAGIC       CASE WHEN ncr.is_valid_elo = TRUE AND ncr.elo_peak IS NOT NULL
+# MAGIC            THEN ncr.elo_peak
+# MAGIC            ELSE 150.0
+# MAGIC       END
+# MAGIC     ), 1) AS race_elo_median
+# MAGIC   FROM eligible e
+# MAGIC   CROSS JOIN (
+# MAGIC     SELECT race_id FROM naf_catalog.gold_dim.race_dim WHERE race_id <> 0
+# MAGIC   ) all_races
+# MAGIC   LEFT JOIN naf_catalog.gold_summary.nation_coach_race_elo_peak ncr
+# MAGIC     ON e.coach_id = ncr.coach_id
+# MAGIC     AND all_races.race_id = ncr.race_id
+# MAGIC   GROUP BY e.coach_id
 # MAGIC ),
 # MAGIC
 # MAGIC -- 3. Supplementary: form score (display only, not in selector)
@@ -2388,14 +2401,31 @@
 # MAGIC     r.glo_rank,
 # MAGIC     r.race_rank,
 # MAGIC     r.opponent_rank,
-# MAGIC     ROUND(fw.w_glo * r.glo_rank + fw.w_race * r.race_rank + fw.w_opponent * r.opponent_rank, 2) AS selector_score_national,
+# MAGIC     ROUND(fw.w_glo * r.glo_rank + fw.w_race * r.race_rank + fw.w_opponent * r.opponent_rank, 2) AS selector_score_national_raw,
 # MAGIC     -- Global ranks + weighted score
 # MAGIC     r.glo_rank_global,
 # MAGIC     r.race_rank_global,
 # MAGIC     r.opponent_rank_global,
-# MAGIC     ROUND(fw.w_glo * r.glo_rank_global + fw.w_race * r.race_rank_global + fw.w_opponent * r.opponent_rank_global, 2) AS selector_score_global
+# MAGIC     ROUND(fw.w_glo * r.glo_rank_global + fw.w_race * r.race_rank_global + fw.w_opponent * r.opponent_rank_global, 2) AS selector_score_global_raw
 # MAGIC   FROM ranked r
 # MAGIC   CROSS JOIN focus_weights fw
+# MAGIC ),
+# MAGIC
+# MAGIC -- 9. Normalise selector scores to 0–100 (100 = best) using PERCENT_RANK
+# MAGIC normalised AS (
+# MAGIC   SELECT
+# MAGIC     *,
+# MAGIC     -- National normalised score (within nation+focus)
+# MAGIC     ROUND(100 * (1.0 - PERCENT_RANK() OVER (
+# MAGIC       PARTITION BY nation_id, selector_focus
+# MAGIC       ORDER BY selector_score_national_raw ASC
+# MAGIC     )), 1) AS selector_score_national,
+# MAGIC     -- Global normalised score (across all nations, per focus)
+# MAGIC     ROUND(100 * (1.0 - PERCENT_RANK() OVER (
+# MAGIC       PARTITION BY selector_focus
+# MAGIC       ORDER BY selector_score_global_raw ASC
+# MAGIC     )), 1) AS selector_score_global
+# MAGIC   FROM selector
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -2413,14 +2443,14 @@
 # MAGIC   race_rank,
 # MAGIC   opponent_rank,
 # MAGIC   selector_score_national,
-# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score_national ASC) AS INT) AS selector_rank_national,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score_national DESC) AS INT) AS selector_rank_national,
 # MAGIC   glo_rank_global,
 # MAGIC   race_rank_global,
 # MAGIC   opponent_rank_global,
 # MAGIC   selector_score_global,
-# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score_global ASC) AS INT) AS selector_rank_global,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, selector_focus ORDER BY selector_score_global DESC) AS INT) AS selector_rank_global,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM selector;
+# MAGIC FROM normalised;
 # MAGIC
 
 # COMMAND ----------
@@ -2436,9 +2466,9 @@
 # MAGIC -- GRAIN        : 1 row per (nation_id, selector_focus)
 # MAGIC -- PRIMARY KEY  : (nation_id, selector_focus)
 # MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_team_candidate_scores
-# MAGIC -- NOTES        : - "Top 8" = coaches ranked by selector_score_global ASC (lower = better).
+# MAGIC -- NOTES        : - "Top 8" = coaches ranked by selector_score_global DESC (higher = better, normalised 0–100).
 # MAGIC --                - Nations with fewer than 8 eligible coaches are EXCLUDED.
-# MAGIC --                - power_rank: DENSE_RANK by top_8_avg_selector_score_global ASC per focus.
+# MAGIC --                - power_rank: DENSE_RANK by top_8_avg_selector_score_global DESC per focus.
 # MAGIC -- PHASE        : 6
 # MAGIC -- =====================================================================
 # MAGIC
@@ -2457,7 +2487,7 @@
 # MAGIC     glo_median,
 # MAGIC     DENSE_RANK() OVER (
 # MAGIC       PARTITION BY nation_id, selector_focus
-# MAGIC       ORDER BY selector_score_global ASC
+# MAGIC       ORDER BY selector_score_global DESC
 # MAGIC     ) AS global_rank_within_nation
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
 # MAGIC ),
@@ -2498,7 +2528,7 @@
 # MAGIC   a.top_8_avg_glo_peak,
 # MAGIC   a.top_8_avg_glo_median,
 # MAGIC   ec.coaches_eligible,
-# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY a.selector_focus ORDER BY a.top_8_avg_selector_score_global ASC) AS INT) AS power_rank,
+# MAGIC   CAST(DENSE_RANK() OVER (PARTITION BY a.selector_focus ORDER BY a.top_8_avg_selector_score_global DESC) AS INT) AS power_rank,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM agg a
 # MAGIC LEFT JOIN eligible_counts ec

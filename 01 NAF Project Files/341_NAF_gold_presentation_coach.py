@@ -1463,7 +1463,14 @@
 # MAGIC     ROUND((
 # MAGIC       CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY games_played DESC) AS DOUBLE)
 # MAGIC       + CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY ABS(win_points_per_game - 0.5) ASC) AS DOUBLE)
-# MAGIC     ) / 2.0, 1) AS rivalry_score
+# MAGIC     ) / 2.0, 1) AS rivalry_score_raw,
+# MAGIC     ROUND(100 * (1.0 - PERCENT_RANK() OVER (
+# MAGIC       PARTITION BY coach_id
+# MAGIC       ORDER BY (
+# MAGIC         CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY games_played DESC) AS DOUBLE)
+# MAGIC         + CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY ABS(win_points_per_game - 0.5) ASC) AS DOUBLE)
+# MAGIC       ) / 2.0 ASC
+# MAGIC     )), 1) AS rivalry_score
 # MAGIC   FROM opp_enriched
 # MAGIC ),
 # MAGIC top5 AS (
@@ -1471,7 +1478,7 @@
 # MAGIC     *,
 # MAGIC     ROW_NUMBER() OVER (
 # MAGIC       PARTITION BY coach_id
-# MAGIC       ORDER BY rivalry_score ASC, games_played DESC, opponent_coach_id ASC
+# MAGIC       ORDER BY rivalry_score_raw ASC, games_played DESC, opponent_coach_id ASC
 # MAGIC     ) AS rivalry_rank
 # MAGIC   FROM top5_scored
 # MAGIC ),
@@ -1835,38 +1842,42 @@
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
-# MAGIC   coach_id,
-# MAGIC   category,
+# MAGIC   r.coach_id,
+# MAGIC   r.category,
 # MAGIC
-# MAGIC   opponent_coach_id,
-# MAGIC   opponent_coach_name,
-# MAGIC   opponent_nation_name_display,
-# MAGIC   opponent_flag_emoji,
+# MAGIC   r.opponent_coach_id,
+# MAGIC   r.opponent_coach_name,
+# MAGIC   r.opponent_nation_name_display,
+# MAGIC   r.opponent_flag_emoji,
 # MAGIC
-# MAGIC   games_played,
-# MAGIC   wins,
-# MAGIC   draws,
-# MAGIC   losses,
+# MAGIC   r.games_played,
+# MAGIC   r.wins,
+# MAGIC   r.draws,
+# MAGIC   r.losses,
 # MAGIC
-# MAGIC   global_elo_current_or_peak_all,
-# MAGIC   global_elo_current,
-# MAGIC   global_elo_peak_all,
+# MAGIC   r.global_elo_current_or_peak_all,
+# MAGIC   r.global_elo_current,
+# MAGIC   r.global_elo_peak_all,
 # MAGIC
-# MAGIC   win_pct,
-# MAGIC   win_points,
-# MAGIC   win_points_per_game,
+# MAGIC   r.win_pct,
+# MAGIC   r.win_points,
+# MAGIC   r.win_points_per_game,
 # MAGIC
-# MAGIC   rating_gap,
-# MAGIC   coach_rating_at_game,
-# MAGIC   opponent_rating_at_game,
+# MAGIC   r.rating_gap,
+# MAGIC   r.coach_rating_at_game,
+# MAGIC   r.opponent_rating_at_game,
 # MAGIC
-# MAGIC   rivalry_score,
+# MAGIC   -- Fill rivalry score from top5_scored for non-rival categories
+# MAGIC   COALESCE(r.rivalry_score, ts.rivalry_score) AS rivalry_score,
 # MAGIC
-# MAGIC   group_order,
-# MAGIC   row_order,
+# MAGIC   r.group_order,
+# MAGIC   r.row_order,
 # MAGIC
-# MAGIC   load_timestamp
-# MAGIC FROM rows
+# MAGIC   r.load_timestamp
+# MAGIC FROM rows r
+# MAGIC LEFT JOIN top5_scored ts
+# MAGIC   ON r.coach_id = ts.coach_id
+# MAGIC   AND r.opponent_coach_id = ts.opponent_coach_id
 # MAGIC ;
 # MAGIC
 

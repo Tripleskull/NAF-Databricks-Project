@@ -832,7 +832,7 @@
 # MAGIC
 # MAGIC   DENSE_RANK() OVER (
 # MAGIC     PARTITION BY s.nation_id
-# MAGIC     ORDER BY s.rivalry_score ASC, s.games_played DESC, s.opponent_nation_id
+# MAGIC     ORDER BY s.rivalry_score_raw ASC, s.games_played DESC, s.opponent_nation_id
 # MAGIC   ) AS rivalry_rank,
 # MAGIC
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
@@ -880,7 +880,6 @@
 # MAGIC   r.games_rank,
 # MAGIC   r.closeness_rank,
 # MAGIC   r.rivalry_score,
-# MAGIC   pr.top_8_avg_selector_score_global AS opp_selector_score_global,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
 # MAGIC INNER JOIN naf_catalog.gold_summary.nation_rivalry_summary AS r
@@ -889,9 +888,7 @@
 # MAGIC   ON s.nation_id = ni.nation_id
 # MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS oni
 # MAGIC   ON s.opponent_nation_id = oni.nation_id
-# MAGIC LEFT JOIN naf_catalog.gold_summary.nation_power_ranking AS pr
-# MAGIC   ON s.opponent_nation_id = pr.nation_id AND pr.selector_focus = 'BALANCED'
-# MAGIC QUALIFY DENSE_RANK() OVER (PARTITION BY s.nation_id ORDER BY r.rivalry_score ASC) <= 10;
+# MAGIC QUALIFY DENSE_RANK() OVER (PARTITION BY s.nation_id ORDER BY r.rivalry_score_raw ASC) <= 10;
 # MAGIC
 
 # COMMAND ----------
@@ -1024,9 +1021,10 @@
 # MAGIC     AND nation_id <> 0
 # MAGIC ),
 # MAGIC
-# MAGIC -- 5. Power ranking (BALANCED focus)
+# MAGIC -- 5. Power ranking (BALANCED focus) with coaches_eligible ranking
 # MAGIC power AS (
-# MAGIC   SELECT nation_id, power_rank, top_8_avg_selector_score_global, coaches_eligible
+# MAGIC   SELECT nation_id, power_rank, top_8_avg_selector_score_global, coaches_eligible,
+# MAGIC     DENSE_RANK() OVER (ORDER BY coaches_eligible DESC) AS rank_eligible
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
 # MAGIC   WHERE selector_focus = 'BALANCED'
 # MAGIC ),
@@ -1044,8 +1042,9 @@
 # MAGIC ),
 # MAGIC team_str_ranked AS (
 # MAGIC   SELECT *,
-# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_selector_global ASC) AS rank_team_score,
-# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_glo_peak DESC) AS rank_team_peak
+# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_selector_global DESC) AS rank_team_score,
+# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_glo_peak DESC) AS rank_team_peak,
+# MAGIC     DENSE_RANK() OVER (ORDER BY top8_avg_glo_median DESC) AS rank_team_median
 # MAGIC   FROM team_str
 # MAGIC ),
 # MAGIC
@@ -1163,6 +1162,7 @@
 # MAGIC     COALESCE(gc.rank_p90_career, 999)    AS rank_glo_p90_career,
 # MAGIC     COALESCE(p.power_rank, 999)  AS power_rank,
 # MAGIC     COALESCE(p.coaches_eligible, 0) AS coaches_eligible,
+# MAGIC     COALESCE(p.rank_eligible, 999) AS rank_eligible,
 # MAGIC     -- Top 5 races (by participation share)
 # MAGIC     MAX(CASE WHEN tr.race_rank = 1 THEN tr.race_name END) AS race_1_name,
 # MAGIC     MAX(CASE WHEN tr.race_rank = 1 THEN tr.participations_pct END) AS race_1_part_pct,
@@ -1193,6 +1193,7 @@
 # MAGIC     COALESCE(ts.top8_avg_glo_peak, 0)  AS top8_avg_glo_peak,
 # MAGIC     COALESCE(tsr.rank_team_peak, 999)   AS rank_team_peak,
 # MAGIC     COALESCE(ts.top8_avg_glo_median, 0) AS top8_avg_glo_median,
+# MAGIC     COALESCE(tsr.rank_team_median, 999) AS rank_team_median,
 # MAGIC     h.most_played_opp, h.best_record_opp, h.worst_record_opp,
 # MAGIC     COALESCE(ip.pct_abroad, 0)      AS pct_abroad,
 # MAGIC     COALESCE(ip.pct_vs_foreign, 0)  AS pct_vs_foreign,
@@ -1221,11 +1222,11 @@
 # MAGIC     gp.glo_median_peak, gp.glo_peak_best, gp.glo_p90,
 # MAGIC     gp.rank_median_peak, gp.rank_peak, gp.rank_p90,
 # MAGIC     gc.glo_median_career, gc.glo_p90_career, gc.rank_median_career, gc.rank_p90_career,
-# MAGIC     p.power_rank, p.coaches_eligible,
+# MAGIC     p.power_rank, p.coaches_eligible, p.rank_eligible,
 # MAGIC     rdr.diversity_index, rdr.rank_diversity,
 # MAGIC     ts.top8_avg_selector_global, tsr.rank_team_score,
 # MAGIC     ts.top8_avg_glo_peak, tsr.rank_team_peak,
-# MAGIC     ts.top8_avg_glo_median,
+# MAGIC     ts.top8_avg_glo_median, tsr.rank_team_median,
 # MAGIC     h.most_played_opp, h.best_record_opp, h.worst_record_opp,
 # MAGIC     ip.pct_abroad, ip.pct_vs_foreign, ip.ppg_vs_foreign,
 # MAGIC     o.load_timestamp
@@ -1311,9 +1312,9 @@
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 62,
 # MAGIC     ' • Top-8 avg GLO peak', CONCAT(CAST(top8_avg_glo_peak AS STRING), ' (#', CAST(rank_team_peak AS STRING), ')'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 63,
-# MAGIC     ' • Top-8 avg GLO median', CAST(top8_avg_glo_median AS STRING), load_timestamp FROM combined
+# MAGIC     ' • Top-8 avg GLO median', CONCAT(CAST(top8_avg_glo_median AS STRING), ' (#', CAST(rank_team_median AS STRING), ')'), load_timestamp FROM combined
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 64,
-# MAGIC     ' • Coach pool (eligible)', CAST(coaches_eligible AS STRING), load_timestamp FROM combined
+# MAGIC     ' • Coach pool (eligible)', CONCAT(CAST(coaches_eligible AS STRING), ' (#', CAST(rank_eligible AS STRING), ')'), load_timestamp FROM combined
 # MAGIC
 # MAGIC   -- HEAD-TO-HEAD
 # MAGIC   UNION ALL SELECT nation_id, nation_name_display, 70,
