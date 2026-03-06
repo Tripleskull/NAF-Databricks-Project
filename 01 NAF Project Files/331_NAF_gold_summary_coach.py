@@ -2004,10 +2004,12 @@
 # MAGIC   s.global_elo_exchange_total,
 # MAGIC   s.global_elo_exchange_mean,
 # MAGIC
-# MAGIC   rg.global_elo_current  AS opponent_global_elo_current,
-# MAGIC   rg.global_elo_peak_all AS opponent_global_elo_peak_all,
+# MAGIC   rg.global_elo_current    AS opponent_global_elo_current,
+# MAGIC   rg.global_elo_peak_all   AS opponent_global_elo_peak_all,
+# MAGIC   rg.global_elo_median_all AS opponent_global_elo_median_all,
 # MAGIC
 # MAGIC   COALESCE(rg.global_elo_peak_all, rg.global_elo_current) AS opponent_global_elo_for_binning,
+# MAGIC   COALESCE(rg.global_elo_median_all, rg.global_elo_current) AS opponent_global_elo_for_binning_median,
 # MAGIC
 # MAGIC   rg.global_elo_games       AS opponent_global_elo_games,
 # MAGIC   rg.threshold_games        AS opponent_threshold_games,
@@ -2019,6 +2021,108 @@
 # MAGIC   ON s.rating_system = rg.rating_system
 # MAGIC  AND s.opponent_coach_id = rg.coach_id
 # MAGIC ;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Coach-level W/D/L by opponent MEDIAN GLO bins (fixed bins).
+# MAGIC --                Same pattern as nation_opponent_elo_bin_wdl (332).
+# MAGIC --                Bins: 0-150, 150-200, 200-250, 250-300, 300+
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per (coach_id, bin_index)
+# MAGIC -- PRIMARY KEY  : (coach_id, bin_index)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH bin_def AS (
+# MAGIC   SELECT * FROM (VALUES
+# MAGIC     (1, 0.0,    150.0, '0–150'),
+# MAGIC     (2, 150.0,  200.0, '150–200'),
+# MAGIC     (3, 200.0,  250.0, '200–250'),
+# MAGIC     (4, 250.0,  300.0, '250–300'),
+# MAGIC     (5, 300.0, 9999.0, '300+')
+# MAGIC   ) AS t(bin_index, bin_min, bin_max, bin_label)
+# MAGIC ),
+# MAGIC
+# MAGIC coach_spine AS (
+# MAGIC   SELECT DISTINCT coach_id
+# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v
+# MAGIC   WHERE rating_system = 'NAF_ELO'
+# MAGIC ),
+# MAGIC
+# MAGIC full_spine AS (
+# MAGIC   SELECT cs.coach_id, bd.bin_index, bd.bin_min, bd.bin_max, bd.bin_label
+# MAGIC   FROM coach_spine cs
+# MAGIC   CROSS JOIN bin_def bd
+# MAGIC ),
+# MAGIC
+# MAGIC game_data AS (
+# MAGIC   SELECT
+# MAGIC     e.coach_id,
+# MAGIC     e.opponent_coach_id,
+# MAGIC     e.games_played,
+# MAGIC     e.wins,
+# MAGIC     e.draws,
+# MAGIC     e.losses,
+# MAGIC     e.win_points,
+# MAGIC     e.opponent_global_elo_for_binning_median AS opp_median_glo
+# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v e
+# MAGIC   WHERE e.rating_system = 'NAF_ELO'
+# MAGIC     AND e.opponent_global_elo_for_binning_median IS NOT NULL
+# MAGIC ),
+# MAGIC
+# MAGIC binned AS (
+# MAGIC   SELECT
+# MAGIC     g.coach_id,
+# MAGIC     bd.bin_index,
+# MAGIC     CAST(COUNT(DISTINCT g.opponent_coach_id) AS INT) AS opponents_count,
+# MAGIC     CAST(SUM(g.games_played) AS INT) AS games_played,
+# MAGIC     CAST(SUM(g.wins) AS INT)         AS wins,
+# MAGIC     CAST(SUM(g.draws) AS INT)        AS draws,
+# MAGIC     CAST(SUM(g.losses) AS INT)       AS losses,
+# MAGIC     CAST(SUM(g.win_points) AS DECIMAL(12,2)) AS win_points
+# MAGIC   FROM game_data g
+# MAGIC   INNER JOIN bin_def bd
+# MAGIC     ON g.opp_median_glo >= bd.bin_min
+# MAGIC    AND g.opp_median_glo <  bd.bin_max
+# MAGIC   GROUP BY g.coach_id, bd.bin_index
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   sp.coach_id,
+# MAGIC   sp.bin_index,
+# MAGIC   sp.bin_min,
+# MAGIC   sp.bin_max,
+# MAGIC   sp.bin_label,
+# MAGIC   COALESCE(b.opponents_count, 0) AS opponents_count,
+# MAGIC   COALESCE(b.games_played, 0)    AS games_played,
+# MAGIC   COALESCE(b.wins, 0)            AS wins,
+# MAGIC   COALESCE(b.draws, 0)           AS draws,
+# MAGIC   COALESCE(b.losses, 0)          AS losses,
+# MAGIC   COALESCE(b.win_points, 0.0)    AS win_points,
+# MAGIC   CASE WHEN COALESCE(b.games_played, 0) > 0
+# MAGIC     THEN b.wins / CAST(b.games_played AS DOUBLE)
+# MAGIC     ELSE 0.0 END AS win_frac,
+# MAGIC   CASE WHEN COALESCE(b.games_played, 0) > 0
+# MAGIC     THEN b.draws / CAST(b.games_played AS DOUBLE)
+# MAGIC     ELSE 0.0 END AS draw_frac,
+# MAGIC   CASE WHEN COALESCE(b.games_played, 0) > 0
+# MAGIC     THEN b.losses / CAST(b.games_played AS DOUBLE)
+# MAGIC     ELSE 0.0 END AS loss_frac,
+# MAGIC   CASE WHEN COALESCE(b.games_played, 0) > 0
+# MAGIC     THEN b.win_points / CAST(b.games_played AS DOUBLE)
+# MAGIC     ELSE 0.0 END AS win_points_per_game,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM full_spine sp
+# MAGIC LEFT JOIN binned b
+# MAGIC   ON sp.coach_id = b.coach_id
+# MAGIC  AND sp.bin_index = b.bin_index;
 # MAGIC
 
 # COMMAND ----------

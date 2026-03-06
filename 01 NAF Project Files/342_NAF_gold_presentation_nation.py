@@ -1076,24 +1076,15 @@
 # MAGIC   QUALIFY race_rank <= 5
 # MAGIC ),
 # MAGIC
-# MAGIC -- 7d. Top 3 rivals (same ranking as W12: top 10 by games, ranked by PPG closeness to 0.5)
-# MAGIC top_rivals_base AS (
-# MAGIC   SELECT
-# MAGIC     s.nation_id,
-# MAGIC     n.nation_name_display AS rival_name,
-# MAGIC     s.games_played AS rival_games,
-# MAGIC     ROUND(ABS(s.avg_score_for - 0.5), 3) AS ppg_closeness,
-# MAGIC     ROW_NUMBER() OVER (PARTITION BY s.nation_id ORDER BY s.games_played DESC) AS games_rank
-# MAGIC   FROM naf_catalog.gold_summary.nation_vs_nation_summary AS s
-# MAGIC   INNER JOIN naf_catalog.gold_dim.nation_dim AS n ON s.opponent_nation_id = n.nation_id
-# MAGIC   WHERE s.nation_id <> 0 AND s.opponent_nation_id <> 0 AND s.nation_id <> s.opponent_nation_id
-# MAGIC ),
+# MAGIC -- 7d. Top 3 rivals (from nation_rivalry_summary, ranked by rivalry_score ASC = strongest rival)
 # MAGIC top_rivals AS (
 # MAGIC   SELECT
-# MAGIC     nation_id, rival_name, rival_games,
-# MAGIC     DENSE_RANK() OVER (PARTITION BY nation_id ORDER BY ppg_closeness ASC, rival_games DESC) AS rival_rank
-# MAGIC   FROM top_rivals_base
-# MAGIC   WHERE games_rank <= 10
+# MAGIC     r.nation_id,
+# MAGIC     n.nation_name_display AS rival_name,
+# MAGIC     r.games_played AS rival_games,
+# MAGIC     DENSE_RANK() OVER (PARTITION BY r.nation_id ORDER BY r.rivalry_score ASC) AS rival_rank
+# MAGIC   FROM naf_catalog.gold_summary.nation_rivalry_summary AS r
+# MAGIC   INNER JOIN naf_catalog.gold_dim.nation_dim AS n ON r.opponent_nation_id = n.nation_id
 # MAGIC   QUALIFY rival_rank <= 3
 # MAGIC ),
 # MAGIC

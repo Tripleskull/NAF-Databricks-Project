@@ -46,10 +46,12 @@
 # MAGIC     ('gold_summary',     'coach_streak_summary',                   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_tournament_performance_summary',   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_form_summary',                     'PLAN', 'TABLE'),
+# MAGIC     ('gold_summary',     'coach_opponent_median_glo_bin_summary',  'PLAN', 'TABLE'),
 # MAGIC
 # MAGIC     ('gold_presentation','coach_profile',                          'PLAN', 'VIEW'),
 # MAGIC     ('gold_presentation','coach_race_performance',                 'PLAN', 'VIEW'),
-# MAGIC     ('gold_presentation','coach_tournament_performance',           'PLAN', 'VIEW')
+# MAGIC     ('gold_presentation','coach_tournament_performance',           'PLAN', 'VIEW'),
+# MAGIC     ('gold_presentation','coach_opponent_median_glo_bin_results_long', 'PLAN', 'VIEW')
 # MAGIC   AS required_objects(table_schema, table_name, tier, expected_kind)
 # MAGIC ),
 # MAGIC object_existence AS (
@@ -868,6 +870,53 @@
 # MAGIC UNION ALL
 # MAGIC SELECT 'nation_game_quality_bin_wdl_display: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display
+# MAGIC
+# MAGIC HAVING fail_rows > 0;
+
+# COMMAND ----------
+
+# DBTITLE 1,Phase 5b: Coach opponent MEDIAN GLO bin tests
+# MAGIC %sql
+# MAGIC -- =====================================================================
+# MAGIC -- PHASE 5b: COACH OPPONENT MEDIAN GLO BIN TESTS
+# MAGIC -- =====================================================================
+# MAGIC -- Returns ONLY failing checks. Empty result = all pass.
+# MAGIC
+# MAGIC -- PK: coach_opponent_median_glo_bin_summary (coach_id, bin_index)
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT coach_id, bin_index FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary GROUP BY coach_id, bin_index HAVING COUNT(*) > 1)
+# MAGIC UNION ALL
+# MAGIC -- Non-empty check
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC UNION ALL
+# MAGIC -- W+D+L = games for non-zero rows
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: wins+draws+losses != games' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC WHERE games_played > 0 AND (wins + draws + losses) <> games_played
+# MAGIC UNION ALL
+# MAGIC -- Spine completeness: every coach should have 5 bins
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: inconsistent bin count per coach' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (
+# MAGIC   SELECT coach_id, COUNT(*) AS bin_count
+# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC   GROUP BY coach_id
+# MAGIC   HAVING COUNT(*) <> 5
+# MAGIC )
+# MAGIC UNION ALL
+# MAGIC -- bin_index range 1-5
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: bin_index outside [1,5]' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC WHERE bin_index NOT IN (1, 2, 3, 4, 5)
+# MAGIC UNION ALL
+# MAGIC -- win_frac + draw_frac + loss_frac ≈ 1.0 for non-zero rows
+# MAGIC SELECT 'coach_opponent_median_glo_bin_summary: fractions dont sum to 1' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC WHERE games_played > 0 AND ABS((win_frac + draw_frac + loss_frac) - 1.0) > 0.01
+# MAGIC UNION ALL
+# MAGIC -- Presentation view non-empty
+# MAGIC SELECT 'coach_opponent_median_glo_bin_results_long: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
+# MAGIC FROM naf_catalog.gold_presentation.coach_opponent_median_glo_bin_results_long
 # MAGIC
 # MAGIC HAVING fail_rows > 0;
 

@@ -316,6 +316,12 @@
 # MAGIC   sg.current_win_streak,
 # MAGIC   sg.current_unbeaten_streak,
 # MAGIC
+# MAGIC   -- Selector scores (BALANCED focus)
+# MAGIC   sel.selector_rank_national,
+# MAGIC   sel.selector_rank_global,
+# MAGIC   sel.selector_score_national,
+# MAGIC   sel.selector_score_global,
+# MAGIC
 # MAGIC   -- Unified pipeline timestamp
 # MAGIC   GREATEST(
 # MAGIC     COALESCE(p.load_timestamp,  TIMESTAMP('1900-01-01')),
@@ -345,6 +351,9 @@
 # MAGIC   ON ci.coach_id = fs.coach_id
 # MAGIC LEFT JOIN glo_ranks AS gr
 # MAGIC   ON ci.coach_id = gr.coach_id
+# MAGIC LEFT JOIN naf_catalog.gold_summary.nation_team_candidate_scores AS sel
+# MAGIC   ON ci.coach_id = sel.coach_id
+# MAGIC  AND sel.selector_focus = 'BALANCED'
 # MAGIC ;
 # MAGIC
 
@@ -1120,6 +1129,40 @@
 # COMMAND ----------
 
 # MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_median_glo_bin_results_long
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Coach-level W/D/L by opponent MEDIAN GLO bins (fixed bins),
+# MAGIC --                unpivoted to long format for bar chart widgets.
+# MAGIC -- LAYER        : GOLD_PRESENTATION
+# MAGIC -- GRAIN        : 1 row per (coach_id, bin_index, result)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
+# MAGIC --                naf_catalog.gold_presentation.coach_identity_v
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_opponent_median_glo_bin_results_long AS
+# MAGIC SELECT
+# MAGIC   b.coach_id,
+# MAGIC   ci.coach_name,
+# MAGIC   b.bin_index,
+# MAGIC   b.bin_label AS category,
+# MAGIC   b.games_played,
+# MAGIC   r.result,
+# MAGIC   r.result_order,
+# MAGIC   CAST(ROUND(r.result_frac * b.games_played, 0) AS BIGINT) AS value,
+# MAGIC   ROUND(r.result_frac * 100.0, 1) AS result_pct
+# MAGIC FROM naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary b
+# MAGIC LEFT JOIN naf_catalog.gold_presentation.coach_identity_v ci
+# MAGIC   ON b.coach_id = ci.coach_id
+# MAGIC LATERAL VIEW EXPLODE(ARRAY(
+# MAGIC   NAMED_STRUCT('result', 'wins',   'result_order', 1, 'result_frac', b.win_frac),
+# MAGIC   NAMED_STRUCT('result', 'draws',  'result_order', 2, 'result_frac', b.draw_frac),
+# MAGIC   NAMED_STRUCT('result', 'losses', 'result_order', 3, 'result_frac', b.loss_frac)
+# MAGIC )) r AS result, result_order, result_frac;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
 # MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_results_all_long
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
@@ -1412,14 +1455,25 @@
 # MAGIC     ON b.opponent_coach_id = g.coach_id
 # MAGIC ),
 # MAGIC
+# MAGIC top5_scored AS (
+# MAGIC   SELECT
+# MAGIC     *,
+# MAGIC     CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY games_played DESC) AS INT) AS games_rank,
+# MAGIC     CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY ABS(win_points_per_game - 0.5) ASC) AS INT) AS closeness_rank,
+# MAGIC     ROUND((
+# MAGIC       CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY games_played DESC) AS DOUBLE)
+# MAGIC       + CAST(DENSE_RANK() OVER (PARTITION BY coach_id ORDER BY ABS(win_points_per_game - 0.5) ASC) AS DOUBLE)
+# MAGIC     ) / 2.0, 1) AS rivalry_score
+# MAGIC   FROM opp_enriched
+# MAGIC ),
 # MAGIC top5 AS (
 # MAGIC   SELECT
 # MAGIC     *,
 # MAGIC     ROW_NUMBER() OVER (
 # MAGIC       PARTITION BY coach_id
-# MAGIC       ORDER BY games_played DESC, opponent_coach_id ASC
+# MAGIC       ORDER BY rivalry_score ASC, games_played DESC, opponent_coach_id ASC
 # MAGIC     ) AS rivalry_rank
-# MAGIC   FROM opp_enriched
+# MAGIC   FROM top5_scored
 # MAGIC ),
 # MAGIC
 # MAGIC big_played AS (
@@ -1629,7 +1683,8 @@
 # MAGIC     load_timestamp_enriched AS load_timestamp,
 # MAGIC     CAST(NULL AS DOUBLE) AS rating_gap,
 # MAGIC     CAST(NULL AS DOUBLE) AS coach_rating_at_game,
-# MAGIC     CAST(NULL AS DOUBLE) AS opponent_rating_at_game
+# MAGIC     CAST(NULL AS DOUBLE) AS opponent_rating_at_game,
+# MAGIC     rivalry_score
 # MAGIC   FROM top5
 # MAGIC   WHERE rivalry_rank <= 5
 # MAGIC
@@ -1656,7 +1711,8 @@
 # MAGIC     s.load_timestamp,
 # MAGIC     CAST(NULL AS DOUBLE),
 # MAGIC     CAST(NULL AS DOUBLE),
-# MAGIC     CAST(NULL AS DOUBLE)
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM big_rank
 # MAGIC
 # MAGIC   UNION ALL
@@ -1682,7 +1738,8 @@
 # MAGIC     s.load_timestamp,
 # MAGIC     CAST(NULL AS DOUBLE) AS rating_gap,
 # MAGIC     CAST(NULL AS DOUBLE) AS coach_rating_at_game,
-# MAGIC     CAST(NULL AS DOUBLE) AS opponent_rating_at_game
+# MAGIC     CAST(NULL AS DOUBLE) AS opponent_rating_at_game,
+# MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM big_beaten
 # MAGIC
 # MAGIC   UNION ALL
@@ -1708,7 +1765,8 @@
 # MAGIC     s.load_timestamp,
 # MAGIC     CAST(NULL AS DOUBLE),
 # MAGIC     CAST(NULL AS DOUBLE),
-# MAGIC     CAST(NULL AS DOUBLE)
+# MAGIC     CAST(NULL AS DOUBLE),
+# MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM nemesis
 # MAGIC
 # MAGIC   UNION ALL
@@ -1734,7 +1792,8 @@
 # MAGIC     COALESCE(h2h_ud.load_timestamp_enriched, CURRENT_TIMESTAMP()),
 # MAGIC     ud.s.rating_gap,
 # MAGIC     ud.s.coach_rating,
-# MAGIC     ud.s.opponent_rating
+# MAGIC     ud.s.opponent_rating,
+# MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM biggest_upset_done ud
 # MAGIC   LEFT JOIN naf_catalog.gold_presentation.coach_identity_v oi_ud
 # MAGIC     ON ud.s.opponent_coach_id = oi_ud.coach_id
@@ -1765,7 +1824,8 @@
 # MAGIC     COALESCE(h2h_ur.load_timestamp_enriched, CURRENT_TIMESTAMP()),
 # MAGIC     ur.s.rating_gap,
 # MAGIC     ur.s.coach_rating,
-# MAGIC     ur.s.opponent_rating
+# MAGIC     ur.s.opponent_rating,
+# MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM biggest_upset_received ur
 # MAGIC   LEFT JOIN naf_catalog.gold_presentation.coach_identity_v oi_ur
 # MAGIC     ON ur.s.opponent_coach_id = oi_ur.coach_id
@@ -1799,6 +1859,8 @@
 # MAGIC   rating_gap,
 # MAGIC   coach_rating_at_game,
 # MAGIC   opponent_rating_at_game,
+# MAGIC
+# MAGIC   rivalry_score,
 # MAGIC
 # MAGIC   group_order,
 # MAGIC   row_order,

@@ -158,7 +158,67 @@
       "name": "w4_elo_boxplot",
       "displayName": "Race ELO Distribution",
       "queryLines": [
-        "SELECT \r\n  nrsc.nation_name_display,\r\n  nrsc.race_name,\r\n  nrsc.scope,\r\n  nrsc.elo_peak_p10,\r\n  nrsc.elo_peak_p25,\r\n  nrsc.elo_peak_p50,\r\n  nrsc.elo_peak_p75,\r\n  nrsc.elo_peak_p90,\r\n  nrsc.coaches_count\r\nFROM naf_catalog.gold_presentation.nation_race_strength_comparison nrsc\r\nWHERE nrsc.scope = 'NATION'\r\n  AND nrsc.nation_name_display IN (:nation_name_display, :compare_nation_1, :compare_nation_2, :compare_nation_3)\r\n  AND nrsc.coaches_count >= 5\r\nORDER BY nrsc.race_name, nrsc.nation_name_display"
+        "WITH base AS (\r\n",
+        "  SELECT\r\n",
+        "    nd.nation_name_display,\r\n",
+        "    nd.nation_id,\r\n",
+        "    rd.race_name,\r\n",
+        "    ncrp.coach_id,\r\n",
+        "    CASE WHEN :race_elo_metric = 'MEDIAN' THEN ncrp.elo_median ELSE ncrp.elo_peak END AS elo_value\r\n",
+        "  FROM naf_catalog.gold_summary.nation_coach_race_elo_peak ncrp\r\n",
+        "  JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
+        "    ON ncrp.nation_id = nd.nation_id\r\n",
+        "  JOIN naf_catalog.gold_dim.race_dim rd\r\n",
+        "    ON ncrp.race_id = rd.race_id\r\n",
+        "  WHERE array_contains(:race_name, rd.race_name)\r\n",
+        "    AND ncrp.elo_peak IS NOT NULL\r\n",
+        "),\r\n",
+        "world_data AS (\r\n",
+        "  SELECT\r\n",
+        "    'World' AS nation_label,\r\n",
+        "    race_name,\r\n",
+        "    coach_id,\r\n",
+        "    elo_value\r\n",
+        "  FROM base\r\n",
+        "),\r\n",
+        "selected AS (\r\n",
+        "  SELECT\r\n",
+        "    nation_name_display AS nation_label,\r\n",
+        "    race_name,\r\n",
+        "    coach_id,\r\n",
+        "    elo_value\r\n",
+        "  FROM base\r\n",
+        "  WHERE nation_name_display = :nation_name_display\r\n",
+        "),\r\n",
+        "comparisons AS (\r\n",
+        "  SELECT\r\n",
+        "    nation_name_display AS nation_label,\r\n",
+        "    race_name,\r\n",
+        "    coach_id,\r\n",
+        "    elo_value\r\n",
+        "  FROM base\r\n",
+        "  WHERE nation_id IN (\r\n",
+        "    SELECT opponent_nation_id\r\n",
+        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
+        "    WHERE nation_name_display = :nation_name_display\r\n",
+        "    ORDER BY rivalry_score ASC\r\n",
+        "    LIMIT 3\r\n",
+        "  )\r\n",
+        "    AND nation_name_display <> :nation_name_display\r\n",
+        ")\r\n",
+        "SELECT * FROM world_data\r\n",
+        "UNION ALL\r\n",
+        "SELECT * FROM selected\r\n",
+        "UNION ALL\r\n",
+        "SELECT * FROM comparisons\r\n",
+        "ORDER BY\r\n",
+        "  race_name,\r\n",
+        "  CASE\r\n",
+        "    WHEN nation_label = 'World' THEN 0\r\n",
+        "    WHEN nation_label = :nation_name_display THEN 1\r\n",
+        "    ELSE 2\r\n",
+        "  END,\r\n",
+        "  nation_label\r\n"
       ],
       "parameters": [
         {
@@ -413,7 +473,7 @@
               "dataType": "STRING",
               "values": [
                 {
-                  "value": "PEAK"
+                  "value": "MEDIAN"
                 }
               ]
             }
@@ -455,7 +515,20 @@
       "name": "w12_nation_rivalries",
       "displayName": "Top 10 Rivalries",
       "queryLines": [
-        "SELECT\r\n  opponent_nation_name_display,\r\n  rivalry_score,\r\n  ppg,\r\n  avg_glo_exchange,\r\n  opp_selector_score_global,\r\n  CONCAT(games, ' (', wins, '-', draws, '-', losses, ')') AS record\r\nFROM naf_catalog.gold_presentation.nation_rivalry_display\r\nWHERE nation_name_display = :nation_name_display\r\nORDER BY rivalry_score ASC"
+        "SELECT\n",
+        "  opponent_nation_name_display,\n",
+        "  games,\n",
+        "  wins,\n",
+        "  draws,\n",
+        "  losses,\n",
+        "  CONCAT(CAST(games AS STRING), '(', CAST(wins AS STRING), '/', CAST(draws AS STRING), '/', CAST(losses AS STRING), ')') AS games_wdl,\n",
+        "  ppg,\n",
+        "  avg_glo_exchange,\n",
+        "  opp_selector_score_global,\n",
+        "  rivalry_score\n",
+        "FROM naf_catalog.gold_presentation.nation_rivalry_display\n",
+        "WHERE nation_name_display = :nation_name_display\n",
+        "ORDER BY rivalry_score ASC"
       ],
       "parameters": [
         {
@@ -700,10 +773,7 @@
                   },
                   {
                     "fieldName": "profile",
-                    "fieldEncoding": {
-                      "displayName": "value"
-                    },
-                    "displayName": "value"
+                    "displayName": "Value"
                   }
                 ]
               }
@@ -752,10 +822,7 @@
                   },
                   {
                     "fieldName": "profile",
-                    "fieldEncoding": {
-                      "displayName": "value"
-                    },
-                    "displayName": "value"
+                    "displayName": "Value"
                   }
                 ]
               }
@@ -1063,19 +1130,19 @@
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "0–25",
-                        "25–50",
-                        "50–75",
-                        "75–100",
-                        "100–125",
-                        "125–150",
-                        "150–175",
-                        "175–200",
-                        "200–225",
-                        "225–250",
-                        "250–275",
-                        "275–300",
-                        "300–325",
+                        "0\u201325",
+                        "25\u201350",
+                        "50\u201375",
+                        "75\u2013100",
+                        "100\u2013125",
+                        "125\u2013150",
+                        "150\u2013175",
+                        "175\u2013200",
+                        "200\u2013225",
+                        "225\u2013250",
+                        "250\u2013275",
+                        "275\u2013300",
+                        "300\u2013325",
                         "325+"
                       ]
                     }
@@ -1572,45 +1639,29 @@
                 "columns": [
                   {
                     "fieldName": "opponent_nation_name_display",
-                    "fieldEncoding": {
-                      "displayName": "Opponent"
-                    },
                     "displayName": "Opponent"
                   },
                   {
                     "fieldName": "rivalry_score",
-                    "fieldEncoding": {
-                      "displayName": "Score"
-                    },
-                    "displayName": "Score"
+                    "displayName": "Rivalry"
+                  },
+                  {
+                    "fieldName": "games"
                   },
                   {
                     "fieldName": "ppg",
-                    "fieldEncoding": {
-                      "displayName": "PPG"
-                    },
                     "displayName": "PPG"
                   },
                   {
                     "fieldName": "avg_glo_exchange",
-                    "fieldEncoding": {
-                      "displayName": "Avg GLO Exch"
-                    },
-                    "displayName": "Avg GLO Exch"
+                    "displayName": "GLO Exchange"
                   },
                   {
-                    "fieldName": "opp_selector_score_global",
-                    "fieldEncoding": {
-                      "displayName": "Opp SSG"
-                    },
-                    "displayName": "Opp SSG"
+                    "fieldName": "opp_selector_score_global"
                   },
                   {
-                    "fieldName": "record",
-                    "fieldEncoding": {
-                      "displayName": "Record (W-D-L)"
-                    },
-                    "displayName": "Record (W-D-L)"
+                    "fieldName": "games_wdl",
+                    "displayName": "Games (W/D/L)"
                   }
                 ]
               }
@@ -1674,45 +1725,27 @@
                 "columns": [
                   {
                     "fieldName": "selector_rank_global",
-                    "fieldEncoding": {
-                      "displayName": "Rank"
-                    },
-                    "displayName": "Rank"
+                    "displayName": "Rank (G)"
                   },
                   {
                     "fieldName": "coach_name",
-                    "fieldEncoding": {
-                      "displayName": "Coach"
-                    },
                     "displayName": "Coach"
                   },
                   {
                     "fieldName": "selector_score_global",
-                    "fieldEncoding": {
-                      "displayName": "Selector Score"
-                    },
-                    "displayName": "Selector Score"
+                    "displayName": "Score (G)"
                   },
                   {
                     "fieldName": "glo_rank_global",
-                    "fieldEncoding": {
-                      "displayName": "GLO Rank"
-                    },
-                    "displayName": "GLO Rank"
+                    "displayName": "GLO"
                   },
                   {
                     "fieldName": "race_rank_global",
-                    "fieldEncoding": {
-                      "displayName": "Race Rank"
-                    },
-                    "displayName": "Race Rank"
+                    "displayName": "Race"
                   },
                   {
                     "fieldName": "opponent_rank_global",
-                    "fieldEncoding": {
-                      "displayName": "Opp Rank"
-                    },
-                    "displayName": "Opp Rank"
+                    "displayName": "Opp"
                   }
                 ]
               }
@@ -1783,59 +1816,35 @@
                 "columns": [
                   {
                     "fieldName": "power_rank",
-                    "fieldEncoding": {
-                      "displayName": "Rank"
-                    },
                     "displayName": "Rank"
                   },
                   {
                     "fieldName": "flag_emoji",
-                    "fieldEncoding": {
-                      "displayName": "Flag"
-                    },
                     "displayName": "Flag"
                   },
                   {
                     "fieldName": "nation_name_display",
-                    "fieldEncoding": {
-                      "displayName": "Nation"
-                    },
                     "displayName": "Nation"
                   },
                   {
                     "fieldName": "top_8_avg_selector_score_national",
-                    "fieldEncoding": {
-                      "displayName": "Top 8 SSN"
-                    },
-                    "displayName": "Top 8 SSN"
+                    "displayName": "SSN"
                   },
                   {
                     "fieldName": "top_8_avg_selector_score_global",
-                    "fieldEncoding": {
-                      "displayName": "Top 8 SSG"
-                    },
-                    "displayName": "Top 8 SSG"
+                    "displayName": "SSG"
                   },
                   {
                     "fieldName": "top_8_avg_glo_peak",
-                    "fieldEncoding": {
-                      "displayName": "Top 8 GLO Peak"
-                    },
-                    "displayName": "Top 8 GLO Peak"
+                    "displayName": "GLO Peak"
                   },
                   {
                     "fieldName": "top_8_avg_glo_median",
-                    "fieldEncoding": {
-                      "displayName": "Top 8 GLO Med"
-                    },
-                    "displayName": "Top 8 GLO Med"
+                    "displayName": "GLO Med"
                   },
                   {
                     "fieldName": "coaches_eligible",
-                    "fieldEncoding": {
-                      "displayName": "Pool"
-                    },
-                    "displayName": "Pool"
+                    "displayName": "Coaches"
                   }
                 ]
               }
