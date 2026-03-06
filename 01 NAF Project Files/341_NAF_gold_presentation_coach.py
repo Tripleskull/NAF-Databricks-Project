@@ -1128,6 +1128,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Untitled
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_median_glo_bin_results_long
 # MAGIC -- =====================================================================
