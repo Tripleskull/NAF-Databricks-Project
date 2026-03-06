@@ -155,118 +155,6 @@
       ]
     },
     {
-      "name": "w4_elo_boxplot",
-      "displayName": "Race ELO Distribution",
-      "queryLines": [
-        "WITH base AS (\r\n",
-        "  SELECT\r\n",
-        "    nd.nation_name_display,\r\n",
-        "    nd.nation_id,\r\n",
-        "    rd.race_name,\r\n",
-        "    ncrp.coach_id,\r\n",
-        "    CASE WHEN :race_elo_metric = 'MEDIAN' THEN ncrp.elo_median ELSE ncrp.elo_peak END AS elo_value\r\n",
-        "  FROM naf_catalog.gold_summary.nation_coach_race_elo_peak ncrp\r\n",
-        "  JOIN naf_catalog.gold_dim.nation_dim nd\r\n",
-        "    ON ncrp.nation_id = nd.nation_id\r\n",
-        "  JOIN naf_catalog.gold_dim.race_dim rd\r\n",
-        "    ON ncrp.race_id = rd.race_id\r\n",
-        "  WHERE (SIZE(COALESCE(:race_name, ARRAY())) = 0 OR array_contains(:race_name, rd.race_name))\r\n",
-        "    AND ncrp.elo_peak IS NOT NULL\r\n",
-        "),\r\n",
-        "world_data AS (\r\n",
-        "  SELECT\r\n",
-        "    'World' AS nation_label,\r\n",
-        "    race_name,\r\n",
-        "    coach_id,\r\n",
-        "    elo_value\r\n",
-        "  FROM base\r\n",
-        "),\r\n",
-        "selected AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    race_name,\r\n",
-        "    coach_id,\r\n",
-        "    elo_value\r\n",
-        "  FROM base\r\n",
-        "  WHERE nation_name_display = :nation_name_display\r\n",
-        "),\r\n",
-        "comparisons AS (\r\n",
-        "  SELECT\r\n",
-        "    nation_name_display AS nation_label,\r\n",
-        "    race_name,\r\n",
-        "    coach_id,\r\n",
-        "    elo_value\r\n",
-        "  FROM base\r\n",
-        "  WHERE nation_id IN (\r\n",
-        "    SELECT opponent_nation_id\r\n",
-        "    FROM naf_catalog.gold_presentation.nation_rivalry_display\r\n",
-        "    WHERE nation_name_display = :nation_name_display\r\n",
-        "    ORDER BY rivalry_score ASC\r\n",
-        "    LIMIT 3\r\n",
-        "  )\r\n",
-        "    AND nation_name_display <> :nation_name_display\r\n",
-        ")\r\n",
-        "SELECT * FROM world_data\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM selected\r\n",
-        "UNION ALL\r\n",
-        "SELECT * FROM comparisons\r\n",
-        "ORDER BY\r\n",
-        "  race_name,\r\n",
-        "  CASE\r\n",
-        "    WHEN nation_label = 'World' THEN 0\r\n",
-        "    WHEN nation_label = :nation_name_display THEN 1\r\n",
-        "    ELSE 2\r\n",
-        "  END,\r\n",
-        "  nation_label\r\n"
-      ],
-      "parameters": [
-        {
-          "displayName": "Nation Name Display",
-          "keyword": "nation_name_display",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "World"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "Race Name",
-          "keyword": "race_name",
-          "dataType": "STRING",
-          "complexType": "MULTI",
-          "defaultSelection": {
-            "operator": {
-              "operator": "AND"
-            }
-          }
-        },
-        {
-          "displayName": "Race ELO Metric",
-          "keyword": "race_elo_metric",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "PEAK"
-                }
-              ]
-            }
-          }
-        }
-      ],
-      "catalog": "naf_catalog",
-      "schema": "gold_summary"
-    },
-    {
       "name": "w5_glo_histogram",
       "displayName": "GLO Rating Distribution",
       "queryLines": [
@@ -999,106 +887,6 @@
         },
         {
           "widget": {
-            "name": "w4_elo_boxplot",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "w4_elo_boxplot",
-                  "fields": [
-                    {
-                      "name": "race_name",
-                      "expression": "`race_name`"
-                    },
-                    {
-                      "name": "nation_label",
-                      "expression": "`nation_label`"
-                    },
-                    {
-                      "name": "min(elo_value)",
-                      "expression": "MIN(`elo_value`)"
-                    },
-                    {
-                      "name": "q1(elo_value)",
-                      "expression": "PERCENTILE(`elo_value`, 0.25)"
-                    },
-                    {
-                      "name": "median(elo_value)",
-                      "expression": "MEDIAN(`elo_value`)"
-                    },
-                    {
-                      "name": "q3(elo_value)",
-                      "expression": "PERCENTILE(`elo_value`, 0.75)"
-                    },
-                    {
-                      "name": "max(elo_value)",
-                      "expression": "MAX(`elo_value`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              }
-            ],
-            "spec": {
-              "version": 3,
-              "frame": {
-                "showTitle": true,
-                "showDescription": true,
-                "title": "Race ELO Distribution",
-                "description": "Distribution of MEDIAN race ELO ratings"
-              },
-              "widgetType": "box",
-              "encodings": {
-                "x": {
-                  "fieldName": "race_name",
-                  "scale": {
-                    "type": "categorical"
-                  },
-                  "axis": {
-                    "title": "Race"
-                  }
-                },
-                "y": {
-                  "whiskerStart": {
-                    "fieldName": "min(elo_value)"
-                  },
-                  "boxStart": {
-                    "fieldName": "q1(elo_value)"
-                  },
-                  "boxMid": {
-                    "fieldName": "median(elo_value)"
-                  },
-                  "boxEnd": {
-                    "fieldName": "q3(elo_value)"
-                  },
-                  "whiskerEnd": {
-                    "fieldName": "max(elo_value)"
-                  },
-                  "axis": {
-                    "title": "ELO"
-                  },
-                  "scale": {
-                    "type": "quantitative"
-                  }
-                },
-                "color": {
-                  "fieldName": "nation_label",
-                  "scale": {
-                    "type": "categorical"
-                  }
-                }
-              }
-            }
-          },
-          "position": {
-            "x": 6,
-            "y": 20,
-            "width": 6,
-            "height": 7
-          }
-        },
-        {
-          "widget": {
             "name": "w5_glo_histogram",
             "queries": [
               {
@@ -1143,19 +931,19 @@
                     "sort": {
                       "by": "custom-order",
                       "orderedValues": [
-                        "0\u201325",
-                        "25\u201350",
-                        "50\u201375",
-                        "75\u2013100",
-                        "100\u2013125",
-                        "125\u2013150",
-                        "150\u2013175",
-                        "175\u2013200",
-                        "200\u2013225",
-                        "225\u2013250",
-                        "250\u2013275",
-                        "275\u2013300",
-                        "300\u2013325",
+                        "0–25",
+                        "25–50",
+                        "50–75",
+                        "75–100",
+                        "100–125",
+                        "125–150",
+                        "150–175",
+                        "175–200",
+                        "200–225",
+                        "225–250",
+                        "250–275",
+                        "275–300",
+                        "300–325",
                         "325+"
                       ]
                     }
@@ -1930,19 +1718,6 @@
                 }
               },
               {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15a5967147237dc0f3bc_nation_name_display",
-                "query": {
-                  "datasetName": "w4_elo_boxplot",
-                  "parameters": [
-                    {
-                      "name": "nation_name_display",
-                      "keyword": "nation_name_display"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
                 "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15b3b96795707f0a605d_nation_name_display",
                 "query": {
                   "datasetName": "w6_glo_cumulative",
@@ -2084,19 +1859,6 @@
                 "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cea80cc144791d311e3_compare_nations",
                 "query": {
                   "datasetName": "w3_glo_boxplot",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cf186a1d117f84f1f16_compare_nations",
-                "query": {
-                  "datasetName": "w4_elo_boxplot",
                   "parameters": [
                     {
                       "name": "compare_nations",
