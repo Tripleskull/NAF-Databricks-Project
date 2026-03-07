@@ -1655,7 +1655,7 @@
             "name": "filter_nation_name_display",
             "queries": [
               {
-                "name": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c154d980f97159a4d97d6_nation_name_display",
+                "name": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f2797d3af157ca8ecca_nation_name_display",
                 "query": {
                   "datasetName": "w1a_nation_profile",
                   "fields": [
@@ -1672,7 +1672,7 @@
                 }
               },
               {
-                "name": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c158cb4828f2f568425d3_nation_name_display",
+                "name": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f42ac2bd3a4b7b364b9_nation_name_display",
                 "query": {
                   "datasetName": "w1b_performance",
                   "fields": [
@@ -1689,7 +1689,7 @@
                 }
               },
               {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15ac8a8495d31faa70fc_nation_name_display",
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f51b50239e2a0c78587_nation_name_display",
                 "query": {
                   "datasetName": "w5_glo_histogram",
                   "parameters": [
@@ -1702,7 +1702,7 @@
                 }
               },
               {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15b3b96795707f0a605d_nation_name_display",
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f558b93c141053f1787_nation_name_display",
                 "query": {
                   "datasetName": "w6_glo_cumulative",
                   "parameters": [
@@ -1715,7 +1715,7 @@
                 }
               },
               {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c1595a29e645977c4a2bc_nation_name_display",
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f48b249f444f80aecc2_nation_name_display",
                 "query": {
                   "datasetName": "w2_nation_members_over_time",
                   "parameters": [
@@ -1728,7 +1728,7 @@
                 }
               },
               {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15d394cb2c0f579a9a79_nation_name_display",
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f7383f2bdd1cfb6e991_nation_name_display",
                 "query": {
                   "datasetName": "w13_team_candidates",
                   "parameters": [
@@ -1741,9 +1741,74 @@
                 }
               },
               {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15cd98ae4b4019fc412a_nation_name_display",
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f6d876e6d342d44568c_nation_name_display",
                 "query": {
                   "datasetName": "w12_nation_rivalries",
+                  "parameters": [
+                    {
+                      "name": "nation_name_display",
+                      "keyword": "nation_name_display"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f5cb3b9630a8099818e_nation_name_display",
+                "query": {
+                  "datasetName": "w9_opponent_elo_bins",
+                  "parameters": [
+                    {
+                      "name": "nation_name_display",
+                      "keyword": "nation_name_display"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f62baa696bcc2d91135_nation_name_display",
+                "query": {
+                  "datasetName": "w11_glo_exchange",
+                  "parameters": [
+                    {
+                      "name": "nation_name_display",
+                      "keyword": "nation_name_display"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f59921de9892111ed5b_nation_name_display",
+                "query": {
+                  "datasetName": "w7_race_popularity",
+                  "parameters": [
+                    {
+                      "name": "nation_name_display",
+                      "keyword": "nation_name_display"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f4d859b07b8cbca6e6e_nation_name_display",
+                "query": {
+                  "datasetName": "w3_glo_boxplot",
+                  "parameters": [
+                    {
+                      "name": "nation_name_display",
+                      "keyword": "nation_name_display"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f86bd99072c91104405_nation_name_display",
+                "query": {
+                  "datasetName": "w7b_race_participations",
                   "parameters": [
                     {
                       "name": "nation_name_display",
@@ -1777,35 +1842,51 @@
                 "fields": [
                   {
                     "fieldName": "nation_name_display",
-                    "queryName": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c154d980f97159a4d97d6_nation_name_display"
+                    "queryName": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f2797d3af157ca8ecca_nation_name_display"
                   },
                   {
                     "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15ac8a8495d31faa70fc_nation_name_display"
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f51b50239e2a0c78587_nation_name_display"
                   },
                   {
                     "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15a5967147237dc0f3bc_nation_name_display"
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f558b93c141053f1787_nation_name_display"
                   },
                   {
                     "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15b3b96795707f0a605d_nation_name_display"
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f48b249f444f80aecc2_nation_name_display"
                   },
                   {
                     "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c1595a29e645977c4a2bc_nation_name_display"
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f7383f2bdd1cfb6e991_nation_name_display"
                   },
                   {
                     "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15d394cb2c0f579a9a79_nation_name_display"
-                  },
-                  {
-                    "parameterName": "nation_name_display",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c15cd98ae4b4019fc412a_nation_name_display"
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f6d876e6d342d44568c_nation_name_display"
                   },
                   {
                     "fieldName": "nation_name_display",
-                    "queryName": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f114d8eb5c158cb4828f2f568425d3_nation_name_display"
+                    "queryName": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f42ac2bd3a4b7b364b9_nation_name_display"
+                  },
+                  {
+                    "parameterName": "nation_name_display",
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f5cb3b9630a8099818e_nation_name_display"
+                  },
+                  {
+                    "parameterName": "nation_name_display",
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f62baa696bcc2d91135_nation_name_display"
+                  },
+                  {
+                    "parameterName": "nation_name_display",
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f59921de9892111ed5b_nation_name_display"
+                  },
+                  {
+                    "parameterName": "nation_name_display",
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f4d859b07b8cbca6e6e_nation_name_display"
+                  },
+                  {
+                    "parameterName": "nation_name_display",
+                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f86bd99072c91104405_nation_name_display"
                   }
                 ]
               }
@@ -1823,7 +1904,7 @@
             "name": "filter_compare_nations",
             "queries": [
               {
-                "name": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1d269fdbf12e8d1fb044_metric_type",
+                "name": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f7e9d6292dd02ea26d7_metric_type",
                 "query": {
                   "datasetName": "filter_glo_metric_values",
                   "fields": [
@@ -1834,84 +1915,6 @@
                     {
                       "name": "metric_type_associativity",
                       "expression": "COUNT_IF(`associative_filter_predicate_group`)"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cea80cc144791d311e3_compare_nations",
-                "query": {
-                  "datasetName": "w3_glo_boxplot",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cf888befe21058f3f4e_compare_nations",
-                "query": {
-                  "datasetName": "w5_glo_histogram",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1d04ab05bdc579de5a93_compare_nations",
-                "query": {
-                  "datasetName": "w7_race_popularity",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cfea7f790b6dac663d1_compare_nations",
-                "query": {
-                  "datasetName": "w6_glo_cumulative",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1ce3a557b27283293981_compare_nations",
-                "query": {
-                  "datasetName": "w2_nation_members_over_time",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
-                    }
-                  ],
-                  "disaggregated": false
-                }
-              },
-              {
-                "name": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1d3196872f3ff16f0ebf_compare_nations",
-                "query": {
-                  "datasetName": "w7b_race_participations",
-                  "parameters": [
-                    {
-                      "name": "compare_nations",
-                      "keyword": "compare_nations"
                     }
                   ],
                   "disaggregated": false
@@ -1928,36 +1931,8 @@
               "encodings": {
                 "fields": [
                   {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cea80cc144791d311e3_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cf186a1d117f84f1f16_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cf888befe21058f3f4e_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1d04ab05bdc579de5a93_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1cfea7f790b6dac663d1_compare_nations"
-                  },
-                  {
                     "fieldName": "metric_type",
-                    "queryName": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1d269fdbf12e8d1fb044_metric_type"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1ce3a557b27283293981_compare_nations"
-                  },
-                  {
-                    "parameterName": "compare_nations",
-                    "queryName": "parameter_dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f11582a75b1d3196872f3ff16f0ebf_compare_nations"
+                    "queryName": "dashboards/01f10ffcfa731ea09848fef97a31c73d/datasets/01f119a3c7f81f7e9d6292dd02ea26d7_metric_type"
                   }
                 ]
               }
