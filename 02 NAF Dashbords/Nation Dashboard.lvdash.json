@@ -174,7 +174,7 @@
         "      ORDER BY rivalry_score ASC\r\r\n",
         "      LIMIT 3\r\r\n",
         "    )\r\r\n",
-        "    OR nation_id = 0\r\r\n",
+        "    OR nation_id = -1\r\r\n",
         "  )\r\r\n",
         "ORDER BY glo_bin, nation_name_display\r\n"
       ],
@@ -230,7 +230,7 @@
         "      ORDER BY rivalry_score ASC\r\n",
         "      LIMIT 3\r\n",
         "    )\r\n",
-        "    OR nation_id = 0\r\n",
+        "    OR nation_id = -1\r\n",
         "  )\r\n",
         "ORDER BY glo_value, nation_name_display\r\n"
       ],
@@ -445,7 +445,7 @@
         "  selector_rank_global,\r\n",
         "  glo_peak,\r\n",
         "  glo_median,\r\n",
-        "  race_elo_median,\r\n",
+        "  race_elo_peak_mean,\r\n",
         "  avg_opponent_glo,\r\n",
         "  form_score,\r\n",
         "  races_above_world_median,\r\n",

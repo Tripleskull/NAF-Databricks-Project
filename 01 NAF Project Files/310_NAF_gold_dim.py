@@ -267,11 +267,15 @@
 # MAGIC   CAST(50      AS INT)     AS min_games_nation_glo,
 # MAGIC   CAST(5       AS INT)     AS min_games_nation_race,
 # MAGIC
-# MAGIC   -- Nation rivalry scoring weights
+# MAGIC   -- Nation rivalry scoring weights (currently unused — rivalry tables use
+# MAGIC   -- simple rank-average formula; kept for future refinement)
 # MAGIC   CAST(100.0   AS DOUBLE)  AS rivalry_games_cap,
 # MAGIC   CAST(1.0/6.0 AS DOUBLE)  AS rivalry_w_games,
 # MAGIC   CAST(2.0/3.0 AS DOUBLE)  AS rivalry_w_closeness,
 # MAGIC   CAST(1.0/6.0 AS DOUBLE)  AS rivalry_w_share,
+# MAGIC
+# MAGIC   -- Nation elite rivalry: minimum GLO median for both coaches
+# MAGIC   CAST(200.0   AS DOUBLE)  AS elite_glo_median_threshold,
 # MAGIC
 # MAGIC   -- Form score (Phase 1)
 # MAGIC   CAST(50      AS INT)     AS form_window_games,

@@ -55,6 +55,9 @@
 # MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary;
 # MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.global_elo_bin_scheme;
 # MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.global_elo_bin_scheme_config;
+# MAGIC
+# MAGIC -- 332 cleanup: redundant comparison table
+# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.nation_overview_comparison_summary;
 
 # COMMAND ----------
 

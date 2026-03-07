@@ -9,24 +9,55 @@
 # MAGIC It must stay **ID-based and analytics-ready**, while all **display fields** (names, flags, labels) belong in `gold_presentation`.
 # MAGIC
 # MAGIC ## Dependencies (inputs)
-# MAGIC - `naf_catalog.gold_fact.coach_games_fact` (coach-participation view of games)
-# MAGIC - `naf_catalog.gold_fact.games_fact` (one row per game)
-# MAGIC - `naf_catalog.gold_fact.rating_history_fact` (ELO event history; GLOBAL = “glo”)
+# MAGIC - `naf_catalog.gold_dim.analytical_config` (tuneable parameters)
 # MAGIC - `naf_catalog.gold_dim.coach_dim` (coach → nation_id)
 # MAGIC - `naf_catalog.gold_dim.tournament_dim` (tournament → host nation_id)
+# MAGIC - `naf_catalog.gold_fact.coach_games_fact` (coach-participation view of games; unique at game_id × coach_id)
+# MAGIC - `naf_catalog.gold_fact.games_fact` (one row per game)
+# MAGIC - `naf_catalog.gold_fact.rating_history_fact` (Elo event history; GLOBAL = “glo”)
+# MAGIC - `naf_catalog.gold_summary.coach_rating_global_elo_summary` (coach GLO summary from 331)
 # MAGIC
-# MAGIC ## Output tables (this notebook)
-# MAGIC Nation activity / volume:
-# MAGIC - `gold_summary.nation_games_timeseries`
-# MAGIC - `gold_summary.nation_coach_activity_timeseries`
-# MAGIC - `gold_summary.nation_overview_summary`
+# MAGIC ## Output objects (this notebook)
 # MAGIC
-# MAGIC Nation breakdowns:
-# MAGIC - `gold_summary.nation_race_summary`
-# MAGIC - `gold_summary.nation_vs_nation_summary`
+# MAGIC ### Core nation spines / overview
+# MAGIC - `gold_summary.nation_coach_glo_metrics` — 1 row per (nation_id, coach_id); GLOBAL Elo metrics
+# MAGIC - `gold_summary.nation_overview_summary` — 1 row per nation_id; headline KPIs
 # MAGIC
-# MAGIC Ratings (nation-scoped, still ID-based):
-# MAGIC - `gold_summary.nation_coach_glo_metrics` (coach-level metrics by nation)
+# MAGIC ### Activity series
+# MAGIC - `gold_summary.nation_games_timeseries` — games per (nation, year)
+# MAGIC - `gold_summary.nation_coach_activity_timeseries` — active coaches per (nation, year)
+# MAGIC - `gold_summary.nation_members_cumulative_weekly` — cumulative coach count by week
+# MAGIC - `gold_summary.nation_results_cumulative_series` — cumulative W/D/L by game sequence
+# MAGIC
+# MAGIC ### Domestic / comparison
+# MAGIC - `gold_summary.nation_domestic_summary` — domestic vs international split
+# MAGIC - `gold_summary.nation_overview_comparison` — focus nation vs NATION / REST_OF_WORLD / WORLD
+# MAGIC
+# MAGIC ### Race / GLO distributions
+# MAGIC - `gold_summary.nation_race_summary` — race-level nation stats
+# MAGIC - `gold_summary.nation_glo_metric_quantiles` — GLO quantiles per nation
+# MAGIC - `gold_summary.nation_glo_binned_distribution` — 25-pt GLO histogram bins
+# MAGIC
+# MAGIC ### Nation-vs-nation / rivalry
+# MAGIC - `gold_summary.nation_vs_nation_summary` — pairwise nation H2H
+# MAGIC - `gold_summary.nation_rivalry_summary` — ranked rivalry pairs
+# MAGIC - `gold_summary.nation_elite_rivalry_summary` — elite-only rivalry pairs
+# MAGIC
+# MAGIC ### Race Elo
+# MAGIC - `gold_summary.nation_coach_race_elo_peak` (VIEW) — coach race Elo peaks
+# MAGIC - `gold_summary.nation_race_elo_peak_summary` — nation-level race Elo peak stats
+# MAGIC
+# MAGIC ### World reference
+# MAGIC - `gold_summary.world_race_elo_quantiles` (VIEW) — world race Elo quantile benchmarks
+# MAGIC - `gold_summary.world_glo_metric_quantiles` (VIEW) — world GLO quantile benchmarks
+# MAGIC
+# MAGIC ### Opponent binning
+# MAGIC - `gold_summary.coach_opponent_glo_bin_summary` (VIEW) — coach-level 4-bin opponent W/D/L (helper for nation views)
+# MAGIC - `gold_summary.nation_opponent_elo_bin_wdl` — nation-level 4-bin opponent W/D/L
+# MAGIC
+# MAGIC ### Team selector / power ranking
+# MAGIC - `gold_summary.nation_team_candidate_scores` — coach selector scores per nation
+# MAGIC - `gold_summary.nation_power_ranking` — nation power ranking
 # MAGIC
 # MAGIC ## Notebook conventions
 # MAGIC - **One object per cell** (one `CREATE OR REPLACE TABLE ...` per cell).
@@ -49,8 +80,8 @@
 # MAGIC --   - One row per (nation_id, coach_id)
 # MAGIC --   - GLOBAL (race-agnostic) NAF_ELO metrics from rating_history_fact
 # MAGIC -- NOTES:
-# MAGIC --   - is_valid_glo indicates stable sample (games_played >= min_games)
-# MAGIC --   - glo_* metrics are computed from the coach's >= 50th GLOBAL game onward (stable sample only)
+# MAGIC --   - is_valid_glo indicates stable sample (games_played >= min_games_nation_glo from config)
+# MAGIC --   - glo_* metrics are computed from the coach's >= min_games_nation_glo-th GLOBAL game onward
 # MAGIC --   - glo_*_all metrics are computed from all GLOBAL games (optional but useful)
 # MAGIC -- =====================================================================
 # MAGIC
@@ -205,13 +236,6 @@
 # MAGIC   WHERE cd.nation_id IS NOT NULL
 # MAGIC     AND cg.game_id IS NOT NULL
 # MAGIC     AND cg.coach_id IS NOT NULL
-# MAGIC     AND cg.result_numeric IN (0.0, 0.5, 1.0)
-# MAGIC   QUALIFY ROW_NUMBER() OVER (
-# MAGIC     PARTITION BY cg.game_id, cg.coach_id
-# MAGIC     ORDER BY cg.event_timestamp DESC NULLS LAST,
-# MAGIC              cg.game_date       DESC NULLS LAST,
-# MAGIC              cg.tournament_id   DESC NULLS LAST
-# MAGIC   ) = 1
 # MAGIC ),
 # MAGIC
 # MAGIC coach_nation_agg AS (
@@ -301,26 +325,26 @@
 # MAGIC   COALESCE(cna.tournaments_attended_count, 0) AS tournaments_attended_count,
 # MAGIC   cna.avg_points_per_game                     AS avg_points_per_game,
 # MAGIC
-# MAGIC   100.0 * COALESCE(cna.coaches_count, 0)
-# MAGIC     / NULLIF(cgt.coaches_count_global, 0)     AS coaches_global_pct,
+# MAGIC   CAST(COALESCE(cna.coaches_count, 0) AS DOUBLE)
+# MAGIC     / NULLIF(cgt.coaches_count_global, 0)     AS coaches_global_frac,
 # MAGIC
-# MAGIC   100.0 * COALESCE(cna.coach_participations_count, 0)
-# MAGIC     / NULLIF(cgt.coach_participations_count_global, 0) AS coach_participations_global_pct,
+# MAGIC   CAST(COALESCE(cna.coach_participations_count, 0) AS DOUBLE)
+# MAGIC     / NULLIF(cgt.coach_participations_count_global, 0) AS coach_participations_global_frac,
 # MAGIC
-# MAGIC   100.0 * COALESCE(cna.game_representations_count, 0)
-# MAGIC     / NULLIF(cgt.game_representations_count_global, 0) AS game_representations_global_pct,
+# MAGIC   CAST(COALESCE(cna.game_representations_count, 0) AS DOUBLE)
+# MAGIC     / NULLIF(cgt.game_representations_count_global, 0) AS game_representations_global_frac,
 # MAGIC
-# MAGIC   100.0 * COALESCE(cna.tournaments_attended_count, 0)
-# MAGIC     / NULLIF(cgt.tournaments_attended_count_global, 0) AS tournaments_attended_global_pct,
+# MAGIC   CAST(COALESCE(cna.tournaments_attended_count, 0) AS DOUBLE)
+# MAGIC     / NULLIF(cgt.tournaments_attended_count_global, 0) AS tournaments_attended_global_frac,
 # MAGIC
 # MAGIC   COALESCE(hna.games_hosted_count, 0)       AS games_hosted_count,
 # MAGIC   COALESCE(hna.tournaments_hosted_count, 0) AS tournaments_hosted_count,
 # MAGIC
-# MAGIC   100.0 * COALESCE(hna.games_hosted_count, 0)
-# MAGIC     / NULLIF(hgt.games_hosted_count_global, 0) AS games_hosted_global_pct,
+# MAGIC   CAST(COALESCE(hna.games_hosted_count, 0) AS DOUBLE)
+# MAGIC     / NULLIF(hgt.games_hosted_count_global, 0) AS games_hosted_global_frac,
 # MAGIC
-# MAGIC   100.0 * COALESCE(hna.tournaments_hosted_count, 0)
-# MAGIC     / NULLIF(hgt.tournaments_hosted_count_global, 0) AS tournaments_hosted_global_pct,
+# MAGIC   CAST(COALESCE(hna.tournaments_hosted_count, 0) AS DOUBLE)
+# MAGIC     / NULLIF(hgt.tournaments_hosted_count_global, 0) AS tournaments_hosted_global_frac,
 # MAGIC
 # MAGIC   gpn.glo_peak_max,
 # MAGIC   gpn.glo_peak_mean,
@@ -420,13 +444,6 @@
 # MAGIC     AND cg.game_date IS NOT NULL
 # MAGIC     AND cg.game_id   IS NOT NULL
 # MAGIC     AND cg.coach_id  IS NOT NULL
-# MAGIC   QUALIFY ROW_NUMBER() OVER (
-# MAGIC     PARTITION BY cg.game_id, cg.coach_id
-# MAGIC     ORDER BY
-# MAGIC       cg.event_timestamp DESC NULLS LAST,
-# MAGIC       cg.game_date       DESC NULLS LAST,
-# MAGIC       cg.tournament_id   DESC NULLS LAST
-# MAGIC   ) = 1
 # MAGIC ),
 # MAGIC
 # MAGIC agg AS (
@@ -499,9 +516,10 @@
 # MAGIC ),
 # MAGIC
 # MAGIC -- World aggregate: count new coaches per week across all nations
+# MAGIC -- nation_id = -1 is the synthetic World aggregate (not a real nation)
 # MAGIC world_weekly_new AS (
 # MAGIC   SELECT
-# MAGIC     0                                                         AS nation_id,
+# MAGIC     -1                                                        AS nation_id,
 # MAGIC     first_week                                                AS iso_week,
 # MAGIC     CAST(COUNT(*) AS INT)                                     AS new_coaches
 # MAGIC   FROM first_game
@@ -726,279 +744,9 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- TABLE: naf_catalog.gold_summary.nation_overview_comparison_summary
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE:
-# MAGIC --   - For each focus_nation_id, provide NATION vs REST_OF_WORLD vs WORLD
-# MAGIC -- GRAIN:
-# MAGIC --   - One row per (focus_nation_id, comparison_group)
-# MAGIC -- NOTES:
-# MAGIC --   - REST_OF_WORLD is computed as WORLD minus NATION (where valid)
-# MAGIC --   - glo_peak_median for REST_OF_WORLD is not subtractable -> NULL
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_overview_comparison_summary
-# MAGIC USING DELTA AS
-# MAGIC
-# MAGIC WITH n AS (
-# MAGIC   SELECT *
-# MAGIC   FROM naf_catalog.gold_summary.nation_overview_summary
-# MAGIC ),
-# MAGIC
-# MAGIC -- Coach participation spine (same dedup logic as nation_overview_summary)
-# MAGIC coach_base AS (
-# MAGIC   SELECT
-# MAGIC     cg.game_id,
-# MAGIC     cg.tournament_id,
-# MAGIC     cg.coach_id,
-# MAGIC     cg.result_numeric,
-# MAGIC     cd.nation_id
-# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cg
-# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim cd
-# MAGIC     ON cg.coach_id = cd.coach_id
-# MAGIC   WHERE cd.nation_id IS NOT NULL
-# MAGIC     AND cg.game_id   IS NOT NULL
-# MAGIC     AND cg.coach_id  IS NOT NULL
-# MAGIC   QUALIFY ROW_NUMBER() OVER (
-# MAGIC     PARTITION BY cg.game_id, cg.coach_id
-# MAGIC     ORDER BY cg.event_timestamp DESC NULLS LAST,
-# MAGIC              cg.game_date       DESC NULLS LAST,
-# MAGIC              cg.tournament_id   DESC NULLS LAST
-# MAGIC   ) = 1
-# MAGIC ),
-# MAGIC
-# MAGIC points_by_nation AS (
-# MAGIC   SELECT
-# MAGIC     nation_id,
-# MAGIC     SUM(result_numeric)  AS points_sum,
-# MAGIC     COUNT(result_numeric) AS points_n
-# MAGIC   FROM coach_base
-# MAGIC   GROUP BY nation_id
-# MAGIC ),
-# MAGIC
-# MAGIC points_global AS (
-# MAGIC   SELECT
-# MAGIC     SUM(result_numeric)  AS points_sum,
-# MAGIC     COUNT(result_numeric) AS points_n
-# MAGIC   FROM coach_base
-# MAGIC ),
-# MAGIC
-# MAGIC -- Elo distribution spine (assumes nation_coach_glo_metrics has glo_peak per coach+nation)
-# MAGIC glo_valid AS (
-# MAGIC   SELECT
-# MAGIC     nation_id,
-# MAGIC     glo_peak
-# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics
-# MAGIC   WHERE glo_peak IS NOT NULL
-# MAGIC     AND COALESCE(is_valid_glo, TRUE) = TRUE
-# MAGIC ),
-# MAGIC
-# MAGIC glo_by_nation AS (
-# MAGIC   SELECT
-# MAGIC     nation_id,
-# MAGIC     SUM(glo_peak) AS glo_peak_sum,
-# MAGIC     COUNT(*)      AS glo_peak_n,
-# MAGIC     MAX(glo_peak) AS glo_peak_max,
-# MAGIC     PERCENTILE_APPROX(glo_peak, 0.5) AS glo_peak_median
-# MAGIC   FROM glo_valid
-# MAGIC   GROUP BY nation_id
-# MAGIC ),
-# MAGIC
-# MAGIC glo_global AS (
-# MAGIC   SELECT
-# MAGIC     SUM(glo_peak) AS glo_peak_sum,
-# MAGIC     COUNT(*)      AS glo_peak_n,
-# MAGIC     MAX(glo_peak) AS glo_peak_max,
-# MAGIC     PERCENTILE_APPROX(glo_peak, 0.5) AS glo_peak_median
-# MAGIC   FROM glo_valid
-# MAGIC ),
-# MAGIC
-# MAGIC -- REST_OF_WORLD max is doable without scanning "all coaches minus nation" per nation
-# MAGIC glo_max_stats AS (
-# MAGIC   SELECT
-# MAGIC     gg.glo_peak_max AS global_max,
-# MAGIC     MAX(CASE WHEN gb.glo_peak_max < gg.glo_peak_max THEN gb.glo_peak_max END) AS global_second_max,
-# MAGIC     SUM(CASE WHEN gb.glo_peak_max = gg.glo_peak_max THEN 1 ELSE 0 END) AS nations_with_global_max
-# MAGIC   FROM glo_by_nation gb
-# MAGIC   CROSS JOIN glo_global gg
-# MAGIC   GROUP BY gg.glo_peak_max
-# MAGIC )
-# MAGIC ,
-# MAGIC
-# MAGIC all_focus_nations AS (
-# MAGIC   SELECT nation_id AS focus_nation_id FROM n
-# MAGIC )
-# MAGIC
-# MAGIC -- =========================
-# MAGIC -- NATION row
-# MAGIC -- =========================
-# MAGIC SELECT
-# MAGIC   f.focus_nation_id,
-# MAGIC   'NATION' AS comparison_group,
-# MAGIC
-# MAGIC   n.coaches_count,
-# MAGIC   n.coach_participations_count,
-# MAGIC   n.game_representations_count,
-# MAGIC   n.tournaments_attended_count,
-# MAGIC   n.avg_points_per_game,
-# MAGIC
-# MAGIC   n.coaches_global_pct,
-# MAGIC   n.coach_participations_global_pct,
-# MAGIC   n.game_representations_global_pct,
-# MAGIC   n.tournaments_attended_global_pct,
-# MAGIC
-# MAGIC   n.games_hosted_count,
-# MAGIC   n.tournaments_hosted_count,
-# MAGIC   n.games_hosted_global_pct,
-# MAGIC   n.tournaments_hosted_global_pct,
-# MAGIC
-# MAGIC   n.glo_peak_max,
-# MAGIC   n.glo_peak_mean,
-# MAGIC   n.glo_peak_median,
-# MAGIC
-# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM all_focus_nations f
-# MAGIC LEFT JOIN n
-# MAGIC   ON f.focus_nation_id = n.nation_id
-# MAGIC
-# MAGIC UNION ALL
-# MAGIC
-# MAGIC -- =========================
-# MAGIC -- REST_OF_WORLD row
-# MAGIC -- =========================
-# MAGIC SELECT
-# MAGIC   f.focus_nation_id,
-# MAGIC   'REST_OF_WORLD' AS comparison_group,
-# MAGIC
-# MAGIC   -- disjoint counts (valid subtraction)
-# MAGIC   (n_total.coaches_count_global - COALESCE(n.coaches_count, 0))              AS coaches_count,
-# MAGIC   (n_total.coach_participations_count_global - COALESCE(n.coach_participations_count, 0)) AS coach_participations_count,
-# MAGIC   (n_total.game_representations_count_global - COALESCE(n.game_representations_count, 0)) AS game_representations_count,
-# MAGIC   (n_total.tournaments_attended_count_global - COALESCE(n.tournaments_attended_count, 0)) AS tournaments_attended_count,
-# MAGIC
-# MAGIC   -- weighted mean from sums/counts (robust to NULL result_numeric)
-# MAGIC   ((pg.points_sum - COALESCE(pn.points_sum, 0.0))
-# MAGIC     / NULLIF((pg.points_n - COALESCE(pn.points_n, 0)), 0)
-# MAGIC   ) AS avg_points_per_game,
-# MAGIC
-# MAGIC   (100.0 - COALESCE(n.coaches_global_pct, 0.0))                   AS coaches_global_pct,
-# MAGIC   (100.0 - COALESCE(n.coach_participations_global_pct, 0.0))      AS coach_participations_global_pct,
-# MAGIC   (100.0 - COALESCE(n.game_representations_global_pct, 0.0))      AS game_representations_global_pct,
-# MAGIC   (100.0 - COALESCE(n.tournaments_attended_global_pct, 0.0))      AS tournaments_attended_global_pct,
-# MAGIC
-# MAGIC   (h_total.games_hosted_count_global - COALESCE(n.games_hosted_count, 0))       AS games_hosted_count,
-# MAGIC   (h_total.tournaments_hosted_count_global - COALESCE(n.tournaments_hosted_count, 0)) AS tournaments_hosted_count,
-# MAGIC   (100.0 - COALESCE(n.games_hosted_global_pct, 0.0))               AS games_hosted_global_pct,
-# MAGIC   (100.0 - COALESCE(n.tournaments_hosted_global_pct, 0.0))         AS tournaments_hosted_global_pct,
-# MAGIC
-# MAGIC   -- Rest-of-world Elo: mean + max are possible; median is not subtractable
-# MAGIC   CASE
-# MAGIC     WHEN (g.glo_peak_n - COALESCE(gn.glo_peak_n, 0)) > 0
-# MAGIC     THEN (g.glo_peak_sum - COALESCE(gn.glo_peak_sum, 0.0)) / (g.glo_peak_n - COALESCE(gn.glo_peak_n, 0))
-# MAGIC   END AS glo_peak_mean,
-# MAGIC
-# MAGIC   CASE
-# MAGIC     WHEN COALESCE(gn.glo_peak_max, -1) = ms.global_max AND ms.nations_with_global_max = 1
-# MAGIC       THEN ms.global_second_max
-# MAGIC     ELSE ms.global_max
-# MAGIC   END AS glo_peak_max,
-# MAGIC
-# MAGIC   CAST(NULL AS DOUBLE) AS glo_peak_median,
-# MAGIC
-# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM all_focus_nations f
-# MAGIC LEFT JOIN n
-# MAGIC   ON f.focus_nation_id = n.nation_id
-# MAGIC CROSS JOIN (
-# MAGIC   SELECT
-# MAGIC     MAX(coaches_count_global)              AS coaches_count_global,
-# MAGIC     MAX(coach_participations_count_global) AS coach_participations_count_global,
-# MAGIC     MAX(game_representations_count_global) AS game_representations_count_global,
-# MAGIC     MAX(tournaments_attended_count_global) AS tournaments_attended_count_global
-# MAGIC   FROM (
-# MAGIC     SELECT
-# MAGIC       -- invert from your existing nation_overview_summary global pct denominators is messy,
-# MAGIC       -- so we compute these by summing the base table once:
-# MAGIC       COUNT(DISTINCT coach_id)      AS coaches_count_global,
-# MAGIC       COUNT(*)                      AS coach_participations_count_global,
-# MAGIC       COUNT(DISTINCT game_id)       AS game_representations_count_global,
-# MAGIC       COUNT(DISTINCT tournament_id) AS tournaments_attended_count_global
-# MAGIC     FROM coach_base
-# MAGIC   )
-# MAGIC ) n_total
-# MAGIC CROSS JOIN (
-# MAGIC   SELECT
-# MAGIC     COUNT(DISTINCT g.game_id)       AS games_hosted_count_global,
-# MAGIC     COUNT(DISTINCT g.tournament_id) AS tournaments_hosted_count_global
-# MAGIC   FROM naf_catalog.gold_fact.games_fact g
-# MAGIC   INNER JOIN naf_catalog.gold_dim.tournament_dim td
-# MAGIC     ON g.tournament_id = td.tournament_id
-# MAGIC   WHERE td.nation_id IS NOT NULL
-# MAGIC     AND g.game_id IS NOT NULL
-# MAGIC     AND g.tournament_id IS NOT NULL
-# MAGIC ) h_total
-# MAGIC CROSS JOIN points_global pg
-# MAGIC LEFT JOIN points_by_nation pn
-# MAGIC   ON f.focus_nation_id = pn.nation_id
-# MAGIC CROSS JOIN glo_global g
-# MAGIC LEFT JOIN glo_by_nation gn
-# MAGIC   ON f.focus_nation_id = gn.nation_id
-# MAGIC CROSS JOIN glo_max_stats ms
-# MAGIC
-# MAGIC UNION ALL
-# MAGIC
-# MAGIC -- =========================
-# MAGIC -- WORLD row (repeated per focus nation)
-# MAGIC -- =========================
-# MAGIC SELECT
-# MAGIC   f.focus_nation_id,
-# MAGIC   'WORLD' AS comparison_group,
-# MAGIC
-# MAGIC   n_total.coaches_count_global              AS coaches_count,
-# MAGIC   n_total.coach_participations_count_global AS coach_participations_count,
-# MAGIC   n_total.game_representations_count_global AS game_representations_count,
-# MAGIC   n_total.tournaments_attended_count_global AS tournaments_attended_count,
-# MAGIC
-# MAGIC   (pg.points_sum / NULLIF(pg.points_n, 0))  AS avg_points_per_game,
-# MAGIC
-# MAGIC   100.0 AS coaches_global_pct,
-# MAGIC   100.0 AS coach_participations_global_pct,
-# MAGIC   100.0 AS game_representations_global_pct,
-# MAGIC   100.0 AS tournaments_attended_global_pct,
-# MAGIC
-# MAGIC   h_total.games_hosted_count_global       AS games_hosted_count,
-# MAGIC   h_total.tournaments_hosted_count_global AS tournaments_hosted_count,
-# MAGIC   100.0 AS games_hosted_global_pct,
-# MAGIC   100.0 AS tournaments_hosted_global_pct,
-# MAGIC
-# MAGIC   g.glo_peak_max,
-# MAGIC   (g.glo_peak_sum / NULLIF(g.glo_peak_n, 0)) AS glo_peak_mean,
-# MAGIC   g.glo_peak_median,
-# MAGIC
-# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM all_focus_nations f
-# MAGIC CROSS JOIN (
-# MAGIC   SELECT
-# MAGIC     COUNT(DISTINCT coach_id)      AS coaches_count_global,
-# MAGIC     COUNT(*)                      AS coach_participations_count_global,
-# MAGIC     COUNT(DISTINCT game_id)       AS game_representations_count_global,
-# MAGIC     COUNT(DISTINCT tournament_id) AS tournaments_attended_count_global
-# MAGIC   FROM coach_base
-# MAGIC ) n_total
-# MAGIC CROSS JOIN (
-# MAGIC   SELECT
-# MAGIC     COUNT(DISTINCT g.game_id)       AS games_hosted_count_global,
-# MAGIC     COUNT(DISTINCT g.tournament_id) AS tournaments_hosted_count_global
-# MAGIC   FROM naf_catalog.gold_fact.games_fact g
-# MAGIC   INNER JOIN naf_catalog.gold_dim.tournament_dim td
-# MAGIC     ON g.tournament_id = td.tournament_id
-# MAGIC   WHERE td.nation_id IS NOT NULL
-# MAGIC     AND g.game_id IS NOT NULL
-# MAGIC     AND g.tournament_id IS NOT NULL
-# MAGIC ) h_total
-# MAGIC CROSS JOIN points_global pg
-# MAGIC CROSS JOIN glo_global g;
-# MAGIC
+# MAGIC -- REMOVED: nation_overview_comparison_summary
+# MAGIC -- Redundant — superseded by nation_overview_comparison (below).
+# MAGIC -- Dropped in 331 cleanup cell (2026-03).
 
 # COMMAND ----------
 
@@ -1025,13 +773,13 @@
 # MAGIC     COALESCE(coach_participations_count, 0) AS coach_participations_count,
 # MAGIC     avg_points_per_game,
 # MAGIC
-# MAGIC     COALESCE(coaches_global_pct, 0.0)              AS coaches_global_pct,
-# MAGIC     COALESCE(coach_participations_global_pct, 0.0) AS coach_participations_global_pct,
+# MAGIC     COALESCE(coaches_global_frac, 0.0)              AS coaches_global_frac,
+# MAGIC     COALESCE(coach_participations_global_frac, 0.0) AS coach_participations_global_frac,
 # MAGIC
 # MAGIC     COALESCE(games_hosted_count, 0)       AS games_hosted_count,
 # MAGIC     COALESCE(tournaments_hosted_count, 0) AS tournaments_hosted_count,
-# MAGIC     COALESCE(games_hosted_global_pct, 0.0)       AS games_hosted_global_pct,
-# MAGIC     COALESCE(tournaments_hosted_global_pct, 0.0) AS tournaments_hosted_global_pct,
+# MAGIC     COALESCE(games_hosted_global_frac, 0.0)       AS games_hosted_global_frac,
+# MAGIC     COALESCE(tournaments_hosted_global_frac, 0.0) AS tournaments_hosted_global_frac,
 # MAGIC
 # MAGIC     glo_peak_max,
 # MAGIC     glo_peak_mean,
@@ -1105,13 +853,13 @@
 # MAGIC   CAST(ne.coach_participations_count AS BIGINT) AS coach_participations_count,
 # MAGIC   ne.avg_points_per_game                        AS avg_points_per_game,
 # MAGIC
-# MAGIC   ne.coaches_global_pct                         AS coaches_global_pct,
-# MAGIC   ne.coach_participations_global_pct            AS coach_participations_global_pct,
+# MAGIC   ne.coaches_global_frac                         AS coaches_global_frac,
+# MAGIC   ne.coach_participations_global_frac            AS coach_participations_global_frac,
 # MAGIC
 # MAGIC   CAST(ne.games_hosted_count AS BIGINT)         AS games_hosted_count,
 # MAGIC   CAST(ne.tournaments_hosted_count AS BIGINT)   AS tournaments_hosted_count,
-# MAGIC   ne.games_hosted_global_pct                    AS games_hosted_global_pct,
-# MAGIC   ne.tournaments_hosted_global_pct              AS tournaments_hosted_global_pct,
+# MAGIC   ne.games_hosted_global_frac                    AS games_hosted_global_frac,
+# MAGIC   ne.tournaments_hosted_global_frac              AS tournaments_hosted_global_frac,
 # MAGIC
 # MAGIC   CAST(ne.glo_coaches_count AS BIGINT)          AS glo_coaches_count,
 # MAGIC   ne.glo_peak_max,
@@ -1134,13 +882,13 @@
 # MAGIC      / NULLIF((wf.coach_participations_count - CAST(ne.coach_participations_count AS BIGINT)), 0)
 # MAGIC   ) AS avg_points_per_game,
 # MAGIC
-# MAGIC   (100.0 - COALESCE(ne.coaches_global_pct, 0.0))              AS coaches_global_pct,
-# MAGIC   (100.0 - COALESCE(ne.coach_participations_global_pct, 0.0)) AS coach_participations_global_pct,
+# MAGIC   (1.0 - COALESCE(ne.coaches_global_frac, 0.0))              AS coaches_global_frac,
+# MAGIC   (1.0 - COALESCE(ne.coach_participations_global_frac, 0.0)) AS coach_participations_global_frac,
 # MAGIC
 # MAGIC   (wf.games_hosted_count - CAST(ne.games_hosted_count AS BIGINT)) AS games_hosted_count,
 # MAGIC   (wf.tournaments_hosted_count - CAST(ne.tournaments_hosted_count AS BIGINT)) AS tournaments_hosted_count,
-# MAGIC   (100.0 - COALESCE(ne.games_hosted_global_pct, 0.0))             AS games_hosted_global_pct,
-# MAGIC   (100.0 - COALESCE(ne.tournaments_hosted_global_pct, 0.0))       AS tournaments_hosted_global_pct,
+# MAGIC   (1.0 - COALESCE(ne.games_hosted_global_frac, 0.0))             AS games_hosted_global_frac,
+# MAGIC   (1.0 - COALESCE(ne.tournaments_hosted_global_frac, 0.0))       AS tournaments_hosted_global_frac,
 # MAGIC
 # MAGIC   (wf.glo_coaches_count - CAST(ne.glo_coaches_count AS BIGINT)) AS glo_coaches_count,
 # MAGIC
@@ -1164,13 +912,13 @@
 # MAGIC   wf.coach_participations_count,
 # MAGIC   wf.avg_points_per_game,
 # MAGIC
-# MAGIC   100.0 AS coaches_global_pct,
-# MAGIC   100.0 AS coach_participations_global_pct,
+# MAGIC   1.0 AS coaches_global_frac,
+# MAGIC   1.0 AS coach_participations_global_frac,
 # MAGIC
 # MAGIC   wf.games_hosted_count,
 # MAGIC   wf.tournaments_hosted_count,
-# MAGIC   100.0 AS games_hosted_global_pct,
-# MAGIC   100.0 AS tournaments_hosted_global_pct,
+# MAGIC   1.0 AS games_hosted_global_frac,
+# MAGIC   1.0 AS tournaments_hosted_global_frac,
 # MAGIC
 # MAGIC   wf.glo_coaches_count,
 # MAGIC   wf.glo_peak_max,
@@ -1213,13 +961,6 @@
 # MAGIC     AND cg.tournament_id IS NOT NULL
 # MAGIC     AND cg.race_id IS NOT NULL
 # MAGIC     AND cg.race_id <> 0
-# MAGIC     AND cg.result_numeric IN (0.0, 0.5, 1.0)
-# MAGIC   QUALIFY ROW_NUMBER() OVER (
-# MAGIC     PARTITION BY cg.game_id, cg.coach_id
-# MAGIC     ORDER BY cg.event_timestamp DESC NULLS LAST,
-# MAGIC              cg.game_date       DESC NULLS LAST,
-# MAGIC              cg.tournament_id   DESC NULLS LAST
-# MAGIC   ) = 1
 # MAGIC ),
 # MAGIC
 # MAGIC nation_totals AS (
@@ -1421,9 +1162,10 @@
 # MAGIC   GROUP BY metric_type
 # MAGIC ),
 # MAGIC
+# MAGIC -- nation_id = -1 is the synthetic World aggregate (not a real nation)
 # MAGIC world_density AS (
 # MAGIC   SELECT
-# MAGIC     0 AS nation_id,
+# MAGIC     -1 AS nation_id,
 # MAGIC     b.metric_type,
 # MAGIC     b.glo_bin,
 # MAGIC     b.coach_count,
@@ -1535,8 +1277,8 @@
 # MAGIC     AVG(score_for)     AS avg_score_for,
 # MAGIC     AVG(score_against) AS avg_score_against,
 # MAGIC
-# MAGIC     100.0 * SUM(CASE WHEN score_for > score_against THEN 1 ELSE 0 END)
-# MAGIC       / NULLIF(COUNT(*), 0) AS win_pct
+# MAGIC     CAST(SUM(CASE WHEN score_for > score_against THEN 1 ELSE 0 END) AS DOUBLE)
+# MAGIC       / NULLIF(COUNT(*), 0) AS win_frac
 # MAGIC   FROM directional_results
 # MAGIC   GROUP BY nation_id, opponent_nation_id
 # MAGIC ),
@@ -1563,7 +1305,7 @@
 # MAGIC     AND cd.nation_id <> cdo.nation_id
 # MAGIC   QUALIFY ROW_NUMBER() OVER (
 # MAGIC     PARTITION BY rh.coach_id, rh.game_id
-# MAGIC     ORDER BY rh.event_timestamp DESC, rh.game_index DESC, rh.game_id DESC
+# MAGIC     ORDER BY rh.event_timestamp DESC, rh.game_index DESC
 # MAGIC   ) = 1
 # MAGIC ),
 # MAGIC
@@ -1589,7 +1331,7 @@
 # MAGIC
 # MAGIC   r.avg_score_for,
 # MAGIC   r.avg_score_against,
-# MAGIC   r.win_pct,
+# MAGIC   r.win_frac,
 # MAGIC
 # MAGIC   g.glo_exchange_total,
 # MAGIC   g.glo_exchange_mean,
@@ -1662,7 +1404,8 @@
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_elite_rivalry_summary
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
-# MAGIC --   - Elite rivalry scoring: only games where BOTH coaches have 200+ GLO median.
+# MAGIC --   - Elite rivalry scoring: only games where BOTH coaches meet the
+# MAGIC --     elite_glo_median_threshold from analytical_config.
 # MAGIC --   - Same rank-based rivalry_score as nation_rivalry_summary.
 # MAGIC --   - Separate table for future "Elite H2H" dashboard widget.
 # MAGIC -- GRAIN:
@@ -1670,13 +1413,19 @@
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_fact.games_fact
 # MAGIC --   - naf_catalog.gold_dim.coach_dim
+# MAGIC --   - naf_catalog.gold_dim.analytical_config (elite_glo_median_threshold)
 # MAGIC --   - naf_catalog.gold_summary.nation_coach_glo_metrics (for GLO median filter)
 # MAGIC -- =============================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_elite_rivalry_summary
 # MAGIC USING DELTA AS
 # MAGIC
-# MAGIC WITH elite_games AS (
+# MAGIC WITH params AS (
+# MAGIC   SELECT elite_glo_median_threshold AS elite_threshold
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC
+# MAGIC elite_games AS (
 # MAGIC   SELECT
 # MAGIC     g.game_id,
 # MAGIC     ch.nation_id  AS home_nation_id,
@@ -1694,10 +1443,11 @@
 # MAGIC   FROM naf_catalog.gold_fact.games_fact g
 # MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim ch ON g.home_coach_id = ch.coach_id
 # MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim ca ON g.away_coach_id = ca.coach_id
+# MAGIC   CROSS JOIN params p
 # MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics mh
-# MAGIC     ON g.home_coach_id = mh.coach_id AND mh.glo_median >= 200
+# MAGIC     ON g.home_coach_id = mh.coach_id AND mh.glo_median >= p.elite_threshold
 # MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics ma
-# MAGIC     ON g.away_coach_id = ma.coach_id AND ma.glo_median >= 200
+# MAGIC     ON g.away_coach_id = ma.coach_id AND ma.glo_median >= p.elite_threshold
 # MAGIC   WHERE ch.nation_id IS NOT NULL AND ca.nation_id IS NOT NULL
 # MAGIC     AND ch.nation_id <> ca.nation_id
 # MAGIC     AND ch.nation_id <> 0 AND ca.nation_id <> 0
@@ -1847,10 +1597,15 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Cell 17
-# MAGIC %sql
+# MAGIC %sql -- VIEW: naf_catalog.gold_summary.world_glo_metric_quantiles
 # MAGIC -- =====================================================================
-# MAGIC -- SUMMARY: World quantiles (so dashboards don't fake "World" rows)
+# MAGIC -- PURPOSE      : World-level GLO metric quantiles (PEAK/MEAN/MEDIAN).
+# MAGIC --                Provides the boxplot baseline so dashboards don't need
+# MAGIC --                synthetic "World" rows.
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per metric_type
+# MAGIC -- PRIMARY KEY  : (metric_type)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_coach_glo_metrics
 # MAGIC -- =====================================================================
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_summary.world_glo_metric_quantiles AS
 # MAGIC WITH metric_long AS (
@@ -1887,65 +1642,78 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
+# MAGIC %sql -- VIEW: naf_catalog.gold_summary.coach_opponent_glo_bin_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Coach-level opponent strength bins using the fixed 4-bin
+# MAGIC --                GLO scheme (0–150, 150–200, 200–250, 250+).
+# MAGIC --                Helper for nation_top_coach_opponent_bin_perf (342).
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per (coach_id, bin_index)
+# MAGIC -- PRIMARY KEY  : (coach_id, bin_index)
+# MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_opponent_summary (331)
+# MAGIC --                naf_catalog.gold_summary.nation_coach_glo_metrics (332)
+# MAGIC -- NOTES        : Lives in 332 (not 331) because it depends on
+# MAGIC --                nation_coach_glo_metrics for opponent GLO peak.
+# MAGIC --                Uses COALESCE(stable, full-history) GLO so all opponents
+# MAGIC --                with any rating are included (not just is_valid_glo).
+# MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_summary.coach_opponent_glo_bin_summary AS
-# MAGIC WITH params AS (
-# MAGIC   SELECT
-# MAGIC     CAST(100.0 AS DOUBLE) AS min_glo,
-# MAGIC     CAST(350.0 AS DOUBLE) AS max_glo,
-# MAGIC     CAST(5     AS INT)    AS num_bins,
-# MAGIC     CAST((350.0 - 100.0) / 5 AS DOUBLE) AS bin_width
+# MAGIC
+# MAGIC -- Fixed 4-bin scheme: matches coach_opponent_median_glo_bin_summary (331)
+# MAGIC -- and nation_opponent_elo_bin_wdl (332).
+# MAGIC WITH bin_def AS (
+# MAGIC   SELECT * FROM (VALUES
+# MAGIC     (1, 0.0,    150.0, '0–150'),
+# MAGIC     (2, 150.0,  200.0, '150–200'),
+# MAGIC     (3, 200.0,  250.0, '200–250'),
+# MAGIC     (4, 250.0, 9999.0, '250+')
+# MAGIC   ) AS t(bin_index, bin_min, bin_max, bin_label)
 # MAGIC ),
+# MAGIC
 # MAGIC bucketed AS (
 # MAGIC   SELECT
 # MAGIC     s.coach_id,
 # MAGIC     s.opponent_coach_id,
-# MAGIC     pks.glo_peak AS opponent_glo_peak,
 # MAGIC     s.games_played,
 # MAGIC     s.points_total,
-# MAGIC     p.min_glo,
-# MAGIC     p.max_glo,
-# MAGIC     p.num_bins,
-# MAGIC     p.bin_width,
-# MAGIC     CASE
-# MAGIC       WHEN pks.glo_peak <  p.min_glo THEN 0
-# MAGIC       WHEN pks.glo_peak >= p.max_glo THEN p.num_bins
-# MAGIC       ELSE WIDTH_BUCKET(pks.glo_peak, p.min_glo, p.max_glo, p.num_bins)
-# MAGIC     END AS bin_index
+# MAGIC     bd.bin_index
 # MAGIC   FROM naf_catalog.gold_summary.coach_opponent_summary AS s
 # MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics AS pks
 # MAGIC     ON s.opponent_coach_id = pks.coach_id
-# MAGIC     AND pks.is_valid_glo = TRUE
-# MAGIC   CROSS JOIN params AS p
+# MAGIC   INNER JOIN bin_def bd
+# MAGIC     ON COALESCE(pks.glo_peak, pks.glo_peak_all) >= bd.bin_min
+# MAGIC     AND COALESCE(pks.glo_peak, pks.glo_peak_all) < bd.bin_max
+# MAGIC   WHERE COALESCE(pks.glo_peak, pks.glo_peak_all) IS NOT NULL
 # MAGIC ),
+# MAGIC
 # MAGIC agg AS (
 # MAGIC   SELECT
 # MAGIC     coach_id,
 # MAGIC     bin_index,
-# MAGIC     MIN(min_glo + (bin_index - 1) * bin_width) AS bin_lower,
-# MAGIC     MIN(min_glo + (bin_index)     * bin_width) AS bin_upper,
-# MAGIC     COUNT(DISTINCT opponent_coach_id) AS opponents_count,
-# MAGIC     SUM(games_played) AS games_played,
-# MAGIC     SUM(points_total) AS points_total,
+# MAGIC     CAST(COUNT(DISTINCT opponent_coach_id) AS INT) AS opponents_count,
+# MAGIC     CAST(SUM(games_played) AS INT)                 AS games_played,
+# MAGIC     SUM(points_total)                              AS points_total,
 # MAGIC     CASE
-# MAGIC       WHEN SUM(games_played) > 0 THEN SUM(points_total) * 1.0 / SUM(games_played)
-# MAGIC       ELSE NULL
+# MAGIC       WHEN SUM(games_played) > 0
+# MAGIC       THEN CAST(SUM(points_total) AS DOUBLE) / SUM(games_played)
 # MAGIC     END AS win_points_per_game
 # MAGIC   FROM bucketed
-# MAGIC   WHERE bin_index BETWEEN 1 AND num_bins
 # MAGIC   GROUP BY coach_id, bin_index
 # MAGIC )
+# MAGIC
 # MAGIC SELECT
-# MAGIC   coach_id,
-# MAGIC   bin_index,
-# MAGIC   bin_lower,
-# MAGIC   bin_upper,
-# MAGIC   opponents_count,
-# MAGIC   games_played,
-# MAGIC   points_total,
-# MAGIC   win_points_per_game
-# MAGIC FROM agg;
+# MAGIC   a.coach_id,
+# MAGIC   a.bin_index,
+# MAGIC   bd.bin_min  AS bin_lower,
+# MAGIC   bd.bin_max  AS bin_upper,
+# MAGIC   bd.bin_label,
+# MAGIC   a.opponents_count,
+# MAGIC   a.games_played,
+# MAGIC   a.points_total,
+# MAGIC   a.win_points_per_game
+# MAGIC FROM agg a
+# MAGIC INNER JOIN bin_def bd ON a.bin_index = bd.bin_index;
 # MAGIC
 
 # COMMAND ----------
@@ -1953,8 +1721,8 @@
 # MAGIC %md
 # MAGIC **Note**: `nation_rivalry_summary` was previously duplicated here as a VIEW that
 # MAGIC overwrote the TABLE defined above. The duplicate has been removed.
-# MAGIC The TABLE definition (above) now uses the improved two-component closeness formula
-# MAGIC (average of win-balance closeness and score-margin closeness).
+# MAGIC The TABLE definition (above) uses `rivalry_score = (games_rank + closeness_rank) / 2`
+# MAGIC where `closeness = ABS(avg_score_for - 0.5)`. The formula is symmetric by construction.
 
 # COMMAND ----------
 
@@ -2122,7 +1890,7 @@
 # MAGIC --                naf_catalog.gold_summary.coach_race_relative_strength (supplementary)
 # MAGIC -- NOTES        : - Eligibility gate: is_valid_glo = TRUE (50+ global games)
 # MAGIC --                  AND active (played in current or previous calendar year).
-# MAGIC --                - race_elo_median = MEAN of elo_peak across ALL races (from race_dim).
+# MAGIC --                - race_elo_peak_mean = MEAN of elo_peak across ALL races (unplayed = 150).
 # MAGIC --                  Unplayed or invalid-ELO races count as 150 (starting Elo).
 # MAGIC --                - All component ranks are GLOBAL (not within-nation).
 # MAGIC --                - Single weighting: GLO 50%, Race 25%, Opponent 25%.
@@ -2163,7 +1931,7 @@
 # MAGIC            THEN ncr.elo_peak
 # MAGIC            ELSE 150.0
 # MAGIC       END
-# MAGIC     ), 1) AS race_elo_median
+# MAGIC     ), 1) AS race_elo_peak_mean
 # MAGIC   FROM eligible e
 # MAGIC   CROSS JOIN (
 # MAGIC     SELECT race_id FROM naf_catalog.gold_dim.race_dim WHERE race_id <> 0
@@ -2197,7 +1965,7 @@
 # MAGIC     e.coach_id,
 # MAGIC     e.glo_peak,
 # MAGIC     e.glo_median,
-# MAGIC     COALESCE(r.race_elo_median, 0.0)      AS race_elo_median,
+# MAGIC     COALESCE(r.race_elo_peak_mean, 0.0)      AS race_elo_peak_mean,
 # MAGIC     e.avg_opponent_glo,
 # MAGIC     COALESCE(f.form_score, 0.0)            AS form_score,
 # MAGIC     COALESCE(v.races_above_world_median, 0) AS races_above_world_median,
@@ -2213,7 +1981,7 @@
 # MAGIC   SELECT
 # MAGIC     *,
 # MAGIC     CAST(DENSE_RANK() OVER (ORDER BY glo_median        DESC) AS INT) AS glo_rank,
-# MAGIC     CAST(DENSE_RANK() OVER (ORDER BY race_elo_median   DESC) AS INT) AS race_rank,
+# MAGIC     CAST(DENSE_RANK() OVER (ORDER BY race_elo_peak_mean   DESC) AS INT) AS race_rank,
 # MAGIC     CAST(DENSE_RANK() OVER (ORDER BY avg_opponent_glo  DESC) AS INT) AS opponent_rank
 # MAGIC   FROM combined
 # MAGIC ),
@@ -2231,7 +1999,7 @@
 # MAGIC   coach_id,
 # MAGIC   glo_peak,
 # MAGIC   glo_median,
-# MAGIC   race_elo_median,
+# MAGIC   race_elo_peak_mean,
 # MAGIC   avg_opponent_glo,
 # MAGIC   form_score,
 # MAGIC   races_above_world_median,

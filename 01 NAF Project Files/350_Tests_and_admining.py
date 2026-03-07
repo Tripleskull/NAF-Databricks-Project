@@ -553,10 +553,7 @@
 # MAGIC SELECT 'nation_race_elo_peak_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT nation_id, race_id FROM naf_catalog.gold_summary.nation_race_elo_peak_summary GROUP BY nation_id, race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
-# MAGIC -- PK: nation_overview_comparison_summary (focus_nation_id, comparison_group)
-# MAGIC SELECT 'nation_overview_comparison_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM (SELECT focus_nation_id, comparison_group FROM naf_catalog.gold_summary.nation_overview_comparison_summary GROUP BY focus_nation_id, comparison_group HAVING COUNT(*) > 1)
-# MAGIC UNION ALL
+# MAGIC -- REMOVED: nation_overview_comparison_summary (table dropped — redundant with nation_overview_comparison)
 # MAGIC -- FK: nation_coach_glo_metrics.nation_id → nation_dim
 # MAGIC SELECT 'nation_coach_glo_metrics: orphan nation_id' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM naf_catalog.gold_summary.nation_coach_glo_metrics s
@@ -2025,9 +2022,7 @@
 # MAGIC   SELECT 'ERROR', 'nation_race_elo_peak_summary: PK duplicates', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM (SELECT nation_id, race_id FROM naf_catalog.gold_summary.nation_race_elo_peak_summary GROUP BY nation_id, race_id HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_overview_comparison_summary: PK duplicates', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM (SELECT focus_nation_id, comparison_group FROM naf_catalog.gold_summary.nation_overview_comparison_summary GROUP BY focus_nation_id, comparison_group HAVING COUNT(*) > 1)
-# MAGIC   UNION ALL
+# MAGIC   -- REMOVED: nation_overview_comparison_summary (table dropped)
 # MAGIC   SELECT 'ERROR', 'nation_coach_glo_metrics: orphan nation_id', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics s LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id WHERE d.nation_id IS NULL
 # MAGIC   UNION ALL

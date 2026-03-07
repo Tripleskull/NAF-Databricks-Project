@@ -155,21 +155,49 @@ The `is_valid_glo` flag marks nations/coaches that pass the stable-sample thresh
 
 ## 5. Binning Schemes
 
-### 5.1 Global Elo bins
+### 5.1 Opponent GLO bins (fixed 4-bin scheme)
 
-Objects:
+Used for "binned result by opponent strength" charts at both coach and nation level.
 
-| Object | Schema | Purpose |
+| Bin index | Range | Label |
 |---|---|---|
-| `global_elo_bin_scheme` | `gold_summary` | Scheme IDs and numeric edges |
-| `global_elo_bin_scheme` | `gold_presentation` | Stable display labels |
-| `coach_opponent_global_elo_bin_summary` | `gold_summary` | Coach × bin aggregates |
+| 1 | 0–150 | 0–150 |
+| 2 | 150–200 | 150–200 |
+| 3 | 200–250 | 200–250 |
+| 4 | 250+ | 250+ |
 
-Binning uses `WIDTH_BUCKET` against the scheme edges. The opponent rating value being bucketed varies with the selected `metric_phase` and `metric_type` — bin labels stay stable, only the input value changes.
+Objects using this scheme:
 
-### 5.2 Race Elo bins
+| Object | Schema | Grain | Purpose |
+|---|---|---|---|
+| `coach_opponent_median_glo_bin_summary` | `gold_summary` | (coach_id, bin_index) | Coach-level opponent bin W/D/L (331) |
+| `coach_opponent_glo_bin_summary` | `gold_summary` | (coach_id, bin_index) | Coach-level opponent bin helper for nation views (332) |
+| `nation_opponent_elo_bin_wdl` | `gold_summary` | (nation_id, metric_type, bin_index) | Nation-level opponent bin W/D/L (332) |
+
+Bins are defined inline via `VALUES` clauses — no configurable bin framework.
+
+### 5.2 GLO rating distribution bins (fixed 25-point width)
+
+Used for density/histogram charts comparing nations vs World.
+
+| Parameter | Value |
+|---|---|
+| Bin width | 25 GLO points |
+| Example bins | 100–125, 125–150, …, 275–300, 300+ |
+
+Object: `nation_glo_binned_distribution` (`gold_summary`, 332).
+
+### 5.3 Race Elo bins
 
 Not yet implemented. When needed, mirror the global pattern with bin edges calibrated to the (typically narrower) race rating distribution.
+
+### 5.4 Elite rivalry threshold
+
+| Parameter | Value | Config column | Purpose |
+|---|---|---|---|
+| Elite GLO median threshold | 200.0 | `elite_glo_median_threshold` | Minimum GLO median for both coaches in a game to qualify as "elite" |
+
+Used by `nation_elite_rivalry_summary` (332). Only games where both participants have `glo_median >= threshold` are included in the elite rivalry scoring.
 
 ---
 
@@ -190,10 +218,11 @@ Not yet implemented. When needed, mirror the global pattern with bin edges calib
 | Min games: last-50 race Elo | 50 | `last_n_games_window` | §4.1 |
 | Min games: nation GLO | 50 | `min_games_nation_glo` | §4.2 |
 | Min games: nation race | 5 | `min_games_nation_race` | §4.2 |
-| Rivalry games cap | 100 | `rivalry_games_cap` | §4.2 |
-| Rivalry weight: games | 1/6 | `rivalry_w_games` | §4.2 |
-| Rivalry weight: closeness | 2/3 | `rivalry_w_closeness` | §4.2 |
-| Rivalry weight: share | 1/6 | `rivalry_w_share` | §4.2 |
+| Rivalry games cap | 100 | `rivalry_games_cap` | *(unused — future)* |
+| Rivalry weight: games | 1/6 | `rivalry_w_games` | *(unused — future)* |
+| Rivalry weight: closeness | 2/3 | `rivalry_w_closeness` | *(unused — future)* |
+| Rivalry weight: share | 1/6 | `rivalry_w_share` | *(unused — future)* |
+| Elite GLO median threshold | 200 | `elite_glo_median_threshold` | §5.4 |
 | Form window games | 50 | `form_window_games` | §8.1 |
 | Form min games for pctl | 50 | `form_min_games_for_pctl` | §8.1 |
 

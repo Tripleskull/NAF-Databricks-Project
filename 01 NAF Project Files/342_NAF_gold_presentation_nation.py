@@ -76,13 +76,13 @@
 # MAGIC   c.coach_participations_count,
 # MAGIC   c.avg_points_per_game,
 # MAGIC
-# MAGIC   c.coaches_global_pct,
-# MAGIC   c.coach_participations_global_pct,
+# MAGIC   ROUND(c.coaches_global_frac * 100, 2)              AS coaches_global_pct,
+# MAGIC   ROUND(c.coach_participations_global_frac * 100, 2) AS coach_participations_global_pct,
 # MAGIC
 # MAGIC   c.games_hosted_count,
 # MAGIC   c.tournaments_hosted_count,
-# MAGIC   c.games_hosted_global_pct,
-# MAGIC   c.tournaments_hosted_global_pct,
+# MAGIC   ROUND(c.games_hosted_global_frac * 100, 2)       AS games_hosted_global_pct,
+# MAGIC   ROUND(c.tournaments_hosted_global_frac * 100, 2) AS tournaments_hosted_global_pct,
 # MAGIC
 # MAGIC   c.glo_coaches_count,
 # MAGIC   c.glo_peak_max,
@@ -134,17 +134,17 @@
 # MAGIC   s.glo_peak_median,
 # MAGIC   s.avg_opponent_glo_peak,
 # MAGIC
-# MAGIC   -- Global share (from summary)
-# MAGIC   s.coaches_global_pct,
-# MAGIC   s.game_representations_global_pct AS games_global_pct,
-# MAGIC   s.tournaments_attended_global_pct AS tournaments_global_pct,
-# MAGIC   s.coach_participations_global_pct,
+# MAGIC   -- Global share (summary stores 0-1 fractions; presentation converts to 0-100 pct)
+# MAGIC   ROUND(s.coaches_global_frac * 100, 2)              AS coaches_global_pct,
+# MAGIC   ROUND(s.game_representations_global_frac * 100, 2) AS games_global_pct,
+# MAGIC   ROUND(s.tournaments_attended_global_frac * 100, 2) AS tournaments_global_pct,
+# MAGIC   ROUND(s.coach_participations_global_frac * 100, 2) AS coach_participations_global_pct,
 # MAGIC
 # MAGIC   -- Hosting (from summary)
 # MAGIC   COALESCE(s.games_hosted_count, 0)       AS games_hosted_count,
 # MAGIC   COALESCE(s.tournaments_hosted_count, 0) AS tournaments_hosted_count,
-# MAGIC   s.games_hosted_global_pct,
-# MAGIC   s.tournaments_hosted_global_pct,
+# MAGIC   ROUND(s.games_hosted_global_frac * 100, 2)       AS games_hosted_global_pct,
+# MAGIC   ROUND(s.tournaments_hosted_global_frac * 100, 2) AS tournaments_hosted_global_pct,
 # MAGIC
 # MAGIC   -- Dashboard helper
 # MAGIC   (COALESCE(s.coaches_count, 0) > 0
@@ -222,7 +222,7 @@
 # MAGIC ),
 # MAGIC world_rows AS (
 # MAGIC   SELECT
-# MAGIC     0                          AS nation_id,
+# MAGIC     -1                         AS nation_id,
 # MAGIC     'World'                    AS nation_name,
 # MAGIC     'World'                    AS nation_name_display,
 # MAGIC     CAST(NULL AS STRING)       AS fifa_code,
@@ -337,7 +337,7 @@
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard-ready weekly cumulative NAF member count per nation + World.
-# MAGIC --   Joins nation_dim for display names. World row uses nation_id = 0.
+# MAGIC --   Joins nation_dim for display names. World row uses nation_id = -1.
 # MAGIC -- GRAIN:
 # MAGIC --   One row per (nation_id, iso_week)
 # MAGIC -- SOURCES:
@@ -349,7 +349,7 @@
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_members_cumulative_weekly_display AS
 # MAGIC SELECT
 # MAGIC   s.nation_id,
-# MAGIC   CASE WHEN s.nation_id = 0 THEN 'World'
+# MAGIC   CASE WHEN s.nation_id = -1 THEN 'World'
 # MAGIC        ELSE n.nation_name_display
 # MAGIC   END                                     AS nation_name_display,
 # MAGIC   s.iso_week,
@@ -414,7 +414,7 @@
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_binned_distribution_display
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Dashboard-facing GLO histogram data with nation display names.
-# MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=0).
+# MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=-1).
 # MAGIC -- GRAIN        : 1 row per (nation_name_display, metric_type, glo_bin)
 # MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_glo_binned_distribution
 # MAGIC --                naf_catalog.gold_dim.nation_dim
@@ -423,7 +423,7 @@
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_binned_distribution_display AS
 # MAGIC SELECT
 # MAGIC   merged.nation_id,
-# MAGIC   CASE WHEN merged.nation_id = 0 THEN 'World'
+# MAGIC   CASE WHEN merged.nation_id = -1 THEN 'World'
 # MAGIC        ELSE n.nation_name_display
 # MAGIC   END AS nation_name_display,
 # MAGIC   merged.metric_type,
@@ -466,7 +466,7 @@
 # MAGIC -- PURPOSE      : Smooth cumulative distribution function for GLO values.
 # MAGIC --                Computes CUME_DIST at each individual coach GLO value
 # MAGIC --                instead of using pre-binned histogram data.
-# MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=0).
+# MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=-1).
 # MAGIC -- GRAIN        : 1 row per (nation_id, metric_type, glo_value) — one point per coach
 # MAGIC -- SOURCES      : naf_catalog.gold_summary.nation_coach_glo_metrics
 # MAGIC --                naf_catalog.gold_dim.nation_dim
@@ -503,7 +503,7 @@
 # MAGIC
 # MAGIC   -- World CDF (all valid coaches regardless of nation)
 # MAGIC   SELECT
-# MAGIC     0 AS nation_id,
+# MAGIC     -1 AS nation_id,
 # MAGIC     'World' AS nation_name_display,
 # MAGIC     'PEAK' AS metric_type,
 # MAGIC     ROUND(g.glo_peak, 0)   AS glo_value,
@@ -514,7 +514,7 @@
 # MAGIC   UNION ALL
 # MAGIC
 # MAGIC   SELECT
-# MAGIC     0 AS nation_id,
+# MAGIC     -1 AS nation_id,
 # MAGIC     'World' AS nation_name_display,
 # MAGIC     'MEDIAN' AS metric_type,
 # MAGIC     ROUND(g.glo_median, 0) AS glo_value,
@@ -689,9 +689,9 @@
 # MAGIC UNION ALL
 # MAGIC
 # MAGIC SELECT
-# MAGIC   CAST(NULL AS INT) AS nation_id,
-# MAGIC   'World'           AS nation_name,
-# MAGIC   'World'           AS nation_name_display,
+# MAGIC   CAST(-1 AS INT) AS nation_id,
+# MAGIC   'World'          AS nation_name,
+# MAGIC   'World'          AS nation_name_display,
 # MAGIC   w.metric_type,
 # MAGIC   w.coaches_count,
 # MAGIC   w.value_min,
@@ -813,9 +813,9 @@
 # MAGIC UNION ALL
 # MAGIC
 # MAGIC SELECT
-# MAGIC   CAST(NULL AS INT) AS nation_id,
-# MAGIC   'World'           AS nation_name,
-# MAGIC   'World'           AS nation_name_display,
+# MAGIC   CAST(-1 AS INT) AS nation_id,
+# MAGIC   'World'          AS nation_name,
+# MAGIC   'World'          AS nation_name_display,
 # MAGIC   coach_id,
 # MAGIC   coach_name,
 # MAGIC   metric_type,
@@ -1565,7 +1565,7 @@
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for nation W/D/L by opponent rating bin.
 # MAGIC --   Supports GLO Metric filter via metric_type (PEAK/MEDIAN).
-# MAGIC --   Fixed bins: 0-150, 150-200, 200-250, 250-300, 300+.
+# MAGIC --   Fixed 4-bin scheme: 0–150, 150–200, 200–250, 250+.
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
@@ -1647,7 +1647,7 @@
 # MAGIC   -- Raw metric values
 # MAGIC   tc.glo_peak,
 # MAGIC   tc.glo_median,
-# MAGIC   tc.race_elo_median,
+# MAGIC   tc.race_elo_peak_mean,
 # MAGIC   tc.avg_opponent_glo,
 # MAGIC
 # MAGIC   -- Supplementary (display only, not in selector score)
