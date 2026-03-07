@@ -484,6 +484,7 @@
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
 # MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC     AND g.nation_id <> 0  -- exclude Unknown from per-nation lines
 # MAGIC
 # MAGIC   UNION ALL
 # MAGIC
@@ -496,6 +497,7 @@
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
 # MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC     AND g.nation_id <> 0  -- exclude Unknown from per-nation lines
 # MAGIC
 # MAGIC   UNION ALL
 # MAGIC
