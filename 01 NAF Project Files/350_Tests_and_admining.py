@@ -2197,14 +2197,14 @@
 # MAGIC phase6_checks AS (
 # MAGIC   -- nation_team_candidate_scores
 # MAGIC   SELECT 'ERROR' AS severity, 'nation_team_candidate_scores: PK duplicates' AS check_name, CAST(COUNT(*) AS BIGINT) AS fail_rows
-# MAGIC   FROM (SELECT nation_id, coach_id, selector_focus FROM naf_catalog.gold_summary.nation_team_candidate_scores GROUP BY nation_id, coach_id, selector_focus HAVING COUNT(*) > 1)
+# MAGIC   FROM (SELECT nation_id, coach_id FROM naf_catalog.gold_summary.nation_team_candidate_scores GROUP BY nation_id, coach_id HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: selector_score_national < 1 (impossible)', CAST(COUNT(*) AS BIGINT)
+# MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: selector_score < 1 (impossible)', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
-# MAGIC   WHERE selector_score_national < 1
+# MAGIC   WHERE selector_score < 1
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_team_candidate_scores: Unknown nation_id=0 found', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores WHERE nation_id = 0
@@ -2222,7 +2222,7 @@
 # MAGIC   UNION ALL
 # MAGIC   -- nation_power_ranking
 # MAGIC   SELECT 'ERROR', 'nation_power_ranking: PK duplicates', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM (SELECT nation_id, selector_focus FROM naf_catalog.gold_summary.nation_power_ranking GROUP BY nation_id, selector_focus HAVING COUNT(*) > 1)
+# MAGIC   FROM (SELECT nation_id FROM naf_catalog.gold_summary.nation_power_ranking GROUP BY nation_id HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_power_ranking: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
@@ -2234,11 +2234,9 @@
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking s
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim d ON s.nation_id = d.nation_id WHERE d.nation_id IS NULL
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_power_ranking: top_8_avg_selector_score_national < 1 (impossible)', CAST(COUNT(*) AS BIGINT)
+# MAGIC   SELECT 'ERROR', 'nation_power_ranking: top_8_avg_selector_score < 1 (impossible)', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
-# MAGIC   WHERE top_8_avg_selector_score_national < 1
-# MAGIC   -- NOTE: Old 5-weight selector config check removed. Selector now uses
-# MAGIC   -- deterministic 3-component focus weights (GLO/Race/Opponent) hardcoded in 332.
+# MAGIC   WHERE top_8_avg_selector_score < 1
 # MAGIC   UNION ALL
 # MAGIC   -- nation_elite_rivalry_summary
 # MAGIC   SELECT 'ERROR', 'nation_elite_rivalry_summary: PK duplicates', CAST(COUNT(*) AS BIGINT)

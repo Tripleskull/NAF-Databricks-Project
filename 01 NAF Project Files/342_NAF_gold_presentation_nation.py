@@ -1054,12 +1054,11 @@
 # MAGIC     AND nation_id <> 0
 # MAGIC ),
 # MAGIC
-# MAGIC -- 5. Power ranking (BALANCED focus) with coaches_eligible ranking
+# MAGIC -- 5. Power ranking with coaches_eligible ranking
 # MAGIC power AS (
-# MAGIC   SELECT nation_id, power_rank, top_8_avg_selector_score_global, coaches_eligible,
+# MAGIC   SELECT nation_id, power_rank, top_8_avg_selector_score, coaches_eligible,
 # MAGIC     DENSE_RANK() OVER (ORDER BY coaches_eligible DESC) AS rank_eligible
 # MAGIC   FROM naf_catalog.gold_summary.nation_power_ranking
-# MAGIC   WHERE selector_focus = 'BALANCED'
 # MAGIC ),
 # MAGIC
 # MAGIC -- 6. Top-8 averages for team strength (global selector score)
@@ -1068,9 +1067,9 @@
 # MAGIC     nation_id,
 # MAGIC     ROUND(AVG(glo_peak), 1)   AS top8_avg_glo_peak,
 # MAGIC     ROUND(AVG(glo_median), 1) AS top8_avg_glo_median,
-# MAGIC     ROUND(AVG(selector_score_global), 1) AS top8_avg_selector_global
+# MAGIC     ROUND(AVG(selector_score), 1) AS top8_avg_selector_global
 # MAGIC   FROM naf_catalog.gold_summary.nation_team_candidate_scores
-# MAGIC   WHERE selector_focus = 'BALANCED' AND selector_rank_national <= 8
+# MAGIC   WHERE selector_rank_national <= 8
 # MAGIC   GROUP BY nation_id
 # MAGIC ),
 # MAGIC team_str_ranked AS (
@@ -1650,13 +1649,13 @@
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for the national team selector.
-# MAGIC --   Simplified 3-component scoring with selector_focus filter support.
-# MAGIC --   Shows eligible coaches with scores, component percentiles, raw metrics,
+# MAGIC --   3-component scoring: GLO 50%, Race 25%, Opponent 25% (all global ranks).
+# MAGIC --   Shows eligible coaches with scores, component ranks, raw metrics,
 # MAGIC --   and supplementary badge counts.
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, selector_focus, coach_id)
+# MAGIC --   1 row per (nation_id, coach_id)
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_team_candidate_scores
 # MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
@@ -1671,25 +1670,18 @@
 # MAGIC   tc.nation_id,
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
-# MAGIC   tc.selector_focus,
 # MAGIC   tc.coach_id,
 # MAGIC   cd.coach_name,
 # MAGIC
-# MAGIC   -- Ranking (within-nation)
+# MAGIC   -- Ranking
 # MAGIC   tc.selector_rank_national,
-# MAGIC   tc.selector_score_national,
+# MAGIC   tc.selector_rank_global,
+# MAGIC   tc.selector_score,
 # MAGIC
-# MAGIC   -- Core component ranks (within-nation, 1 = best)
+# MAGIC   -- Core component ranks (global, 1 = best)
 # MAGIC   tc.glo_rank,
 # MAGIC   tc.race_rank,
 # MAGIC   tc.opponent_rank,
-# MAGIC
-# MAGIC   -- Global ranks (across all nations, 1 = best)
-# MAGIC   tc.glo_rank_global,
-# MAGIC   tc.race_rank_global,
-# MAGIC   tc.opponent_rank_global,
-# MAGIC   tc.selector_score_global,
-# MAGIC   tc.selector_rank_global,
 # MAGIC
 # MAGIC   -- Raw metric values
 # MAGIC   tc.glo_peak,
@@ -1734,12 +1726,12 @@
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
 # MAGIC --   Dashboard contract for the nation power ranking table.
-# MAGIC --   Ranks nations by the average selector_score_global of their top 8 candidates.
-# MAGIC --   Supports selector_focus filter (GLO/RACE/OPPONENT/BALANCED).
+# MAGIC --   Ranks nations by the average selector_score of their top 8 candidates.
+# MAGIC --   Weights: GLO 50%, Race 25%, Opponent 25% (all global ranks).
 # MAGIC -- LAYER:
 # MAGIC --   GOLD_PRESENTATION
 # MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, selector_focus)
+# MAGIC --   1 row per nation_id
 # MAGIC -- SOURCES:
 # MAGIC --   - naf_catalog.gold_summary.nation_power_ranking
 # MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
@@ -1752,9 +1744,7 @@
 # MAGIC   pr.nation_id,
 # MAGIC   ni.nation_name_display,
 # MAGIC   ni.flag_emoji,
-# MAGIC   pr.selector_focus,
-# MAGIC   pr.top_8_avg_selector_score_national,
-# MAGIC   pr.top_8_avg_selector_score_global,
+# MAGIC   pr.top_8_avg_selector_score,
 # MAGIC   pr.top_8_avg_glo_peak,
 # MAGIC   pr.top_8_avg_glo_median,
 # MAGIC   pr.coaches_in_top_8,

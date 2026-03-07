@@ -438,11 +438,10 @@
         "SELECT\r\n",
         "  selector_rank_national,\r\n",
         "  coach_name,\r\n",
-        "  selector_score_national,\r\n",
-        "  glo_rank_global,\r\n",
-        "  race_rank_global,\r\n",
-        "  opponent_rank_global,\r\n",
-        "  selector_score_global,\r\n",
+        "  selector_score,\r\n",
+        "  glo_rank,\r\n",
+        "  race_rank,\r\n",
+        "  opponent_rank,\r\n",
         "  selector_rank_global,\r\n",
         "  glo_peak,\r\n",
         "  glo_median,\r\n",
@@ -454,7 +453,6 @@
         "  national_specialist_count\r\n",
         "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
         "WHERE nation_name_display = :nation_name_display\r\n",
-        "  AND selector_focus = :selector_focus\r\n",
         "ORDER BY selector_rank_global ASC\r\n"
       ],
       "parameters": [
@@ -472,21 +470,6 @@
               ]
             }
           }
-        },
-        {
-          "displayName": "selector_focus",
-          "keyword": "selector_focus",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "BALANCED"
-                }
-              ]
-            }
-          }
         }
       ]
     },
@@ -498,33 +481,14 @@
         "  power_rank,\r\n",
         "  flag_emoji,\r\n",
         "  nation_name_display,\r\n",
-        "  top_8_avg_selector_score_national,\r\n",
-        "  top_8_avg_selector_score_global,\r\n",
+        "  top_8_avg_selector_score,\r\n",
         "  top_8_avg_glo_peak,\r\n",
         "  top_8_avg_glo_median,\r\n",
         "  coaches_in_top_8,\r\n",
         "  coaches_eligible\r\n",
         "FROM naf_catalog.gold_presentation.nation_power_ranking_display\r\n",
-        "WHERE selector_focus = :selector_focus\r\n",
-        "  AND coaches_eligible >= 8\r\n",
+        "WHERE coaches_eligible >= 8\r\n",
         "ORDER BY power_rank\r\n"
-      ],
-      "parameters": [
-        {
-          "displayName": "selector_focus",
-          "keyword": "selector_focus",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "BALANCED"
-                }
-              ]
-            }
-          }
-        }
       ]
     },
     {
@@ -594,15 +558,6 @@
             }
           }
         }
-      ]
-    },
-    {
-      "name": "filter_selector_focus_values",
-      "displayName": "Filter Selector Focus Values",
-      "queryLines": [
-        "SELECT DISTINCT selector_focus\r\n",
-        "FROM naf_catalog.gold_presentation.nation_team_candidates_display\r\n",
-        "ORDER BY selector_focus"
       ]
     },
     {
@@ -1481,20 +1436,20 @@
                       "expression": "`coach_name`"
                     },
                     {
-                      "name": "selector_score_global",
-                      "expression": "`selector_score_global`"
+                      "name": "selector_score",
+                      "expression": "`selector_score`"
                     },
                     {
-                      "name": "glo_rank_global",
-                      "expression": "`glo_rank_global`"
+                      "name": "glo_rank",
+                      "expression": "`glo_rank`"
                     },
                     {
-                      "name": "race_rank_global",
-                      "expression": "`race_rank_global`"
+                      "name": "race_rank",
+                      "expression": "`race_rank`"
                     },
                     {
-                      "name": "opponent_rank_global",
-                      "expression": "`opponent_rank_global`"
+                      "name": "opponent_rank",
+                      "expression": "`opponent_rank`"
                     }
                   ],
                   "disaggregated": true
@@ -1507,33 +1462,33 @@
                 "showTitle": true,
                 "showDescription": true,
                 "title": "National Team Candidates",
-                "description": "National ranking of players by Global Selector Score. Selector Score is an equal weighting of MEDIAN GLO, MEDIAN ELO and MEDIAN opponent GLO career"
+                "description": "SSR: GLO 50% + Race 25% + Opponent 25% (all global ranks, lower = better)"
               },
               "widgetType": "table",
               "encodings": {
                 "columns": [
                   {
                     "fieldName": "selector_rank_global",
-                    "displayName": "Rank (G)"
+                    "displayName": "Rank (#W)"
                   },
                   {
                     "fieldName": "coach_name",
                     "displayName": "Coach"
                   },
                   {
-                    "fieldName": "selector_score_global",
-                    "displayName": "Score (G)"
+                    "fieldName": "selector_score",
+                    "displayName": "SSR"
                   },
                   {
-                    "fieldName": "glo_rank_global",
+                    "fieldName": "glo_rank",
                     "displayName": "GLO"
                   },
                   {
-                    "fieldName": "race_rank_global",
+                    "fieldName": "race_rank",
                     "displayName": "Race"
                   },
                   {
-                    "fieldName": "opponent_rank_global",
+                    "fieldName": "opponent_rank",
                     "displayName": "Opp"
                   }
                 ]
@@ -1569,12 +1524,8 @@
                       "expression": "`nation_name_display`"
                     },
                     {
-                      "name": "top_8_avg_selector_score_national",
-                      "expression": "`top_8_avg_selector_score_national`"
-                    },
-                    {
-                      "name": "top_8_avg_selector_score_global",
-                      "expression": "`top_8_avg_selector_score_global`"
+                      "name": "top_8_avg_selector_score",
+                      "expression": "`top_8_avg_selector_score`"
                     },
                     {
                       "name": "top_8_avg_glo_peak",
@@ -1616,7 +1567,7 @@
                     "displayName": "Nation"
                   },
                   {
-                    "fieldName": "top_8_avg_selector_score_global",
+                    "fieldName": "top_8_avg_selector_score",
                     "displayName": "SSR Top 8"
                   },
                   {

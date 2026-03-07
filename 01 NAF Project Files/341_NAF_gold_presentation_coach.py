@@ -388,11 +388,10 @@
 # MAGIC   sg.current_win_streak,
 # MAGIC   sg.current_unbeaten_streak,
 # MAGIC
-# MAGIC   -- Selector scores (BALANCED focus)
+# MAGIC   -- Selector scores (GLO 50% / Race 25% / Opp 25%, all global ranks)
 # MAGIC   sel.selector_rank_national,
 # MAGIC   sel.selector_rank_global,
-# MAGIC   sel.selector_score_national,
-# MAGIC   sel.selector_score_global,
+# MAGIC   sel.selector_score,
 # MAGIC
 # MAGIC   -- Unified pipeline timestamp
 # MAGIC   GREATEST(
@@ -431,7 +430,6 @@
 # MAGIC   ON ci.coach_id = ogr.coach_id
 # MAGIC LEFT JOIN naf_catalog.gold_summary.nation_team_candidate_scores AS sel
 # MAGIC   ON ci.coach_id = sel.coach_id
-# MAGIC  AND sel.selector_focus = 'BALANCED'
 # MAGIC ;
 # MAGIC
 
