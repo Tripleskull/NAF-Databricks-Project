@@ -623,25 +623,47 @@
         "  FROM fav f\n",
         "  JOIN best_ranked a ON f.coach_id = a.coach_id\n",
         "  JOIN total_games tg ON f.coach_id = tg.coach_id\n",
+        "),\n",
+        "header_rows AS (\n",
+        "  SELECT\n",
+        "    c.coach_id,\n",
+        "    row.sort_order,\n",
+        "    row.label,\n",
+        "    row.profile\n",
+        "  FROM combined c\n",
+        "  LATERAL VIEW EXPLODE(ARRAY(\n",
+        "    named_struct('sort_order', 1, 'label', '🎯 Favourite Race', 'profile', ''),\n",
+        "    named_struct('sort_order', 2, 'label', ' • Race', 'profile', c.fav_race_name),\n",
+        "    named_struct('sort_order', 3, 'label', ' • Record (W/D/L)', 'profile', CONCAT(CAST(c.fav_games AS STRING), ' (', CAST(c.fav_wins AS STRING), '/', CAST(c.fav_draws AS STRING), '/', CAST(c.fav_losses AS STRING), ')')),\n",
+        "    named_struct('sort_order', 4, 'label', ' • PPG', 'profile', CAST(ROUND(c.fav_ppg, 2) AS STRING)),\n",
+        "    named_struct('sort_order', 5, 'label', ' • % of total games', 'profile', CONCAT(CAST(c.fav_pct_of_total AS STRING), '%')),\n",
+        "    named_struct('sort_order', 10, 'label', '📊 Race Stats', 'profile', ''),\n",
+        "    named_struct('sort_order', 11, 'label', ' • Distinct races played', 'profile', CAST(c.distinct_races AS STRING)),\n",
+        "    named_struct('sort_order', 12, 'label', ' • Median race PPG', 'profile', CAST(c.median_race_ppg AS STRING)),\n",
+        "    named_struct('sort_order', 13, 'label', ' • Best race Elo', 'profile', CASE WHEN c.best_race_elo_peak IS NOT NULL THEN CONCAT(c.best_race_name, ': ', CAST(ROUND(c.best_race_elo_peak, 1) AS STRING), ' (#', CAST(c.best_race_world_rank AS STRING), ')') ELSE 'N/A' END),\n",
+        "    named_struct('sort_order', 20, 'label', '📋 Race Ratings and Records', 'profile', '')\n",
+        "  )) e AS row\n",
+        "),\n",
+        "race_rows AS (\n",
+        "  SELECT\n",
+        "    rd.coach_id,\n",
+        "    CAST(20 + rd.rn AS INT) AS sort_order,\n",
+        "    CONCAT(' • ', rd.race_name) AS label,\n",
+        "    CONCAT(\n",
+        "      CAST(rd.games_played AS STRING), ' (',\n",
+        "      CAST(rd.wins AS STRING), '/', CAST(rd.draws AS STRING), '/', CAST(rd.losses AS STRING),\n",
+        "      ') | Elo: ',\n",
+        "      COALESCE(CAST(ROUND(rd.elo_current, 0) AS STRING), '-'),\n",
+        "      ' / ',\n",
+        "      COALESCE(CAST(ROUND(rd.elo_peak_all, 0) AS STRING), '-')\n",
+        "    ) AS profile\n",
+        "  FROM race_data rd\n",
+        "  WHERE rd.rn <= 5\n",
         ")\n",
-        "SELECT\n",
-        "  c.coach_id,\n",
-        "  row.sort_order,\n",
-        "  row.label,\n",
-        "  row.profile\n",
-        "FROM combined c\n",
-        "LATERAL VIEW EXPLODE(ARRAY(\n",
-        "  named_struct('sort_order', 1, 'label', '🎯 Favourite Race', 'profile', ''),\n",
-        "  named_struct('sort_order', 2, 'label', ' • Race', 'profile', c.fav_race_name),\n",
-        "  named_struct('sort_order', 3, 'label', ' • Record (W/D/L)', 'profile', CONCAT(CAST(c.fav_games AS STRING), ' (', CAST(c.fav_wins AS STRING), '/', CAST(c.fav_draws AS STRING), '/', CAST(c.fav_losses AS STRING), ')')),\n",
-        "  named_struct('sort_order', 4, 'label', ' • PPG', 'profile', CAST(ROUND(c.fav_ppg, 2) AS STRING)),\n",
-        "  named_struct('sort_order', 5, 'label', ' • % of total games', 'profile', CONCAT(CAST(c.fav_pct_of_total AS STRING), '%')),\n",
-        "  named_struct('sort_order', 10, 'label', '📊 Race Stats', 'profile', ''),\n",
-        "  named_struct('sort_order', 11, 'label', ' • Distinct races played', 'profile', CAST(c.distinct_races AS STRING)),\n",
-        "  named_struct('sort_order', 12, 'label', ' • Median race PPG', 'profile', CAST(c.median_race_ppg AS STRING)),\n",
-        "  named_struct('sort_order', 13, 'label', ' • Best race Elo', 'profile', CASE WHEN c.best_race_elo_peak IS NOT NULL THEN CONCAT(c.best_race_name, ': ', CAST(ROUND(c.best_race_elo_peak, 1) AS STRING), ' (#', CAST(c.best_race_world_rank AS STRING), ')') ELSE 'N/A' END)\n",
-        ")) e AS row\n",
-        "ORDER BY c.coach_id, row.sort_order"
+        "SELECT * FROM header_rows\n",
+        "UNION ALL\n",
+        "SELECT * FROM race_rows\n",
+        "ORDER BY coach_id, sort_order"
       ]
     }
   ],
@@ -967,7 +989,7 @@
             "x": 6,
             "y": 0,
             "width": 6,
-            "height": 13
+            "height": 18
           }
         },
         {
@@ -1226,92 +1248,6 @@
         },
         {
           "widget": {
-            "name": "race_ratings_table",
-            "queries": [
-              {
-                "name": "main_query",
-                "query": {
-                  "datasetName": "a59b382e",
-                  "fields": [
-                    {
-                      "name": "race_name",
-                      "expression": "`race_name`"
-                    },
-                    {
-                      "name": "games_played",
-                      "expression": "`games_played`"
-                    },
-                    {
-                      "name": "record",
-                      "expression": "CONCAT(CAST(`wins` AS STRING), ' / ', CAST(`draws` AS STRING), ' / ', CAST(`losses` AS STRING))"
-                    },
-                    {
-                      "name": "points_per_game",
-                      "expression": "`points_per_game`"
-                    },
-                    {
-                      "name": "elo_current",
-                      "expression": "`elo_current`"
-                    },
-                    {
-                      "name": "elo_peak_all",
-                      "expression": "`elo_peak_all`"
-                    }
-                  ],
-                  "disaggregated": true
-                }
-              }
-            ],
-            "spec": {
-              "version": 2,
-              "rowsPerPage": 10,
-              "displayRowNumbers": false,
-              "frame": {
-                "showTitle": true,
-                "title": "Race Ratings and Records",
-                "showDescription": true,
-                "description": "Top races by games played with records and Elo ratings"
-              },
-              "widgetType": "table",
-              "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "race_name",
-                    "displayName": "Race"
-                  },
-                  {
-                    "fieldName": "games_played",
-                    "displayName": "Games"
-                  },
-                  {
-                    "fieldName": "record",
-                    "displayName": "Record (W/D/L)"
-                  },
-                  {
-                    "fieldName": "points_per_game",
-                    "displayName": "PPG"
-                  },
-                  {
-                    "fieldName": "elo_current",
-                    "displayName": "Current Elo"
-                  },
-                  {
-                    "fieldName": "elo_peak_all",
-                    "displayName": "Peak Elo"
-                  }
-                ]
-              }
-            }
-          },
-          "position": {
-            "x": 0,
-            "y": 38,
-            "width": 12,
-            "height": 6
-          }
-        },
-        {
-          "widget": {
             "name": "fcc6e532",
             "queries": [
               {
@@ -1444,7 +1380,7 @@
           },
           "position": {
             "x": 0,
-            "y": 44,
+            "y": 38,
             "width": 12,
             "height": 7
           }
@@ -1543,7 +1479,7 @@
           },
           "position": {
             "x": 0,
-            "y": 51,
+            "y": 45,
             "width": 6,
             "height": 6
           }
@@ -1660,7 +1596,7 @@
           },
           "position": {
             "x": 6,
-            "y": 51,
+            "y": 45,
             "width": 6,
             "height": 6
           }
