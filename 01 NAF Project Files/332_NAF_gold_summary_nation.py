@@ -2290,10 +2290,12 @@
 # MAGIC     m.coach_id,
 # MAGIC     m.glo_peak,
 # MAGIC     m.glo_median,
-# MAGIC     COALESCE(m.avg_opponent_glo_peak, 0.0) AS avg_opponent_glo
+# MAGIC     COALESCE(og.opponent_global_elo_median_weighted, 0.0) AS avg_opponent_glo
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS m
 # MAGIC   INNER JOIN naf_catalog.gold_summary.coach_performance_summary cps
 # MAGIC     ON m.coach_id = cps.coach_id
+# MAGIC   LEFT JOIN naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v og
+# MAGIC     ON m.coach_id = og.coach_id AND og.rating_system = 'NAF_ELO'
 # MAGIC   WHERE m.is_valid_glo = TRUE
 # MAGIC     AND m.nation_id <> 0
 # MAGIC     -- Activity filter: played in current or previous calendar year

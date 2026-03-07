@@ -474,11 +474,10 @@
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_smooth_cdf_display AS
 # MAGIC WITH raw AS (
+# MAGIC   -- Per-nation CDF
 # MAGIC   SELECT
 # MAGIC     g.nation_id,
-# MAGIC     CASE WHEN g.nation_id = 0 THEN 'World'
-# MAGIC          ELSE n.nation_name_display
-# MAGIC     END AS nation_name_display,
+# MAGIC     n.nation_name_display,
 # MAGIC     'PEAK' AS metric_type,
 # MAGIC     ROUND(g.glo_peak, 0)   AS glo_value,
 # MAGIC     CUME_DIST() OVER (PARTITION BY g.nation_id ORDER BY g.glo_peak) AS cume_pct
@@ -490,14 +489,35 @@
 # MAGIC
 # MAGIC   SELECT
 # MAGIC     g.nation_id,
-# MAGIC     CASE WHEN g.nation_id = 0 THEN 'World'
-# MAGIC          ELSE n.nation_name_display
-# MAGIC     END AS nation_name_display,
+# MAGIC     n.nation_name_display,
 # MAGIC     'MEDIAN' AS metric_type,
 # MAGIC     ROUND(g.glo_median, 0) AS glo_value,
 # MAGIC     CUME_DIST() OVER (PARTITION BY g.nation_id ORDER BY g.glo_median) AS cume_pct
 # MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.nation_dim AS n ON g.nation_id = n.nation_id
+# MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC
+# MAGIC   -- World CDF (all valid coaches regardless of nation)
+# MAGIC   SELECT
+# MAGIC     0 AS nation_id,
+# MAGIC     'World' AS nation_name_display,
+# MAGIC     'PEAK' AS metric_type,
+# MAGIC     ROUND(g.glo_peak, 0)   AS glo_value,
+# MAGIC     CUME_DIST() OVER (ORDER BY g.glo_peak) AS cume_pct
+# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
+# MAGIC   WHERE g.is_valid_glo = TRUE
+# MAGIC
+# MAGIC   UNION ALL
+# MAGIC
+# MAGIC   SELECT
+# MAGIC     0 AS nation_id,
+# MAGIC     'World' AS nation_name_display,
+# MAGIC     'MEDIAN' AS metric_type,
+# MAGIC     ROUND(g.glo_median, 0) AS glo_value,
+# MAGIC     CUME_DIST() OVER (ORDER BY g.glo_median) AS cume_pct
+# MAGIC   FROM naf_catalog.gold_summary.nation_coach_glo_metrics AS g
 # MAGIC   WHERE g.is_valid_glo = TRUE
 # MAGIC ),
 # MAGIC -- Aggregate by rounded glo_value to guarantee monotonicity and smooth the curve
