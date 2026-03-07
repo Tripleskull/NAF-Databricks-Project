@@ -50,6 +50,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,VIEW: coach_profile (AMBIGUOUS_REFERENCE fix)
 # MAGIC %sql
 # MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_profile
 # MAGIC -- =====================================================================
@@ -138,15 +139,15 @@
 # MAGIC -- Best race Elo peak per coach (across all races) + world rank
 # MAGIC best_race_elo AS (
 # MAGIC   SELECT
-# MAGIC     coach_id,
-# MAGIC     MAX(elo_peak_all) AS best_race_elo_peak,
-# MAGIC     MAX_BY(race_id, elo_peak_all) AS best_race_elo_race_id,
-# MAGIC     MAX_BY(rd.race_name, elo_peak_all) AS best_race_elo_race_name
+# MAGIC     crs.coach_id,
+# MAGIC     MAX(crs.elo_peak_all) AS best_race_elo_peak,
+# MAGIC     MAX_BY(crs.race_id, crs.elo_peak_all) AS best_race_elo_race_id,
+# MAGIC     MAX_BY(rd.race_name, crs.elo_peak_all) AS best_race_elo_race_name
 # MAGIC   FROM naf_catalog.gold_summary.coach_race_summary AS crs
 # MAGIC   LEFT JOIN naf_catalog.gold_dim.race_dim AS rd ON crs.race_id = rd.race_id
 # MAGIC   WHERE crs.rating_system = 'NAF_ELO'
 # MAGIC     AND crs.elo_peak_all IS NOT NULL
-# MAGIC   GROUP BY coach_id
+# MAGIC   GROUP BY crs.coach_id
 # MAGIC ),
 # MAGIC best_race_elo_ranked AS (
 # MAGIC   SELECT
@@ -431,7 +432,6 @@
 # MAGIC LEFT JOIN naf_catalog.gold_summary.nation_team_candidate_scores AS sel
 # MAGIC   ON ci.coach_id = sel.coach_id
 # MAGIC ;
-# MAGIC
 
 # COMMAND ----------
 
