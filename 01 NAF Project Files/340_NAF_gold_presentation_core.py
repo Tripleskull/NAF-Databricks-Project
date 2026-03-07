@@ -10,7 +10,7 @@
 # MAGIC ## Build order
 # MAGIC Run **after**:
 # MAGIC - `naf_catalog.gold_dim` (nation/coach/tournament/race dims)
-# MAGIC - `naf_catalog.gold_summary` (for bin scheme source)
+# MAGIC - `naf_catalog.gold_summary`
 # MAGIC
 # MAGIC Run **before**:
 # MAGIC - domain presentation notebooks (e.g. coach/tournament/race dashboards)
@@ -22,7 +22,7 @@
 # MAGIC - `coach_identity_v` (coach + nation identity)
 # MAGIC - `tournament_identity_v` (tournament + host nation identity)
 # MAGIC - `race_identity_v` (race display identity; includes GLOBAL handling if used)
-# MAGIC - `global_elo_bin_scheme` (UI labels over summary bin edges)
+# MAGIC - ~~`global_elo_bin_scheme`~~ (removed — legacy configurable bin framework)
 # MAGIC
 # MAGIC ## Design authority
 # MAGIC Project Design:
@@ -321,47 +321,8 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- VIEW: naf_catalog.gold_presentation.global_elo_bin_scheme
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Dashboard-facing Elo bin scheme lookup with stable display labels.
-# MAGIC -- LAYER        : GOLD_PRESENTATION
-# MAGIC -- GRAIN        : 1 row per (bin_scheme_id, bin_index)
-# MAGIC -- PRIMARY KEY  : (bin_scheme_id, bin_index)
-# MAGIC -- SOURCES      : naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC -- NOTES        : - Presentation adds UI-friendly labels only.
-# MAGIC --               - Summary remains numeric/ID-only (no display attributes).
-# MAGIC --               - target_num_bins is a target; actual bin count is num_bins (may differ due to step snapping).
-# MAGIC --               - bin_scheme_name_display uses the actual num_bins to avoid UI mismatch.
-# MAGIC --               - Uses explicit column list (no SELECT *) to prevent silent schema drift.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.global_elo_bin_scheme AS
-# MAGIC SELECT
-# MAGIC   s.bin_scheme_id,
-# MAGIC   s.scheme_type,
-# MAGIC   s.target_num_bins,
-# MAGIC   s.bin_index,
-# MAGIC
-# MAGIC   s.bin_min_global_elo,
-# MAGIC   s.bin_max_global_elo,
-# MAGIC
-# MAGIC   s.num_bins,
-# MAGIC   s.step_size,
-# MAGIC   s.min_global_elo,
-# MAGIC   s.max_global_elo,
-# MAGIC
-# MAGIC   (s.num_bins = s.target_num_bins) AS is_target_num_bins_met,
-# MAGIC
-# MAGIC   CONCAT(INITCAP(s.scheme_type), ' (', CAST(s.num_bins AS STRING), ' bins)') AS bin_scheme_name_display,
-# MAGIC
-# MAGIC   CASE
-# MAGIC     WHEN s.bin_index = s.num_bins THEN CONCAT(CAST(ROUND(s.bin_min_global_elo) AS INT), '+')
-# MAGIC     ELSE CONCAT(
-# MAGIC       CAST(ROUND(s.bin_min_global_elo) AS INT),
-# MAGIC       '–',
-# MAGIC       CAST(ROUND(s.bin_max_global_elo) AS INT)
-# MAGIC     )
-# MAGIC   END AS bin_label_display
-# MAGIC FROM naf_catalog.gold_summary.global_elo_bin_scheme s;
-# MAGIC
+# MAGIC %md
+# MAGIC ### End of 340 core presentation objects
+# MAGIC Legacy `global_elo_bin_scheme` view removed — configurable bin framework retired.
+# MAGIC Fixed opponent GLO bins live in `coach_opponent_median_glo_bin_summary` (331) and
+# MAGIC `nation_opponent_elo_bin_wdl` (332) with inline bin definitions.

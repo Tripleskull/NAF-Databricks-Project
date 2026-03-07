@@ -1965,18 +1965,17 @@
 # MAGIC --                Answers: "How does this nation perform against weak/mid/strong opponents?"
 # MAGIC --                Supports PEAK and MEDIAN metric types for GLO Metric filter.
 # MAGIC -- LAYER        : GOLD_SUMMARY
-# MAGIC -- GRAIN        : 1 row per (nation_id, metric_type, bin_scheme_id, bin_index)
-# MAGIC -- PRIMARY KEY  : (nation_id, metric_type, bin_scheme_id, bin_index)
+# MAGIC -- GRAIN        : 1 row per (nation_id, metric_type, bin_index)
+# MAGIC -- PRIMARY KEY  : (nation_id, metric_type, bin_index)
 # MAGIC -- SOURCES      : naf_catalog.gold_fact.coach_games_fact,
 # MAGIC --                naf_catalog.gold_dim.coach_dim,
-# MAGIC --                naf_catalog.gold_summary.nation_coach_glo_metrics (opponent GLO),
-# MAGIC --                naf_catalog.gold_summary.global_elo_bin_scheme
+# MAGIC --                naf_catalog.gold_summary.nation_coach_glo_metrics (opponent GLO)
 # MAGIC -- NOTES        : - Excludes intra-nation games (opponent from same nation).
 # MAGIC --                - Excludes Unknown nation (nation_id = 0).
 # MAGIC --                - Bins by opponent's GLO (peak or median per metric_type).
 # MAGIC --                - Uses COALESCE(stable, full-history) GLO so all opponents
 # MAGIC --                  with any rating are included (not just is_valid_glo).
-# MAGIC --                - Fixed bins: 0-150, 150-200, 200-250, 250-300, 300+.
+# MAGIC --                - Fixed 4-bin scheme: 0-150, 150-200, 200-250, 250+.
 # MAGIC --                - Spine ensures all bins present per nation+metric (zero-filled).
 # MAGIC -- PHASE        : 5
 # MAGIC -- =====================================================================
@@ -2099,150 +2098,9 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- TABLE: naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Nation-aggregate W/D/L by game quality bins.
-# MAGIC --                Game quality = average of coach's and opponent's GLO.
-# MAGIC --                Answers: "How does this nation do in high-quality vs low-quality matches?"
-# MAGIC --                Supports PEAK and MEDIAN metric types for GLO Metric filter.
-# MAGIC -- LAYER        : GOLD_SUMMARY
-# MAGIC -- GRAIN        : 1 row per (nation_id, metric_type, bin_scheme_id, bin_index)
-# MAGIC -- PRIMARY KEY  : (nation_id, metric_type, bin_scheme_id, bin_index)
-# MAGIC -- SOURCES      : naf_catalog.gold_fact.coach_games_fact,
-# MAGIC --                naf_catalog.gold_dim.coach_dim,
-# MAGIC --                naf_catalog.gold_summary.nation_coach_glo_metrics (both sides),
-# MAGIC --                naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC -- NOTES        : - Same bin scheme as opponent bins (same scale, same edges).
-# MAGIC --                - Excludes intra-nation games.
-# MAGIC --                - Excludes Unknown nation.
-# MAGIC --                - Spine ensures all bins present per nation+metric (zero-filled).
-# MAGIC --                - Both coach and opponent must have valid GLO.
-# MAGIC -- PHASE        : 5
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC USING DELTA AS
-# MAGIC
-# MAGIC WITH bin_spine AS (
-# MAGIC   SELECT
-# MAGIC     bin_scheme_id,
-# MAGIC     bin_index,
-# MAGIC     bin_min_global_elo,
-# MAGIC     bin_max_global_elo,
-# MAGIC     num_bins
-# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC ),
-# MAGIC
-# MAGIC nation_spine AS (
-# MAGIC   SELECT DISTINCT nation_id
-# MAGIC   FROM naf_catalog.gold_dim.nation_dim
-# MAGIC   WHERE nation_id <> 0
-# MAGIC ),
-# MAGIC
-# MAGIC metric_spine AS (
-# MAGIC   SELECT EXPLODE(ARRAY('PEAK', 'MEDIAN')) AS metric_type
-# MAGIC ),
-# MAGIC
-# MAGIC full_spine AS (
-# MAGIC   SELECT
-# MAGIC     ns.nation_id,
-# MAGIC     ms.metric_type,
-# MAGIC     bs.bin_scheme_id,
-# MAGIC     bs.bin_index,
-# MAGIC     bs.bin_min_global_elo,
-# MAGIC     bs.bin_max_global_elo,
-# MAGIC     bs.num_bins
-# MAGIC   FROM nation_spine ns
-# MAGIC   CROSS JOIN metric_spine ms
-# MAGIC   CROSS JOIN bin_spine bs
-# MAGIC ),
-# MAGIC
-# MAGIC game_data AS (
-# MAGIC   SELECT
-# MAGIC     c.nation_id         AS coach_nation_id,
-# MAGIC     opp_c.nation_id     AS opponent_nation_id,
-# MAGIC     cgf.result_numeric,
-# MAGIC     coach_glo.glo_peak   AS coach_glo_peak,
-# MAGIC     coach_glo.glo_median AS coach_glo_median,
-# MAGIC     opp_glo.glo_peak     AS opp_glo_peak,
-# MAGIC     opp_glo.glo_median   AS opp_glo_median
-# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact cgf
-# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim c
-# MAGIC     ON cgf.coach_id = c.coach_id
-# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim opp_c
-# MAGIC     ON cgf.opponent_coach_id = opp_c.coach_id
-# MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics coach_glo
-# MAGIC     ON cgf.coach_id = coach_glo.coach_id
-# MAGIC     AND coach_glo.is_valid_glo = TRUE
-# MAGIC   INNER JOIN naf_catalog.gold_summary.nation_coach_glo_metrics opp_glo
-# MAGIC     ON cgf.opponent_coach_id = opp_glo.coach_id
-# MAGIC     AND opp_glo.is_valid_glo = TRUE
-# MAGIC   WHERE c.nation_id <> 0
-# MAGIC     AND opp_c.nation_id <> 0
-# MAGIC     AND c.nation_id <> opp_c.nation_id  -- exclude intra-nation
-# MAGIC ),
-# MAGIC
-# MAGIC -- Unpivot: one row per game per metric_type, compute game quality
-# MAGIC game_metric AS (
-# MAGIC   SELECT
-# MAGIC     coach_nation_id,
-# MAGIC     result_numeric,
-# MAGIC     stack(2,
-# MAGIC       'PEAK',   (coach_glo_peak   + opp_glo_peak)   / 2.0,
-# MAGIC       'MEDIAN', (coach_glo_median  + opp_glo_median) / 2.0
-# MAGIC     ) AS (metric_type, game_quality)
-# MAGIC   FROM game_data
-# MAGIC ),
-# MAGIC
-# MAGIC bucketed AS (
-# MAGIC   SELECT
-# MAGIC     gm.coach_nation_id AS nation_id,
-# MAGIC     gm.metric_type,
-# MAGIC     bs.bin_scheme_id,
-# MAGIC     bs.bin_index,
-# MAGIC     gm.result_numeric
-# MAGIC   FROM game_metric gm
-# MAGIC   INNER JOIN bin_spine bs
-# MAGIC     ON gm.game_quality >= bs.bin_min_global_elo
-# MAGIC     AND gm.game_quality < bs.bin_max_global_elo
-# MAGIC   WHERE gm.game_quality IS NOT NULL
-# MAGIC ),
-# MAGIC
-# MAGIC agg AS (
-# MAGIC   SELECT
-# MAGIC     nation_id,
-# MAGIC     metric_type,
-# MAGIC     bin_scheme_id,
-# MAGIC     bin_index,
-# MAGIC     CAST(COUNT(*) AS INT) AS games,
-# MAGIC     CAST(SUM(CASE WHEN result_numeric = 1.0 THEN 1 ELSE 0 END) AS INT)   AS wins,
-# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.5 THEN 1 ELSE 0 END) AS INT)   AS draws,
-# MAGIC     CAST(SUM(CASE WHEN result_numeric = 0.0 THEN 1 ELSE 0 END) AS INT)   AS losses,
-# MAGIC     ROUND(CAST(SUM(result_numeric) AS DOUBLE) / NULLIF(COUNT(*), 0), 3)   AS ppg
-# MAGIC   FROM bucketed
-# MAGIC   GROUP BY nation_id, metric_type, bin_scheme_id, bin_index
-# MAGIC )
-# MAGIC
-# MAGIC SELECT
-# MAGIC   sp.nation_id,
-# MAGIC   sp.metric_type,
-# MAGIC   sp.bin_scheme_id,
-# MAGIC   sp.bin_index,
-# MAGIC   sp.bin_min_global_elo,
-# MAGIC   sp.bin_max_global_elo,
-# MAGIC   COALESCE(a.games, 0)    AS games,
-# MAGIC   COALESCE(a.wins, 0)     AS wins,
-# MAGIC   COALESCE(a.draws, 0)    AS draws,
-# MAGIC   COALESCE(a.losses, 0)   AS losses,
-# MAGIC   a.ppg,
-# MAGIC   CURRENT_TIMESTAMP()     AS load_timestamp
-# MAGIC FROM full_spine sp
-# MAGIC LEFT JOIN agg a
-# MAGIC   ON sp.nation_id = a.nation_id
-# MAGIC   AND sp.metric_type = a.metric_type
-# MAGIC   AND sp.bin_scheme_id = a.bin_scheme_id
-# MAGIC   AND sp.bin_index = a.bin_index;
-# MAGIC
+# MAGIC -- REMOVED: nation_game_quality_bin_wdl
+# MAGIC -- Legacy table — depended on configurable bin framework (global_elo_bin_scheme).
+# MAGIC -- Not used by any dashboard. Opponent bins use fixed scheme in nation_opponent_elo_bin_wdl.
 
 # COMMAND ----------
 
@@ -2266,16 +2124,10 @@
 # MAGIC --                  AND active (played in current or previous calendar year).
 # MAGIC --                - race_elo_median = MEAN of elo_peak across ALL races (from race_dim).
 # MAGIC --                  Unplayed or invalid-ELO races count as 150 (starting Elo).
-# MAGIC --                - Computes both within-nation AND global rankings:
-# MAGIC --                  glo_rank / race_rank / opponent_rank             = within-nation
-# MAGIC --                  glo_rank_global / race_rank_global / opponent_rank_global = across all nations
-# MAGIC --                - Selector focus weights:
-# MAGIC --                  GLO:      50/25/25
-# MAGIC --                  RACE:     25/50/25
-# MAGIC --                  OPPONENT: 25/25/50
-# MAGIC --                  BALANCED: 33.3/33.3/33.3
-# MAGIC --                - selector_score = weighted average of ranks (lower = better).
-# MAGIC --                  e.g. BALANCED score of 3.0 means average rank of 3rd across components.
+# MAGIC --                - All component ranks are GLOBAL (not within-nation).
+# MAGIC --                - Single weighting: GLO 50%, Race 25%, Opponent 25%.
+# MAGIC --                - selector_score = weighted average of global ranks (lower = better).
+# MAGIC --                - National rank = DENSE_RANK of global score within each nation.
 # MAGIC --                - Supplementary columns (not in score): form_score, versatility.
 # MAGIC -- PHASE        : 6
 # MAGIC -- =====================================================================

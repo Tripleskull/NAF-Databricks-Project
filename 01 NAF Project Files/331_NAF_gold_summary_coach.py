@@ -12,6 +12,20 @@
 # MAGIC - **Don’t hide data:** keep metrics populated; add `has_*` / `is_valid_*` flags + explicit threshold columns for filtering/interpretation
 # MAGIC - **No event truth duplication:** event detail stays in `gold_fact`; summary = derived measures at stated grain
 # MAGIC
+# MAGIC ## Naming conventions
+# MAGIC - **`glo` = `global_elo`**: Abbreviated form used in column names (e.g., `avg_opponent_glo_peak`).
+# MAGIC   Full prefix `global_elo_` used in the Global Elo summary table itself.
+# MAGIC
+# MAGIC ## Design decisions (331-specific)
+# MAGIC - **`form_label` / `bin_label` in summary**: Intentionally kept here (not deferred to presentation)
+# MAGIC   because the label thresholds are analytical rules, not UI formatting.
+# MAGIC - **`coach_form_summary` reads from `gold_fact`**: Intentional — form score requires
+# MAGIC   `score_expected` which only exists in `rating_history_fact`, not in any summary spine.
+# MAGIC - **25-game specialist threshold**: Fixed rule (not config-driven). Documented in
+# MAGIC   `Analytical_Parameters.md`. Used in `coach_race_relative_strength` and `coach_race_nation_rank`.
+# MAGIC - **Opponent GLO bins**: Fixed 4-bin scheme (0-150 / 150-200 / 200-250 / 250+) in
+# MAGIC   `coach_opponent_median_glo_bin_summary`. Legacy configurable bin framework removed.
+# MAGIC
 # MAGIC **Design authority (wins):**
 # MAGIC - Project Design → `00_design_decisions.md`
 # MAGIC - Project Design → `02_schema_design.md`
@@ -23,6 +37,24 @@
 # MAGIC %sql
 # MAGIC -- DANGER: drops EVERYTHING in naf_catalog.gold_summary(views + tables) incl. dependencies.
 # MAGIC -- DROP SCHEMA IF EXISTS naf_catalog.gold_summary CASCADE;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- CLEANUP: Drop legacy configurable bin framework objects (removed 2026-03).
+# MAGIC -- Run once to remove orphaned catalog entries, then delete this cell.
+# MAGIC
+# MAGIC -- Presentation views first (depend on summary tables)
+# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display;
+# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.coach_opponent_global_elo_bin_results_long;
+# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.coach_opponent_global_elo_bin_insights;
+# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.global_elo_bin_scheme;
+# MAGIC
+# MAGIC -- Summary tables
+# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.nation_game_quality_bin_wdl;
+# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary;
+# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.global_elo_bin_scheme;
+# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.global_elo_bin_scheme_config;
 
 # COMMAND ----------
 
@@ -385,7 +417,8 @@
 # MAGIC -- NOTES        : - Keeps all rows (no filtering out small samples).
 # MAGIC --               - Post-threshold metrics use games strictly AFTER the first N games (burn-in):
 # MAGIC --                 game_number_asc > threshold_games (Elo burn-in = 25).
-# MAGIC --               - Last-50 metrics are computed over the most recent min(50, games_with_race) games.
+# MAGIC --               - Last-50 metrics cover the most recent min(50, games_with_race) games.
+# MAGIC --                 Always populated (never NULL) — when games < window, equals all-games metrics.
 # MAGIC --               - Prefer counts (games_with_race) + known thresholds/windows over validity flags.
 # MAGIC -- =====================================================================
 # MAGIC
@@ -872,7 +905,7 @@
 # MAGIC seq AS (
 # MAGIC   SELECT
 # MAGIC     *,
-# MAGIC     -- WIN streak: breaks on any non-win (draw or loss or NULL)
+# MAGIC     -- WIN streak: breaks on any non-win (draw or loss). result_numeric is never NULL.
 # MAGIC     SUM(is_not_win) OVER (
 # MAGIC       PARTITION BY scope, coach_id, scope_race_id
 # MAGIC       ORDER BY scope_game_order
@@ -1094,7 +1127,8 @@
 # MAGIC -- NOTES        : - No rows are filtered out for small samples
 # MAGIC --               - Post-threshold uses games strictly AFTER the first N games (burn-in):
 # MAGIC --                 game_number_asc > threshold_games
-# MAGIC --               - Last-50 uses the most recent min(50, global_elo_games) games
+# MAGIC --               - Last-50 covers the most recent min(50, global_elo_games) games.
+# MAGIC --                 Always populated (never NULL) — when games < window, equals all-games metrics.
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_rating_global_elo_summary
@@ -1616,259 +1650,6 @@
 
 # COMMAND ----------
 
-# MAGIC %md
-# MAGIC ### Form score distribution (diagnostic)
-# MAGIC Run after `coach_form_summary` is built to inspect the form score distribution
-# MAGIC and verify the percentile bucketing produces sensible groupings.
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT
-# MAGIC   COUNT(*)                                              AS coaches_total,
-# MAGIC   COUNT(CASE WHEN form_games_in_window >= 50 THEN 1 END) AS coaches_eligible,
-# MAGIC   MIN(form_score)                                       AS form_min,
-# MAGIC   MAX(form_score)                                       AS form_max,
-# MAGIC   AVG(form_score)                                       AS form_avg,
-# MAGIC   PERCENTILE_APPROX(form_score, ARRAY(0.1, 0.25, 0.5, 0.75, 0.9)) AS form_pctls,
-# MAGIC   COUNT(CASE WHEN form_label = 'Strong Form' THEN 1 END) AS strong,
-# MAGIC   COUNT(CASE WHEN form_label = 'Good Form'   THEN 1 END) AS good,
-# MAGIC   COUNT(CASE WHEN form_label = 'Neutral'     THEN 1 END) AS neutral,
-# MAGIC   COUNT(CASE WHEN form_label = 'Poor Form'   THEN 1 END) AS poor,
-# MAGIC   COUNT(CASE WHEN form_label = 'Weak Form'   THEN 1 END) AS weak
-# MAGIC FROM naf_catalog.gold_summary.coach_form_summary;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- TABLE: naf_catalog.gold_summary.global_elo_bin_scheme_config
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Parameter table for GLOBAL Elo bin scheme generation (dynamic/static + 3/4/5 bins).
-# MAGIC -- LAYER        : GOLD_SUMMARY
-# MAGIC -- GRAIN        : 1 row per (scheme_type, target_num_bins)
-# MAGIC -- PRIMARY KEY  : (scheme_type, target_num_bins)
-# MAGIC -- SOURCES      : Inline seed rows (maintained as config).
-# MAGIC -- NOTES        : - dynamic = range derived from observed ratings (min/max NULL here).
-# MAGIC --               - static  = fixed range [120, 360].
-# MAGIC --               - target_num_bins restricted to {3,4,5}.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.global_elo_bin_scheme_config
-# MAGIC USING DELTA AS
-# MAGIC SELECT
-# MAGIC   CAST(scheme_type AS STRING)        AS scheme_type,
-# MAGIC   CAST(target_num_bins AS INT)       AS target_num_bins,
-# MAGIC   CAST(min_global_elo_spec AS DOUBLE) AS min_global_elo_spec,
-# MAGIC   CAST(max_global_elo_spec AS DOUBLE) AS max_global_elo_spec,
-# MAGIC   CAST(is_active AS BOOLEAN)         AS is_active
-# MAGIC FROM VALUES
-# MAGIC   ('dynamic', 3, CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE), TRUE),
-# MAGIC   ('dynamic', 4, CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE), TRUE),
-# MAGIC   ('dynamic', 5, CAST(NULL AS DOUBLE), CAST(NULL AS DOUBLE), TRUE),
-# MAGIC
-# MAGIC   ('static',  3, 120.0D,              360.0D,              TRUE),
-# MAGIC   ('static',  4, 120.0D,              360.0D,              TRUE),
-# MAGIC   ('static',  5, 120.0D,              360.0D,              TRUE)
-# MAGIC AS v(
-# MAGIC   scheme_type,
-# MAGIC   target_num_bins,
-# MAGIC   min_global_elo_spec,
-# MAGIC   max_global_elo_spec,
-# MAGIC   is_active
-# MAGIC );
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- TABLE: naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Materialize per-bin numeric edges for each configured GLOBAL Elo bin scheme.
-# MAGIC -- LAYER        : GOLD_SUMMARY
-# MAGIC -- GRAIN        : 1 row per (bin_scheme_id, bin_index)
-# MAGIC -- PRIMARY KEY  : (bin_scheme_id, bin_index)
-# MAGIC -- SOURCES      : naf_catalog.gold_summary.global_elo_bin_scheme_config,
-# MAGIC --               naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC -- NOTES        : - bin_scheme_id format: <scheme_type>_<target_num_bins> (e.g., dynamic_5, static_4).
-# MAGIC --               - dynamic derives range from observed global_elo_peak_all (fallback global_elo_current).
-# MAGIC --               - static uses fixed range [120, 360].
-# MAGIC --               - bin_index is 1-based to align with WIDTH_BUCKET usage downstream.
-# MAGIC --               - No display attributes here; UI labels belong in gold_presentation.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC USING DELTA AS
-# MAGIC
-# MAGIC WITH schemes AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     min_global_elo_spec,
-# MAGIC     max_global_elo_spec
-# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme_config
-# MAGIC   WHERE is_active = TRUE
-# MAGIC     AND target_num_bins IN (3,4,5)
-# MAGIC ),
-# MAGIC
-# MAGIC stats AS (
-# MAGIC   SELECT
-# MAGIC     MIN(COALESCE(global_elo_peak_all, global_elo_current)) AS observed_min_global_elo,
-# MAGIC     MAX(COALESCE(global_elo_peak_all, global_elo_current)) AS observed_max_global_elo
-# MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC   WHERE COALESCE(global_elo_peak_all, global_elo_current) IS NOT NULL
-# MAGIC ),
-# MAGIC
-# MAGIC ranges AS (
-# MAGIC   SELECT
-# MAGIC     s.scheme_type,
-# MAGIC     s.target_num_bins,
-# MAGIC     CONCAT(s.scheme_type, '_', CAST(s.target_num_bins AS STRING)) AS bin_scheme_id,
-# MAGIC
-# MAGIC     CASE
-# MAGIC       WHEN s.scheme_type = 'static' THEN s.min_global_elo_spec
-# MAGIC       ELSE stats.observed_min_global_elo
-# MAGIC     END AS range_min_global_elo_raw,
-# MAGIC
-# MAGIC     CASE
-# MAGIC       WHEN s.scheme_type = 'static' THEN s.max_global_elo_spec
-# MAGIC       ELSE stats.observed_max_global_elo
-# MAGIC     END AS range_max_global_elo_raw
-# MAGIC   FROM schemes s
-# MAGIC   CROSS JOIN stats
-# MAGIC ),
-# MAGIC
-# MAGIC ranges_filled AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     COALESCE(range_min_global_elo_raw, 120.0D) AS range_min_global_elo,
-# MAGIC     COALESCE(range_max_global_elo_raw, 360.0D) AS range_max_global_elo
-# MAGIC   FROM ranges
-# MAGIC ),
-# MAGIC
-# MAGIC raw AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     range_min_global_elo,
-# MAGIC     range_max_global_elo,
-# MAGIC     CASE
-# MAGIC       WHEN range_max_global_elo <= range_min_global_elo THEN NULL
-# MAGIC       ELSE (range_max_global_elo - range_min_global_elo) / CAST(target_num_bins AS DOUBLE)
-# MAGIC     END AS raw_step
-# MAGIC   FROM ranges_filled
-# MAGIC ),
-# MAGIC
-# MAGIC mag AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     range_min_global_elo,
-# MAGIC     range_max_global_elo,
-# MAGIC     raw_step,
-# MAGIC     CASE
-# MAGIC       WHEN raw_step IS NULL OR raw_step <= 0 THEN 1.0D
-# MAGIC       ELSE POW(10.0D, FLOOR(LOG10(raw_step)))
-# MAGIC     END AS m
-# MAGIC   FROM raw
-# MAGIC ),
-# MAGIC
-# MAGIC candidates AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     range_min_global_elo,
-# MAGIC     range_max_global_elo,
-# MAGIC     raw_step,
-# MAGIC     EXPLODE(ARRAY(1*m, 2*m, 5*m, 10*m)) AS step_candidate
-# MAGIC   FROM mag
-# MAGIC ),
-# MAGIC
-# MAGIC picked AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     range_min_global_elo,
-# MAGIC     range_max_global_elo,
-# MAGIC     raw_step,
-# MAGIC     MIN(step_candidate) AS step_size
-# MAGIC   FROM candidates
-# MAGIC   WHERE raw_step IS NOT NULL
-# MAGIC     AND step_candidate >= raw_step
-# MAGIC   GROUP BY
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     range_min_global_elo,
-# MAGIC     range_max_global_elo,
-# MAGIC     raw_step
-# MAGIC ),
-# MAGIC
-# MAGIC snapped AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     step_size,
-# MAGIC     FLOOR(range_min_global_elo / step_size) * step_size AS effective_min_global_elo,
-# MAGIC     CEIL(range_max_global_elo / step_size)  * step_size AS effective_max_global_elo
-# MAGIC   FROM picked
-# MAGIC ),
-# MAGIC
-# MAGIC with_bins AS (
-# MAGIC   SELECT
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     bin_scheme_id,
-# MAGIC     step_size,
-# MAGIC     effective_min_global_elo,
-# MAGIC     effective_max_global_elo,
-# MAGIC     CAST(ROUND((effective_max_global_elo - effective_min_global_elo) / step_size) AS INT) AS num_bins,
-# MAGIC     SEQUENCE(
-# MAGIC       CAST(1 AS INT),
-# MAGIC       CAST(ROUND((effective_max_global_elo - effective_min_global_elo) / step_size) AS INT)
-# MAGIC     ) AS bin_indexes
-# MAGIC   FROM snapped
-# MAGIC ),
-# MAGIC
-# MAGIC exploded AS (
-# MAGIC   SELECT
-# MAGIC     bin_scheme_id,
-# MAGIC     scheme_type,
-# MAGIC     target_num_bins,
-# MAGIC     num_bins,
-# MAGIC     step_size,
-# MAGIC     effective_min_global_elo,
-# MAGIC     effective_max_global_elo,
-# MAGIC     EXPLODE(bin_indexes) AS bin_index
-# MAGIC   FROM with_bins
-# MAGIC )
-# MAGIC
-# MAGIC SELECT
-# MAGIC   bin_scheme_id,
-# MAGIC   scheme_type,
-# MAGIC   target_num_bins,
-# MAGIC   bin_index,
-# MAGIC
-# MAGIC   (effective_min_global_elo + (bin_index - 1) * step_size) AS bin_min_global_elo,
-# MAGIC   (effective_min_global_elo +  bin_index      * step_size) AS bin_max_global_elo,
-# MAGIC
-# MAGIC   num_bins,
-# MAGIC   step_size,
-# MAGIC   effective_min_global_elo AS min_global_elo,
-# MAGIC   effective_max_global_elo AS max_global_elo,
-# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM exploded;
-# MAGIC
-
-# COMMAND ----------
-
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_summary
 # MAGIC -- =====================================================================
@@ -2030,7 +1811,7 @@
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Coach-level W/D/L by opponent MEDIAN GLO bins (fixed bins).
 # MAGIC --                Same pattern as nation_opponent_elo_bin_wdl (332).
-# MAGIC --                Bins: 0-150, 150-200, 200-250, 250-300, 300+
+# MAGIC --                Fixed 4-bin scheme: 0-150, 150-200, 200-250, 250+
 # MAGIC -- LAYER        : GOLD_SUMMARY
 # MAGIC -- GRAIN        : 1 row per (coach_id, bin_index)
 # MAGIC -- PRIMARY KEY  : (coach_id, bin_index)
@@ -2164,140 +1945,6 @@
 # MAGIC GROUP BY
 # MAGIC   rating_system,
 # MAGIC   coach_id
-# MAGIC ;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE      : Opponent analysis aggregated into GLOBAL Elo bins per scheme (counts + W/D/L per bin).
-# MAGIC -- LAYER        : GOLD_SUMMARY
-# MAGIC -- GRAIN        : 1 row per (rating_system, coach_id, bin_scheme_id, bin_index).
-# MAGIC -- PRIMARY KEY  : (rating_system, coach_id, bin_scheme_id, bin_index)
-# MAGIC -- SOURCES      : naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v,
-# MAGIC --                naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC -- NOTES        : Must support stable bin_scheme_id values used by dashboard params (dynamic_3..5, static_3..5).
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary
-# MAGIC USING DELTA AS
-# MAGIC
-# MAGIC WITH scheme_defs AS (
-# MAGIC   SELECT
-# MAGIC     bin_scheme_id,
-# MAGIC     MIN(min_global_elo)   AS min_global_elo,
-# MAGIC     MAX(max_global_elo)   AS max_global_elo,
-# MAGIC     MAX(num_bins)         AS num_bins,
-# MAGIC     MAX(step_size)        AS step_size
-# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC   GROUP BY bin_scheme_id
-# MAGIC ),
-# MAGIC
-# MAGIC bucketed AS (
-# MAGIC   SELECT
-# MAGIC     sp.rating_system,
-# MAGIC     sp.coach_id,
-# MAGIC     sp.opponent_coach_id,
-# MAGIC     sp.opponent_global_elo_for_binning,
-# MAGIC     sp.games_played,
-# MAGIC     sp.wins,
-# MAGIC     sp.draws,
-# MAGIC     sp.losses,
-# MAGIC     sp.win_points,
-# MAGIC     sp.load_timestamp AS source_load_timestamp,
-# MAGIC
-# MAGIC     sd.bin_scheme_id,
-# MAGIC     sd.num_bins,
-# MAGIC
-# MAGIC     CASE
-# MAGIC       WHEN sp.opponent_global_elo_for_binning = sd.max_global_elo THEN sd.num_bins
-# MAGIC       ELSE WIDTH_BUCKET(sp.opponent_global_elo_for_binning, sd.min_global_elo, sd.max_global_elo, sd.num_bins)
-# MAGIC     END AS bin_index
-# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v sp
-# MAGIC   CROSS JOIN scheme_defs sd
-# MAGIC   WHERE sp.opponent_global_elo_for_binning IS NOT NULL
-# MAGIC     AND sp.opponent_global_elo_for_binning >= sd.min_global_elo
-# MAGIC     AND sp.opponent_global_elo_for_binning <= sd.max_global_elo
-# MAGIC ),
-# MAGIC
-# MAGIC bucketed_with_edges AS (
-# MAGIC   SELECT
-# MAGIC     b.rating_system,
-# MAGIC     b.coach_id,
-# MAGIC     b.bin_scheme_id,
-# MAGIC     b.bin_index,
-# MAGIC
-# MAGIC     e.bin_min_global_elo AS bin_lower,
-# MAGIC     e.bin_max_global_elo AS bin_upper,
-# MAGIC
-# MAGIC     b.opponent_coach_id,
-# MAGIC     b.games_played,
-# MAGIC     b.wins,
-# MAGIC     b.draws,
-# MAGIC     b.losses,
-# MAGIC     b.win_points,
-# MAGIC     b.source_load_timestamp
-# MAGIC   FROM bucketed b
-# MAGIC   INNER JOIN naf_catalog.gold_summary.global_elo_bin_scheme e
-# MAGIC     ON b.bin_scheme_id = e.bin_scheme_id
-# MAGIC    AND b.bin_index     = e.bin_index
-# MAGIC   WHERE b.bin_index BETWEEN 1 AND b.num_bins
-# MAGIC ),
-# MAGIC
-# MAGIC agg AS (
-# MAGIC   SELECT
-# MAGIC     rating_system,
-# MAGIC     coach_id,
-# MAGIC     bin_scheme_id,
-# MAGIC     bin_index,
-# MAGIC
-# MAGIC     MIN(bin_lower) AS bin_lower,
-# MAGIC     MIN(bin_upper) AS bin_upper,
-# MAGIC
-# MAGIC     CAST(COUNT(DISTINCT opponent_coach_id) AS INT) AS opponents_count,
-# MAGIC     CAST(SUM(games_played) AS INT) AS games_played,
-# MAGIC     CAST(SUM(wins)         AS INT) AS wins,
-# MAGIC     CAST(SUM(draws)        AS INT) AS draws,
-# MAGIC     CAST(SUM(losses)       AS INT) AS losses,
-# MAGIC     CAST(SUM(win_points)   AS DECIMAL(12,2)) AS win_points,
-# MAGIC
-# MAGIC     CASE WHEN SUM(games_played) > 0
-# MAGIC       THEN SUM(wins) / CAST(SUM(games_played) AS DOUBLE)
-# MAGIC     END AS win_frac,
-# MAGIC
-# MAGIC     CASE WHEN SUM(games_played) > 0
-# MAGIC       THEN SUM(win_points) / CAST(SUM(games_played) AS DOUBLE)
-# MAGIC     END AS win_points_per_game,
-# MAGIC
-# MAGIC     MAX(source_load_timestamp) AS source_load_timestamp
-# MAGIC   FROM bucketed_with_edges
-# MAGIC   GROUP BY
-# MAGIC     rating_system,
-# MAGIC     coach_id,
-# MAGIC     bin_scheme_id,
-# MAGIC     bin_index
-# MAGIC )
-# MAGIC
-# MAGIC SELECT
-# MAGIC   rating_system,
-# MAGIC   coach_id,
-# MAGIC   bin_scheme_id,
-# MAGIC   bin_index,
-# MAGIC   bin_lower,
-# MAGIC   bin_upper,
-# MAGIC   opponents_count,
-# MAGIC   games_played,
-# MAGIC   wins,
-# MAGIC   draws,
-# MAGIC   losses,
-# MAGIC   win_points,
-# MAGIC   win_frac,
-# MAGIC   win_points_per_game,
-# MAGIC   source_load_timestamp,
-# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC FROM agg
 # MAGIC ;
 # MAGIC
 
@@ -2759,332 +2406,6 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC -- SUMMARY sanity for opponent bin pipeline (aligned to current grains/contracts)
-# MAGIC
-# MAGIC WITH scheme_defs AS (
-# MAGIC   SELECT
-# MAGIC     bin_scheme_id,
-# MAGIC     MAX(num_bins) AS num_bins
-# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC   GROUP BY bin_scheme_id
-# MAGIC ),
-# MAGIC
-# MAGIC checks AS (
-# MAGIC   SELECT 'summary.global_elo_bin_scheme rows' AS check_name, COUNT(*) AS fail_rows
-# MAGIC   FROM naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC   HAVING COUNT(*) = 0
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC
-# MAGIC   SELECT 'summary.coach_opponent_global_elo_bin_summary rows' AS check_name, COUNT(*) AS fail_rows
-# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary
-# MAGIC   HAVING COUNT(*) = 0
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC
-# MAGIC   SELECT 'summary.coach_opponent_global_elo_bin_summary PK duplicates' AS check_name, COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT
-# MAGIC       rating_system,
-# MAGIC       coach_id,
-# MAGIC       bin_scheme_id,
-# MAGIC       bin_index
-# MAGIC     FROM naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary
-# MAGIC     GROUP BY
-# MAGIC       rating_system,
-# MAGIC       coach_id,
-# MAGIC       bin_scheme_id,
-# MAGIC       bin_index
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC
-# MAGIC   SELECT 'summary.coach_opponent_global_elo_bin_summary bin_index out of range' AS check_name, COUNT(*) AS fail_rows
-# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary b
-# MAGIC   JOIN scheme_defs s
-# MAGIC     ON b.bin_scheme_id = s.bin_scheme_id
-# MAGIC   WHERE b.bin_index < 1 OR b.bin_index > s.num_bins
-# MAGIC )
-# MAGIC
-# MAGIC SELECT
-# MAGIC   check_name,
-# MAGIC   CASE WHEN fail_rows = 0 THEN 'PASS' ELSE 'FAIL' END AS status,
-# MAGIC   fail_rows
-# MAGIC FROM checks
-# MAGIC ORDER BY status DESC, fail_rows DESC, check_name;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- TEST: naf_catalog.gold_summary (coach) smoke tests
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE:
-# MAGIC --   Single-cell PASS/FAIL checks for canonical Gold Summary tables.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC WITH checks AS (
-# MAGIC
-# MAGIC   -- Non-empty (tables)
-# MAGIC   SELECT 'summary.coach_performance_summary non_empty' AS check_name,
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.coach_performance_summary) = 0 THEN 1 ELSE 0 END AS fail_rows
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_rating_global_elo_summary non_empty',
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.coach_rating_global_elo_summary) = 0 THEN 1 ELSE 0 END
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_rating_race_summary non_empty',
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.coach_rating_race_summary) = 0 THEN 1 ELSE 0 END
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_opponent_summary non_empty',
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.coach_opponent_summary) = 0 THEN 1 ELSE 0 END
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_tournament_performance_summary non_empty',
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.coach_tournament_performance_summary) = 0 THEN 1 ELSE 0 END
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.global_elo_bin_scheme non_empty',
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.global_elo_bin_scheme) = 0 THEN 1 ELSE 0 END
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_opponent_global_elo_bin_summary non_empty',
-# MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary) = 0 THEN 1 ELSE 0 END
-# MAGIC
-# MAGIC
-# MAGIC   -- PK uniqueness (tables)
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_performance_summary PK dup (coach_id)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT coach_id
-# MAGIC     FROM naf_catalog.gold_summary.coach_performance_summary
-# MAGIC     GROUP BY coach_id
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_rating_global_elo_summary PK dup (rating_system,coach_id)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT rating_system, coach_id
-# MAGIC     FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC     GROUP BY rating_system, coach_id
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_rating_race_summary PK dup (rating_system,coach_id,race_id)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT rating_system, coach_id, race_id
-# MAGIC     FROM naf_catalog.gold_summary.coach_rating_race_summary
-# MAGIC     GROUP BY rating_system, coach_id, race_id
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_opponent_summary PK dup (rating_system,coach_id,opponent_coach_id)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT rating_system, coach_id, opponent_coach_id
-# MAGIC     FROM naf_catalog.gold_summary.coach_opponent_summary
-# MAGIC     GROUP BY rating_system, coach_id, opponent_coach_id
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_tournament_performance_summary PK dup (rating_system,coach_id,tournament_id)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT rating_system, coach_id, tournament_id
-# MAGIC     FROM naf_catalog.gold_summary.coach_tournament_performance_summary
-# MAGIC     GROUP BY rating_system, coach_id, tournament_id
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.global_elo_bin_scheme PK dup (bin_scheme_id,bin_index)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT bin_scheme_id, bin_index
-# MAGIC     FROM naf_catalog.gold_summary.global_elo_bin_scheme
-# MAGIC     GROUP BY bin_scheme_id, bin_index
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'summary.coach_opponent_global_elo_bin_summary PK dup (rating_system,coach_id,bin_scheme_id,bin_index)',
-# MAGIC          COUNT(*) AS fail_rows
-# MAGIC   FROM (
-# MAGIC     SELECT rating_system, coach_id, bin_scheme_id, bin_index
-# MAGIC     FROM naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary
-# MAGIC     GROUP BY rating_system, coach_id, bin_scheme_id, bin_index
-# MAGIC     HAVING COUNT(*) > 1
-# MAGIC   )
-# MAGIC ),
-# MAGIC
-# MAGIC final AS (
-# MAGIC   SELECT
-# MAGIC     check_name,
-# MAGIC     CASE WHEN fail_rows = 0 THEN 'PASS' ELSE 'FAIL' END AS status,
-# MAGIC     fail_rows
-# MAGIC   FROM checks
-# MAGIC )
-# MAGIC
-# MAGIC SELECT *
-# MAGIC FROM final
-# MAGIC ORDER BY status DESC, fail_rows DESC, check_name;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- 1) Ensure the table really is 1 row per (rating_system, coach_id)
-# MAGIC SELECT
-# MAGIC   rating_system,
-# MAGIC   coach_id,
-# MAGIC   COUNT(*) AS cnt
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC GROUP BY
-# MAGIC   rating_system,
-# MAGIC   coach_id
-# MAGIC HAVING COUNT(*) > 1;
-# MAGIC
-# MAGIC -- -- 2) True post-threshold gating sanity:
-# MAGIC -- --    post-threshold metrics must be NULL unless global_elo_games > threshold_games (strict >)
-# MAGIC -- SELECT
-# MAGIC --   COUNT(*) AS invalid_but_has_post_threshold_metrics
-# MAGIC -- FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC -- WHERE global_elo_games <= threshold_games
-# MAGIC --   AND (
-# MAGIC --     global_elo_peak_post_threshold IS NOT NULL
-# MAGIC --     OR global_elo_mean_post_threshold IS NOT NULL
-# MAGIC --     OR global_elo_median_post_threshold IS NOT NULL
-# MAGIC --   );
-# MAGIC
-# MAGIC -- -- 3) Last-N gating sanity (using last_n_games_window as the rule):
-# MAGIC -- --    last-N metrics must be NULL unless global_elo_games >= last_n_games_window
-# MAGIC -- SELECT
-# MAGIC --   COUNT(*) AS invalid_but_has_last_n_metrics
-# MAGIC -- FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC -- WHERE global_elo_games < last_n_games_window
-# MAGIC --   AND (
-# MAGIC --     global_elo_peak_last_50 IS NOT NULL
-# MAGIC --     OR global_elo_mean_last_50 IS NOT NULL
-# MAGIC --     OR global_elo_median_last_50 IS NOT NULL
-# MAGIC --   );
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- VALUE CHECKS for last-50 semantics (min(50, global_elo_games))
-# MAGIC
-# MAGIC -- A) Coverage (informational, not a fail)
-# MAGIC SELECT
-# MAGIC   rating_system,
-# MAGIC   COUNT(*) AS rows_total,
-# MAGIC   CAST(SUM(CASE WHEN global_elo_games < last_n_games_window THEN 1 ELSE 0 END) AS INT) AS rows_below_window
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC GROUP BY rating_system
-# MAGIC ORDER BY rating_system;
-# MAGIC
-# MAGIC -- B) Consistency (should be 0): if global_elo_games < window, last_50 == all-games
-# MAGIC SELECT
-# MAGIC   COUNT(*) AS mismatch_last50_vs_all_when_below_window
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC WHERE global_elo_games < last_n_games_window
-# MAGIC   AND (
-# MAGIC     NOT (global_elo_peak_last_50   <=> global_elo_peak_all)
-# MAGIC     OR NOT (global_elo_mean_last_50   <=> global_elo_mean_all)
-# MAGIC     OR NOT (global_elo_median_last_50 <=> global_elo_median_all)
-# MAGIC   );
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT
-# MAGIC   COUNT(*) AS rows_below_window,
-# MAGIC   SUM(CASE WHEN global_elo_peak_last_50   IS NULL THEN 1 ELSE 0 END) AS null_peak_last_50,
-# MAGIC   SUM(CASE WHEN global_elo_mean_last_50   IS NULL THEN 1 ELSE 0 END) AS null_mean_last_50,
-# MAGIC   SUM(CASE WHEN global_elo_median_last_50 IS NULL THEN 1 ELSE 0 END) AS null_median_last_50
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC WHERE global_elo_games < last_n_games_window;
-# MAGIC
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC WITH x AS (
-# MAGIC   SELECT *
-# MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC   WHERE global_elo_games < last_n_games_window
-# MAGIC )
-# MAGIC SELECT
-# MAGIC   SUM(CASE WHEN NOT (global_elo_peak_last_50   <=> global_elo_peak_all)   THEN 1 ELSE 0 END) AS mismatch_peak,
-# MAGIC   SUM(CASE WHEN NOT (global_elo_mean_last_50   <=> global_elo_mean_all)   THEN 1 ELSE 0 END) AS mismatch_mean,
-# MAGIC   SUM(CASE WHEN NOT (global_elo_median_last_50 <=> global_elo_median_all) THEN 1 ELSE 0 END) AS mismatch_median,
-# MAGIC   COUNT(*) AS rows_below_window
-# MAGIC FROM x;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC WITH x AS (
-# MAGIC   SELECT *
-# MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC   WHERE global_elo_games < last_n_games_window
-# MAGIC )
-# MAGIC SELECT
-# MAGIC   MAX(ABS(global_elo_mean_last_50   - global_elo_mean_all))   AS max_abs_diff_mean,
-# MAGIC   MAX(ABS(global_elo_median_last_50 - global_elo_median_all)) AS max_abs_diff_median
-# MAGIC FROM x;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT COUNT(*) AS mismatch_median_rounded
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC WHERE global_elo_games < last_n_games_window
-# MAGIC   AND ROUND(global_elo_median_last_50, 6) <> ROUND(global_elo_median_all, 6);
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT COUNT(*) AS mismatch_median_tol
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC WHERE global_elo_games < last_n_games_window
-# MAGIC   AND ABS(global_elo_median_last_50 - global_elo_median_all) > 1e-6;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC SELECT
-# MAGIC   rating_system,
-# MAGIC   coach_id,
-# MAGIC   global_elo_games,
-# MAGIC   last_n_games_window,
-# MAGIC   global_elo_peak_all, global_elo_peak_last_50,
-# MAGIC   global_elo_mean_all, global_elo_mean_last_50,
-# MAGIC   global_elo_median_all, global_elo_median_last_50
-# MAGIC FROM naf_catalog.gold_summary.coach_rating_global_elo_summary
-# MAGIC WHERE global_elo_games < last_n_games_window
-# MAGIC   AND (
-# MAGIC     NOT (global_elo_peak_last_50   <=> global_elo_peak_all)
-# MAGIC     OR NOT (global_elo_mean_last_50 <=> global_elo_mean_all)
-# MAGIC   )
-# MAGIC ORDER BY global_elo_games DESC
-# MAGIC LIMIT 20;
-# MAGIC
-# MAGIC
+# MAGIC %md
+# MAGIC ### End of 331 pipeline objects
+# MAGIC All QA/debug/smoke tests for 331 outputs live in `350_Tests_and_admining.py`.

@@ -1600,47 +1600,8 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display
-# MAGIC -- =====================================================================
-# MAGIC -- PURPOSE:
-# MAGIC --   Dashboard contract for nation W/D/L by game quality bin.
-# MAGIC --   Game quality = average of both players' GLO (peak or median per metric_type).
-# MAGIC --   Supports GLO Metric filter via metric_type (PEAK/MEDIAN).
-# MAGIC --   Joins bin labels for display-ready output.
-# MAGIC -- LAYER:
-# MAGIC --   GOLD_PRESENTATION
-# MAGIC -- GRAIN:
-# MAGIC --   1 row per (nation_id, metric_type, bin_scheme_id, bin_index)
-# MAGIC -- SOURCES:
-# MAGIC --   - naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC --   - naf_catalog.gold_presentation.global_elo_bin_scheme
-# MAGIC --   - naf_catalog.gold_presentation.nation_identity_v
-# MAGIC -- PHASE: 5
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display AS
-# MAGIC SELECT
-# MAGIC   s.nation_id,
-# MAGIC   ni.nation_name_display,
-# MAGIC   ni.flag_emoji,
-# MAGIC   s.metric_type,
-# MAGIC   s.bin_scheme_id,
-# MAGIC   s.bin_index,
-# MAGIC   bs.bin_label_display,
-# MAGIC   s.bin_min_global_elo,
-# MAGIC   s.bin_max_global_elo,
-# MAGIC   s.games,
-# MAGIC   s.wins,
-# MAGIC   s.draws,
-# MAGIC   s.losses,
-# MAGIC   s.ppg,
-# MAGIC   s.load_timestamp
-# MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl AS s
-# MAGIC LEFT JOIN naf_catalog.gold_presentation.global_elo_bin_scheme AS bs
-# MAGIC   ON s.bin_scheme_id = bs.bin_scheme_id
-# MAGIC   AND s.bin_index = bs.bin_index
-# MAGIC LEFT JOIN naf_catalog.gold_presentation.nation_identity_v AS ni
-# MAGIC   ON s.nation_id = ni.nation_id;
+# MAGIC -- REMOVED: nation_game_quality_bin_wdl_display
+# MAGIC -- Legacy view — depended on configurable bin framework. Not used by any dashboard.
 
 # COMMAND ----------
 

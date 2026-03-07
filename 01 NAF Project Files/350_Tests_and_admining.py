@@ -841,35 +841,9 @@
 # MAGIC   HAVING COUNT(*) <> 4
 # MAGIC )
 # MAGIC UNION ALL
-# MAGIC -- PK: nation_game_quality_bin_wdl (nation_id, metric_type, bin_scheme_id, bin_index)
-# MAGIC SELECT 'nation_game_quality_bin_wdl: PK duplicates' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM (SELECT nation_id, metric_type, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl GROUP BY nation_id, metric_type, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
-# MAGIC UNION ALL
-# MAGIC -- Non-empty check
-# MAGIC SELECT 'nation_game_quality_bin_wdl: table is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
-# MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC UNION ALL
-# MAGIC -- W+D+L = games for non-zero rows
-# MAGIC SELECT 'nation_game_quality_bin_wdl: wins+draws+losses != games' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC WHERE games > 0 AND (wins + draws + losses) <> games
-# MAGIC UNION ALL
-# MAGIC -- ppg between 0-1
-# MAGIC SELECT 'nation_game_quality_bin_wdl: ppg outside [0,1]' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC WHERE ppg IS NOT NULL AND (ppg < 0 OR ppg > 1)
-# MAGIC UNION ALL
-# MAGIC -- No Unknown nation
-# MAGIC SELECT 'nation_game_quality_bin_wdl: Unknown nation_id=0 found' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC WHERE nation_id = 0
-# MAGIC UNION ALL
 # MAGIC -- Presentation view non-empty
 # MAGIC SELECT 'nation_opponent_elo_bin_wdl_display: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
 # MAGIC FROM naf_catalog.gold_presentation.nation_opponent_elo_bin_wdl_display
-# MAGIC UNION ALL
-# MAGIC SELECT 'nation_game_quality_bin_wdl_display: view is empty' AS check_name, CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS fail_rows
-# MAGIC FROM naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display
 # MAGIC
 # MAGIC HAVING fail_rows > 0;
 
@@ -2174,21 +2148,6 @@
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'nation_opponent_elo_bin_wdl: Unknown nation_id=0', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM naf_catalog.gold_summary.nation_opponent_elo_bin_wdl WHERE nation_id = 0
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: PK duplicates', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM (SELECT nation_id, metric_type, bin_scheme_id, bin_index FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl GROUP BY nation_id, metric_type, bin_scheme_id, bin_index HAVING COUNT(*) > 1)
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: table is empty', CAST(CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END AS BIGINT)
-# MAGIC   FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: wins+draws+losses != games', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl WHERE games > 0 AND (wins + draws + losses) <> games
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: ppg outside [0,1]', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl WHERE ppg IS NOT NULL AND (ppg < 0 OR ppg > 1)
-# MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'nation_game_quality_bin_wdl: Unknown nation_id=0', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM naf_catalog.gold_summary.nation_game_quality_bin_wdl WHERE nation_id = 0
 # MAGIC ),
 # MAGIC
 # MAGIC -- -----------------------------------------------------------------
