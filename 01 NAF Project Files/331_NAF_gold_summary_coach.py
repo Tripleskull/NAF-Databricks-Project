@@ -105,7 +105,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_summary.coach_rating_history_spine_v
+# MAGIC -- VIEW: naf_catalog.gold_summary.coach_rating_history_spine_v
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical coach rating-history spine used by rating aggregates and timelines.
 # MAGIC -- LAYER        : GOLD_SUMMARY
@@ -146,7 +146,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_summary.coach_race_elo_rating_history_v
+# MAGIC -- VIEW: naf_catalog.gold_summary.coach_race_elo_rating_history_v
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : RACE-scope Elo rating history projection for timelines and downstream analytics.
 # MAGIC -- LAYER        : GOLD_SUMMARY
@@ -187,7 +187,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_summary.coach_global_elo_rating_history_v
+# MAGIC -- VIEW: naf_catalog.gold_summary.coach_global_elo_rating_history_v
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : GLOBAL-scope Elo rating history projection for timelines and downstream analytics.
 # MAGIC -- LAYER        : GOLD_SUMMARY
@@ -268,7 +268,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_summary.coach_results_cumulative_series_v
+# MAGIC -- VIEW: naf_catalog.gold_summary.coach_results_cumulative_series_v
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical cumulative W/D/L series for trend metrics across GLOBAL and RACE scopes.
 # MAGIC --               Includes end-of-day cumulative values per date for plotting (cum_*_latest).
@@ -2405,6 +2405,111 @@
 # MAGIC   coach_id,
 # MAGIC   tournament_id
 # MAGIC ;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.coach_biggest_upset_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Per-coach biggest upset (done and received) based on
+# MAGIC --                GLOBAL NAF_ELO rating gap at the time of the game.
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per (coach_id, upset_type)
+# MAGIC --                  upset_type IN ('DONE', 'RECEIVED')
+# MAGIC -- PRIMARY KEY  : (coach_id, upset_type)
+# MAGIC -- SOURCES      : naf_catalog.gold_fact.rating_history_fact
+# MAGIC -- NOTES        : Moved from 341 presentation (was inline CTE) to respect
+# MAGIC --                the layer contract: presentation reads summary, not fact.
+# MAGIC --                rating_gap = opponent_rating_before - rating_before
+# MAGIC --                  DONE:     coach won against higher-rated (gap > 0)
+# MAGIC --                  RECEIVED: coach lost to lower-rated    (gap < 0)
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_biggest_upset_summary
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC WITH upset_base AS (
+# MAGIC   SELECT
+# MAGIC     f.coach_id,
+# MAGIC     f.opponent_coach_id,
+# MAGIC     f.game_id,
+# MAGIC     f.date_id,
+# MAGIC     f.result_numeric,
+# MAGIC     f.rating_before,
+# MAGIC     f.opponent_rating_before,
+# MAGIC     (f.opponent_rating_before - f.rating_before) AS rating_gap
+# MAGIC   FROM naf_catalog.gold_fact.rating_history_fact f
+# MAGIC   WHERE f.scope = 'GLOBAL'
+# MAGIC     AND f.rating_system = 'NAF_ELO'
+# MAGIC     AND f.opponent_rating_before IS NOT NULL
+# MAGIC ),
+# MAGIC
+# MAGIC -- Biggest upset done: coach won against higher-rated opponent
+# MAGIC biggest_done AS (
+# MAGIC   SELECT
+# MAGIC     u.coach_id,
+# MAGIC     'DONE' AS upset_type,
+# MAGIC     MAX_BY(
+# MAGIC       NAMED_STRUCT(
+# MAGIC         'opponent_coach_id', u.opponent_coach_id,
+# MAGIC         'game_id', u.game_id,
+# MAGIC         'date_id', u.date_id,
+# MAGIC         'coach_rating', u.rating_before,
+# MAGIC         'opponent_rating', u.opponent_rating_before,
+# MAGIC         'rating_gap', u.rating_gap
+# MAGIC       ),
+# MAGIC       u.rating_gap
+# MAGIC     ) AS s
+# MAGIC   FROM upset_base u
+# MAGIC   WHERE u.result_numeric = 1.0 AND u.rating_gap > 0
+# MAGIC   GROUP BY u.coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Biggest upset received: coach lost to lower-rated opponent
+# MAGIC biggest_received AS (
+# MAGIC   SELECT
+# MAGIC     u.coach_id,
+# MAGIC     'RECEIVED' AS upset_type,
+# MAGIC     MAX_BY(
+# MAGIC       NAMED_STRUCT(
+# MAGIC         'opponent_coach_id', u.opponent_coach_id,
+# MAGIC         'game_id', u.game_id,
+# MAGIC         'date_id', u.date_id,
+# MAGIC         'coach_rating', u.rating_before,
+# MAGIC         'opponent_rating', u.opponent_rating_before,
+# MAGIC         'rating_gap', u.rating_gap
+# MAGIC       ),
+# MAGIC       -u.rating_gap
+# MAGIC     ) AS s
+# MAGIC   FROM upset_base u
+# MAGIC   WHERE u.result_numeric = 0.0 AND u.rating_gap < 0
+# MAGIC   GROUP BY u.coach_id
+# MAGIC )
+# MAGIC
+# MAGIC SELECT
+# MAGIC   coach_id,
+# MAGIC   upset_type,
+# MAGIC   s.opponent_coach_id,
+# MAGIC   s.game_id,
+# MAGIC   s.date_id,
+# MAGIC   s.coach_rating,
+# MAGIC   s.opponent_rating,
+# MAGIC   s.rating_gap,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM biggest_done
+# MAGIC UNION ALL
+# MAGIC SELECT
+# MAGIC   coach_id,
+# MAGIC   upset_type,
+# MAGIC   s.opponent_coach_id,
+# MAGIC   s.game_id,
+# MAGIC   s.date_id,
+# MAGIC   s.coach_rating,
+# MAGIC   s.opponent_rating,
+# MAGIC   s.rating_gap,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM biggest_received;
 # MAGIC
 
 # COMMAND ----------

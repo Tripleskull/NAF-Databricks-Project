@@ -52,7 +52,7 @@
 
 # DBTITLE 1,VIEW: coach_profile (AMBIGUOUS_REFERENCE fix)
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_profile
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_profile
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical coach "profile" contract used by dashboards.
 # MAGIC --                Joins summary-level performance + ratings + streaks + top races.
@@ -436,7 +436,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_opponent_highlights
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_highlights
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing, flattened (no nested structs in final output)
@@ -636,7 +636,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_opponent_rating
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_rating
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing contract (coach vs opponent, flattened with display fields)
@@ -718,7 +718,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_race_performance
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_performance
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing contract (coach x race, flattened with display fields)
@@ -859,7 +859,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_cumulative_results_daily_series
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_daily_series
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- PURPOSE      : Dashboard-facing daily cumulative W/D/L (spike-proof, exactly 1 value per day).
@@ -961,7 +961,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_results_all_long
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_results_all_long
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing long-format results (all + last-N games)
@@ -969,7 +969,7 @@
 # MAGIC -- PURPOSE
 # MAGIC --   Provide a long-format W/D/L dataset at coach grain for two levels:
 # MAGIC --     - 'All time'  : lifetime W/D/L from coach_performance_summary
-# MAGIC --     - 'Last 50'   : last N rated games (N from analytical_config.last_n_games_window)
+# MAGIC --     - 'Last <N>'  : last N rated games (N from analytical_config.last_n_games_window)
 # MAGIC --   Intended for grouped bar charts comparing all-time vs recent form.
 # MAGIC --
 # MAGIC -- GRAIN / KEYS
@@ -983,8 +983,9 @@
 # MAGIC --   - naf_catalog.gold_dim.analytical_config               (N value)
 # MAGIC --
 # MAGIC -- DASHBOARD CONTRACT NOTES
-# MAGIC --   - level values are user-friendly labels ('All time', 'Last 50').
-# MAGIC --   - Last-50 rows only produced for coaches with >= N rated games.
+# MAGIC --   - level values are user-friendly labels ('All time', 'Last <N>').
+# MAGIC --   - <N> is derived from analytical_config.last_n_games_window.
+# MAGIC --   - Last-N rows only produced for coaches with >= N rated games.
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_results_all_long AS
@@ -1061,12 +1062,12 @@
 # MAGIC   ) x
 # MAGIC ),
 # MAGIC
-# MAGIC -- Stack last-N
+# MAGIC -- Stack last-N (label derived from analytical_config.last_n_games_window)
 # MAGIC last_n_long AS (
 # MAGIC   SELECT
 # MAGIC     coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
 # MAGIC     games_played_all,
-# MAGIC     'Last 50' AS level,
+# MAGIC     CONCAT('Last ', CAST((SELECT n FROM cfg) AS STRING)) AS level,
 # MAGIC     result, result_order, value, load_timestamp
 # MAGIC   FROM (
 # MAGIC     SELECT *, STACK(3,
@@ -1078,15 +1079,19 @@
 # MAGIC   ) x
 # MAGIC )
 # MAGIC
-# MAGIC SELECT * FROM all_long
+# MAGIC SELECT coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
+# MAGIC        games_played_all, level, result, result_order, value, load_timestamp
+# MAGIC FROM all_long
 # MAGIC UNION ALL
-# MAGIC SELECT * FROM last_n_long;
+# MAGIC SELECT coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
+# MAGIC        games_played_all, level, result, result_order, value, load_timestamp
+# MAGIC FROM last_n_long;
 # MAGIC
 
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_opponent_top5_by_games
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_top5_by_games
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing top-N opponents (by games played)
@@ -1182,7 +1187,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_opponent_insights
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_insights
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing opponent insights (top rivals + highlight opponents)
@@ -1198,6 +1203,7 @@
 # MAGIC -- SOURCES
 # MAGIC --   - naf_catalog.gold_presentation.coach_opponent_rating
 # MAGIC --   - naf_catalog.gold_summary.coach_rating_global_elo_summary
+# MAGIC --   - naf_catalog.gold_summary.coach_biggest_upset_summary (upset done/received)
 # MAGIC --
 # MAGIC -- SEMANTICS / FILTERS
 # MAGIC --   - Locks rating snapshot to rating_system = 'NAF_ELO'.
@@ -1395,61 +1401,18 @@
 # MAGIC   GROUP BY coach_id
 # MAGIC ),
 # MAGIC
-# MAGIC -- Biggest upsets: from rating_history_fact (has opponent_rating_before)
-# MAGIC upset_base AS (
-# MAGIC   SELECT
-# MAGIC     f.coach_id,
-# MAGIC     f.opponent_coach_id,
-# MAGIC     f.game_id,
-# MAGIC     f.date_id,
-# MAGIC     f.result_numeric,
-# MAGIC     f.rating_before,
-# MAGIC     f.opponent_rating_before,
-# MAGIC     (f.opponent_rating_before - f.rating_before) AS rating_gap
-# MAGIC   FROM naf_catalog.gold_fact.rating_history_fact f
-# MAGIC   WHERE f.scope = 'GLOBAL'
-# MAGIC     AND f.rating_system = 'NAF_ELO'
-# MAGIC     AND f.opponent_rating_before IS NOT NULL
-# MAGIC ),
-# MAGIC
-# MAGIC -- Biggest upset done: coach won against higher-rated opponent (max positive rating_gap where win)
+# MAGIC -- Biggest upsets: from pre-computed summary (331)
 # MAGIC biggest_upset_done AS (
-# MAGIC   SELECT
-# MAGIC     u.coach_id,
-# MAGIC     MAX_BY(
-# MAGIC       NAMED_STRUCT(
-# MAGIC         'opponent_coach_id', u.opponent_coach_id,
-# MAGIC         'game_id', u.game_id,
-# MAGIC         'date_id', u.date_id,
-# MAGIC         'coach_rating', u.rating_before,
-# MAGIC         'opponent_rating', u.opponent_rating_before,
-# MAGIC         'rating_gap', u.rating_gap
-# MAGIC       ),
-# MAGIC       u.rating_gap
-# MAGIC     ) AS s
-# MAGIC   FROM upset_base u
-# MAGIC   WHERE u.result_numeric = 1.0 AND u.rating_gap > 0
-# MAGIC   GROUP BY u.coach_id
+# MAGIC   SELECT coach_id, opponent_coach_id, game_id, date_id,
+# MAGIC          coach_rating, opponent_rating, rating_gap
+# MAGIC   FROM naf_catalog.gold_summary.coach_biggest_upset_summary
+# MAGIC   WHERE upset_type = 'DONE'
 # MAGIC ),
-# MAGIC
-# MAGIC -- Biggest upset received: coach lost to lower-rated opponent (max negative rating_gap where loss)
 # MAGIC biggest_upset_received AS (
-# MAGIC   SELECT
-# MAGIC     u.coach_id,
-# MAGIC     MAX_BY(
-# MAGIC       NAMED_STRUCT(
-# MAGIC         'opponent_coach_id', u.opponent_coach_id,
-# MAGIC         'game_id', u.game_id,
-# MAGIC         'date_id', u.date_id,
-# MAGIC         'coach_rating', u.rating_before,
-# MAGIC         'opponent_rating', u.opponent_rating_before,
-# MAGIC         'rating_gap', u.rating_gap
-# MAGIC       ),
-# MAGIC       -u.rating_gap   -- largest gap where coach was higher rated but lost
-# MAGIC     ) AS s
-# MAGIC   FROM upset_base u
-# MAGIC   WHERE u.result_numeric = 0.0 AND u.rating_gap < 0
-# MAGIC   GROUP BY u.coach_id
+# MAGIC   SELECT coach_id, opponent_coach_id, game_id, date_id,
+# MAGIC          coach_rating, opponent_rating, rating_gap
+# MAGIC   FROM naf_catalog.gold_summary.coach_biggest_upset_summary
+# MAGIC   WHERE upset_type = 'RECEIVED'
 # MAGIC ),
 # MAGIC
 # MAGIC rows AS (
@@ -1573,7 +1536,7 @@
 # MAGIC   SELECT
 # MAGIC     ud.coach_id, 4, 1,
 # MAGIC     'Biggest upset: done',
-# MAGIC     ud.s.opponent_coach_id,
+# MAGIC     ud.opponent_coach_id,
 # MAGIC     oi_ud.coach_name,
 # MAGIC     oi_ud.nation_name_display,
 # MAGIC     oi_ud.flag_emoji,
@@ -1588,16 +1551,16 @@
 # MAGIC     h2h_ud.win_points,
 # MAGIC     h2h_ud.win_points_per_game,
 # MAGIC     COALESCE(h2h_ud.load_timestamp_enriched, CURRENT_TIMESTAMP()),
-# MAGIC     ud.s.rating_gap,
-# MAGIC     ud.s.coach_rating,
-# MAGIC     ud.s.opponent_rating,
+# MAGIC     ud.rating_gap,
+# MAGIC     ud.coach_rating,
+# MAGIC     ud.opponent_rating,
 # MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM biggest_upset_done ud
 # MAGIC   LEFT JOIN naf_catalog.gold_presentation.coach_identity_v oi_ud
-# MAGIC     ON ud.s.opponent_coach_id = oi_ud.coach_id
+# MAGIC     ON ud.opponent_coach_id = oi_ud.coach_id
 # MAGIC   LEFT JOIN opp_enriched h2h_ud
 # MAGIC     ON ud.coach_id = h2h_ud.coach_id
-# MAGIC    AND ud.s.opponent_coach_id = h2h_ud.opponent_coach_id
+# MAGIC    AND ud.opponent_coach_id = h2h_ud.opponent_coach_id
 # MAGIC
 # MAGIC   UNION ALL
 # MAGIC
@@ -1605,7 +1568,7 @@
 # MAGIC   SELECT
 # MAGIC     ur.coach_id, 4, 2,
 # MAGIC     'Biggest upset: received',
-# MAGIC     ur.s.opponent_coach_id,
+# MAGIC     ur.opponent_coach_id,
 # MAGIC     oi_ur.coach_name,
 # MAGIC     oi_ur.nation_name_display,
 # MAGIC     oi_ur.flag_emoji,
@@ -1620,16 +1583,16 @@
 # MAGIC     h2h_ur.win_points,
 # MAGIC     h2h_ur.win_points_per_game,
 # MAGIC     COALESCE(h2h_ur.load_timestamp_enriched, CURRENT_TIMESTAMP()),
-# MAGIC     ur.s.rating_gap,
-# MAGIC     ur.s.coach_rating,
-# MAGIC     ur.s.opponent_rating,
+# MAGIC     ur.rating_gap,
+# MAGIC     ur.coach_rating,
+# MAGIC     ur.opponent_rating,
 # MAGIC     CAST(NULL AS DOUBLE) AS rivalry_score
 # MAGIC   FROM biggest_upset_received ur
 # MAGIC   LEFT JOIN naf_catalog.gold_presentation.coach_identity_v oi_ur
-# MAGIC     ON ur.s.opponent_coach_id = oi_ur.coach_id
+# MAGIC     ON ur.opponent_coach_id = oi_ur.coach_id
 # MAGIC   LEFT JOIN opp_enriched h2h_ur
 # MAGIC     ON ur.coach_id = h2h_ur.coach_id
-# MAGIC    AND ur.s.opponent_coach_id = h2h_ur.opponent_coach_id
+# MAGIC    AND ur.opponent_coach_id = h2h_ur.opponent_coach_id
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -1675,7 +1638,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_streak_detail
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_streak_detail
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing streak segments (event-level segments with display fields)
@@ -1767,7 +1730,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_streak_overview
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_streak_overview
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing streak summary (best/current + current end age)
@@ -1865,7 +1828,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_tournament_performance
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_tournament_performance
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing coach tournament performance (1 row per coach x tournament)
@@ -2338,7 +2301,8 @@
 # MAGIC     ON h.coach_id = e.coach_id AND h.rating_system = e.rating_system
 # MAGIC ),
 # MAGIC last_n_filtered AS (
-# MAGIC   SELECT *
+# MAGIC   SELECT rating_system, coach_id, coach_name, game_date, game_index,
+# MAGIC          result_numeric, win, draw, loss
 # MAGIC   FROM last_n
 # MAGIC   CROSS JOIN cfg
 # MAGIC   WHERE reverse_idx <= cfg.n
@@ -2365,7 +2329,9 @@
 # MAGIC   )
 # MAGIC ),
 # MAGIC eod AS (
-# MAGIC   SELECT * FROM cumulated WHERE day_rn = 1
+# MAGIC   SELECT rating_system, coach_id, coach_name, game_date, game_index,
+# MAGIC          cum_win, cum_draw, cum_loss
+# MAGIC   FROM cumulated WHERE day_rn = 1
 # MAGIC )
 # MAGIC SELECT
 # MAGIC   coach_id,
@@ -2409,11 +2375,11 @@
 # MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_opponent_rating) = 0 THEN 1 ELSE 0 END
 # MAGIC
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'pres.coach_streak_segments non_empty',
+# MAGIC   SELECT 'pres.coach_streak_detail non_empty',
 # MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_streak_detail) = 0 THEN 1 ELSE 0 END
 # MAGIC
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'pres.coach_streak_summary non_empty',
+# MAGIC   SELECT 'pres.coach_streak_overview non_empty',
 # MAGIC          CASE WHEN (SELECT COUNT(*) FROM naf_catalog.gold_presentation.coach_streak_overview) = 0 THEN 1 ELSE 0 END
 # MAGIC
 # MAGIC   UNION ALL
@@ -2491,7 +2457,7 @@
 # MAGIC   )
 # MAGIC
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'pres.coach_streak_segments PK duplicates (scope, coach_id, race_id, streak_type, group_id)',
+# MAGIC   SELECT 'pres.coach_streak_detail PK duplicates (scope, coach_id, race_id, streak_type, group_id)',
 # MAGIC          COUNT(*) AS fail_rows
 # MAGIC   FROM (
 # MAGIC     SELECT scope, coach_id, race_id, streak_type, group_id
@@ -2501,7 +2467,7 @@
 # MAGIC   )
 # MAGIC
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'pres.coach_streak_summary PK duplicates (scope, coach_id, race_id)',
+# MAGIC   SELECT 'pres.coach_streak_overview PK duplicates (scope, coach_id, race_id)',
 # MAGIC          COUNT(*) AS fail_rows
 # MAGIC   FROM (
 # MAGIC     SELECT scope, coach_id, race_id

@@ -14,14 +14,50 @@
 # MAGIC   - **does not** re-implement heavy business logic or re-aggregate base facts.
 # MAGIC
 # MAGIC ## Views created here
-# MAGIC This notebook creates nation-facing views such as:
-# MAGIC - `gold_presentation.nation_overview`
-# MAGIC - `gold_presentation.nation_race_meta`
-# MAGIC - `gold_presentation.nation_vs_nation_meta`
-# MAGIC - `gold_presentation.nation_coach_activity_timeseries`
-# MAGIC - `gold_presentation.nation_glo_peak_distribution`
-# MAGIC - `gold_presentation.nation_race_elo_peak_distribution`
-# MAGIC - `gold_presentation.nation_race_elo_peak_summary`
+# MAGIC
+# MAGIC ### Overview / comparison
+# MAGIC - `nation_overview_comparison` — focus nation vs NATION / REST_OF_WORLD / WORLD
+# MAGIC - `nation_overview` — one row per nation; headline KPIs + bucketing
+# MAGIC
+# MAGIC ### Race / matchup
+# MAGIC - `nation_race_meta` — nation × race composition (+ World aggregate)
+# MAGIC - `nation_vs_nation_meta` — pairwise nation H2H with display fields
+# MAGIC
+# MAGIC ### Activity series
+# MAGIC - `nation_coach_activity_timeseries` — participation over time
+# MAGIC - `nation_members_cumulative_weekly_display` — cumulative member count by week
+# MAGIC - `nation_results_cumulative_display` — cumulative W/D/L series
+# MAGIC
+# MAGIC ### GLO distributions
+# MAGIC - `nation_glo_peak_distribution` — coach-level GLO peak scatter
+# MAGIC - `nation_glo_binned_distribution_display` — 25-pt GLO histogram
+# MAGIC - `nation_glo_smooth_cdf_display` — smooth CDF per nation + World
+# MAGIC - `nation_glo_metric_quantiles` — GLO quantile boxplot data (nation + World)
+# MAGIC - `nation_glo_peak_card_long` — pivoted GLO card metrics
+# MAGIC - `nation_coach_glo_metrics_long` — coach GLO metrics unpivoted (PEAK/MEAN/MEDIAN)
+# MAGIC
+# MAGIC ### Race Elo
+# MAGIC - `nation_race_elo_peak_summary` — nation race Elo peak stats
+# MAGIC - `nation_race_strength_comparison` — nation vs world race Elo boxplot
+# MAGIC
+# MAGIC ### Rivalry / exchange
+# MAGIC - `nation_rivalry_meta` — rivalry pairs with display fields
+# MAGIC - `nation_rivalry_display` — top 10 rivals merged with H2H
+# MAGIC - `nation_glo_exchange_display` — GLO exchange bar chart data
+# MAGIC
+# MAGIC ### Nation profile
+# MAGIC - `nation_profile_long` — rich profile card (label/value pairs)
+# MAGIC
+# MAGIC ### Opponent binning
+# MAGIC - `nation_top_coach_opponent_bin_perf` — top coaches with 4-bin opponent W/D/L
+# MAGIC
+# MAGIC ### Domestic / international
+# MAGIC - `nation_domestic_performance_display` — home/away performance split
+# MAGIC - `nation_opponent_elo_bin_wdl_display` — nation W/D/L by opponent rating bin
+# MAGIC
+# MAGIC ### Team selector / power ranking
+# MAGIC - `nation_team_candidates_display` — coach selector scores
+# MAGIC - `nation_power_ranking_display` — nation power ranking
 # MAGIC
 # MAGIC ## Notebook conventions
 # MAGIC - **One object per SQL cell** (one `CREATE OR REPLACE VIEW` per cell).
@@ -241,9 +277,19 @@
 # MAGIC   CROSS JOIN world_totals AS wt
 # MAGIC   GROUP BY nr.race_id, nr.race_name, wt.total_coaches, wt.total_participations, wt.total_tournaments
 # MAGIC )
-# MAGIC SELECT * FROM nation_rows
+# MAGIC SELECT nation_id, nation_name, nation_name_display, fifa_code, flag_code,
+# MAGIC        race_id, race_name, coaches_count, coach_participations_count,
+# MAGIC        tournaments_attended_count, coaches_pct_nation,
+# MAGIC        coach_participations_pct_nation, tournaments_attended_pct_nation,
+# MAGIC        points_per_game, load_timestamp
+# MAGIC FROM nation_rows
 # MAGIC UNION ALL
-# MAGIC SELECT * FROM world_rows;
+# MAGIC SELECT nation_id, nation_name, nation_name_display, fifa_code, flag_code,
+# MAGIC        race_id, race_name, coaches_count, coach_participations_count,
+# MAGIC        tournaments_attended_count, coaches_pct_nation,
+# MAGIC        coach_participations_pct_nation, tournaments_attended_pct_nation,
+# MAGIC        points_per_game, load_timestamp
+# MAGIC FROM world_rows;
 # MAGIC
 
 # COMMAND ----------
@@ -409,9 +455,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Fix SQL syntax error in nation_glo_binned_distribution_display view definition
-# MAGIC %sql
-# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_binned_distribution_display
+# MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_binned_distribution_display
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Dashboard-facing GLO histogram data with nation display names.
 # MAGIC --                Supports PEAK and MEDIAN metric types. Includes World (nation_id=-1).
@@ -708,12 +752,12 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
+# MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_peak_card_long
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_peak_card_long AS
 # MAGIC SELECT
 # MAGIC   nation_id,
 # MAGIC   nation_name,
-# MAGIC   nation_name_display AS nation_label,
+# MAGIC   nation_name_display,
 # MAGIC   metric,
 # MAGIC   metric_sort,
 # MAGIC   value
@@ -757,7 +801,7 @@
 
 # COMMAND ----------
 
-# MAGIC %sql
+# MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_coach_glo_metrics_long
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_coach_glo_metrics_long AS
 # MAGIC WITH base AS (
 # MAGIC   SELECT
@@ -971,7 +1015,8 @@
 # MAGIC -- SOURCES:
 # MAGIC --   nation_overview, nation_identity_v, nation_glo_metric_quantiles,
 # MAGIC --   nation_power_ranking, nation_race_summary, nation_vs_nation_summary,
-# MAGIC --   nation_members_cumulative_weekly, nation_team_candidate_scores
+# MAGIC --   nation_members_cumulative_weekly, nation_team_candidate_scores,
+# MAGIC --   nation_active_coaches_summary, nation_rivalry_summary, nation_domestic_summary
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_profile_long AS
@@ -998,20 +1043,13 @@
 # MAGIC   WHERE o.coaches_count > 0
 # MAGIC ),
 # MAGIC
-# MAGIC -- 2. Active coaches (played in last 1 + current year)
-# MAGIC active AS (
-# MAGIC   SELECT
-# MAGIC     cd.nation_id,
-# MAGIC     COUNT(DISTINCT cg.coach_id) AS active_coaches
-# MAGIC   FROM naf_catalog.gold_fact.coach_games_fact AS cg
-# MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim AS cd ON cg.coach_id = cd.coach_id
-# MAGIC   WHERE cd.nation_id IS NOT NULL
-# MAGIC     AND cg.game_date >= DATE_TRUNC('YEAR', CURRENT_DATE()) - INTERVAL 1 YEAR
-# MAGIC   GROUP BY cd.nation_id
-# MAGIC ),
+# MAGIC -- 2. Active coaches (from pre-computed summary; rolling 2-year window)
 # MAGIC active_ranked AS (
-# MAGIC   SELECT *, DENSE_RANK() OVER (ORDER BY active_coaches DESC) AS rank_active
-# MAGIC   FROM active
+# MAGIC   SELECT
+# MAGIC     nation_id,
+# MAGIC     active_coaches,
+# MAGIC     DENSE_RANK() OVER (ORDER BY active_coaches DESC) AS rank_active
+# MAGIC   FROM naf_catalog.gold_summary.nation_active_coaches_summary
 # MAGIC ),
 # MAGIC
 # MAGIC -- 3. Total W/D/L from nation_vs_nation_summary (international games)
@@ -1440,8 +1478,6 @@
 # MAGIC
 # MAGIC   b.opponents_count,
 # MAGIC
-# MAGIC   -- NOTE: these columns assume your coach_opponent_glo_bin_summary exposes volume + points.
-# MAGIC   -- If your bin table uses wins/draws/losses instead, swap these 3 fields accordingly.
 # MAGIC   b.games_played,
 # MAGIC   b.points_total,
 # MAGIC   b.win_points_per_game,
@@ -1479,7 +1515,7 @@
 # MAGIC   -- Nation identity
 # MAGIC   s.nation_id,
 # MAGIC   ni.nation_name_display,
-# MAGIC   ni.flag_emoji AS nation_flag_emoji,
+# MAGIC   ni.flag_emoji,
 # MAGIC
 # MAGIC   -- Game-level context
 # MAGIC   s.game_sequence_number,

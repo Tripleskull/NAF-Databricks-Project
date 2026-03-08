@@ -22,6 +22,7 @@
 # MAGIC ### Core nation spines / overview
 # MAGIC - `gold_summary.nation_coach_glo_metrics` — 1 row per (nation_id, coach_id); GLOBAL Elo metrics
 # MAGIC - `gold_summary.nation_overview_summary` — 1 row per nation_id; headline KPIs
+# MAGIC - `gold_summary.nation_active_coaches_summary` — 1 row per nation_id; coaches active in last calendar year
 # MAGIC
 # MAGIC ### Activity series
 # MAGIC - `gold_summary.nation_games_timeseries` — games per (nation, year)
@@ -2089,3 +2090,35 @@
 # MAGIC LEFT JOIN eligible_counts ec
 # MAGIC   ON a.nation_id = ec.nation_id
 # MAGIC WHERE ec.coaches_eligible >= 8;
+# MAGIC
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- TABLE: naf_catalog.gold_summary.nation_active_coaches_summary
+# MAGIC -- =====================================================================
+# MAGIC -- PURPOSE      : Count of distinct coaches per nation who played at least
+# MAGIC --                one game in the rolling 2-year window (current year + prior year).
+# MAGIC -- LAYER        : GOLD_SUMMARY
+# MAGIC -- GRAIN        : 1 row per nation_id
+# MAGIC -- PRIMARY KEY  : nation_id
+# MAGIC -- SOURCES      : naf_catalog.gold_fact.coach_games_fact
+# MAGIC --                naf_catalog.gold_dim.coach_dim
+# MAGIC -- NOTES        : Moved from 342 presentation (was inline CTE in nation_profile_long)
+# MAGIC --                to respect the layer contract: presentation reads summary, not fact.
+# MAGIC --                The window is snapshot-based (as of pipeline run time).
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_active_coaches_summary
+# MAGIC USING DELTA AS
+# MAGIC
+# MAGIC SELECT
+# MAGIC   cd.nation_id,
+# MAGIC   CAST(COUNT(DISTINCT cg.coach_id) AS INT) AS active_coaches,
+# MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC FROM naf_catalog.gold_fact.coach_games_fact AS cg
+# MAGIC INNER JOIN naf_catalog.gold_dim.coach_dim AS cd
+# MAGIC   ON cg.coach_id = cd.coach_id
+# MAGIC WHERE cd.nation_id IS NOT NULL
+# MAGIC   AND cg.game_date >= DATE_TRUNC('YEAR', CURRENT_DATE()) - INTERVAL 1 YEAR
+# MAGIC GROUP BY cd.nation_id;

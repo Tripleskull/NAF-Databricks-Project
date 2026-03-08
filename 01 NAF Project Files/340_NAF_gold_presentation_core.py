@@ -50,7 +50,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.nation_flag_emoji_v
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_flag_emoji_v
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing display enrichment (nation -> flag emoji)
@@ -173,7 +173,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.nation_identity_v
+# MAGIC -- VIEW: naf_catalog.gold_presentation.nation_identity_v
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing identity (nation name + flag emoji)
@@ -206,7 +206,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.coach_identity_v
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_identity_v
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Reusable identity shim (dashboard/export friendly)
@@ -247,7 +247,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.tournament_identity_v
+# MAGIC -- VIEW: naf_catalog.gold_presentation.tournament_identity_v
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Reusable identity shim (tournament + host nation display)
@@ -289,7 +289,7 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- *VIEW*: naf_catalog.gold_presentation.race_identity_v
+# MAGIC -- VIEW: naf_catalog.gold_presentation.race_identity_v
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
 # MAGIC -- CONTRACT TYPE: Dashboard-facing identity (race name display)
@@ -306,7 +306,8 @@
 # MAGIC --   - naf_catalog.gold_dim.race_dim
 # MAGIC --
 # MAGIC -- NOTES
-# MAGIC --   - race_id = 0 is the GLOBAL sentinel in the model; this view renders it as 'Global' for UI.
+# MAGIC --   - race_id = 0 is the GLOBAL sentinel, guaranteed to exist in race_dim (see 310).
+# MAGIC --     This view renders it as 'Global' for UI display.
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.race_identity_v AS
