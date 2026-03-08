@@ -40,12 +40,6 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- DANGER: drops EVERYTHING in naf_catalog.gold_presentation (views + tables) incl. dependencies.
-# MAGIC -- DROP SCHEMA IF EXISTS naf_catalog.gold_presentation CASCADE;
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
 
 # COMMAND ----------
@@ -852,13 +846,6 @@
 # COMMAND ----------
 
 # MAGIC %sql
-# MAGIC -- REMOVED: coach_opponent_global_elo_bin_insights and coach_opponent_global_elo_bin_results_long
-# MAGIC -- Legacy configurable bin framework views — not used by any dashboard.
-# MAGIC -- Fixed bins now in coach_opponent_median_glo_bin_summary (331).
-
-# COMMAND ----------
-
-# MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_daily_series
 # MAGIC -- =====================================================================
 # MAGIC -- LAYER        : GOLD_PRESENTATION
@@ -956,136 +943,6 @@
 # MAGIC   NAMED_STRUCT('result', 'draws',  'result_order', 2, 'result_frac', b.draw_frac),
 # MAGIC   NAMED_STRUCT('result', 'losses', 'result_order', 3, 'result_frac', b.loss_frac)
 # MAGIC )) r AS result, result_order, result_frac;
-# MAGIC
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_results_all_long
-# MAGIC -- =====================================================================
-# MAGIC -- LAYER        : GOLD_PRESENTATION
-# MAGIC -- CONTRACT TYPE: Dashboard-facing long-format results (all + last-N games)
-# MAGIC --
-# MAGIC -- PURPOSE
-# MAGIC --   Provide a long-format W/D/L dataset at coach grain for two levels:
-# MAGIC --     - 'All time'  : lifetime W/D/L from coach_performance_summary
-# MAGIC --     - 'Last <N>'  : last N rated games (N from analytical_config.last_n_games_window)
-# MAGIC --   Intended for grouped bar charts comparing all-time vs recent form.
-# MAGIC --
-# MAGIC -- GRAIN / KEYS
-# MAGIC --   GRAIN       : (coach_id, level, result)
-# MAGIC --   PRIMARY KEY : (coach_id, level, result_order)
-# MAGIC --
-# MAGIC -- SOURCES
-# MAGIC --   - naf_catalog.gold_summary.coach_performance_summary   (all games)
-# MAGIC --   - naf_catalog.gold_presentation.coach_identity_v       (display fields)
-# MAGIC --   - naf_catalog.gold_presentation.coach_global_elo_rating_history (last-N)
-# MAGIC --   - naf_catalog.gold_dim.analytical_config               (N value)
-# MAGIC --
-# MAGIC -- DASHBOARD CONTRACT NOTES
-# MAGIC --   - level values are user-friendly labels ('All time', 'Last <N>').
-# MAGIC --   - <N> is derived from analytical_config.last_n_games_window.
-# MAGIC --   - Last-N rows only produced for coaches with >= N rated games.
-# MAGIC -- =====================================================================
-# MAGIC
-# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_results_all_long AS
-# MAGIC WITH cfg AS (
-# MAGIC   SELECT CAST(last_n_games_window AS INT) AS n
-# MAGIC   FROM naf_catalog.gold_dim.analytical_config
-# MAGIC ),
-# MAGIC
-# MAGIC -- All-time W/D/L
-# MAGIC all_base AS (
-# MAGIC   SELECT
-# MAGIC     ci.coach_id,
-# MAGIC     ci.coach_name,
-# MAGIC     ci.nation_id,
-# MAGIC     ci.nation_name_display,
-# MAGIC     ci.flag_emoji,
-# MAGIC     CAST(COALESCE(s.wins, 0)   AS BIGINT) AS wins,
-# MAGIC     CAST(COALESCE(s.draws, 0)  AS BIGINT) AS draws,
-# MAGIC     CAST(COALESCE(s.losses, 0) AS BIGINT) AS losses,
-# MAGIC     CAST(COALESCE(s.games_played, 0) AS BIGINT) AS games_played_all,
-# MAGIC     s.load_timestamp
-# MAGIC   FROM naf_catalog.gold_presentation.coach_identity_v AS ci
-# MAGIC   LEFT JOIN naf_catalog.gold_summary.coach_performance_summary AS s
-# MAGIC     ON ci.coach_id = s.coach_id
-# MAGIC ),
-# MAGIC
-# MAGIC -- Last-N W/D/L (only for coaches with >= N rated games)
-# MAGIC last_n_ranked AS (
-# MAGIC   SELECT
-# MAGIC     h.coach_id,
-# MAGIC     h.result_numeric,
-# MAGIC     ROW_NUMBER() OVER (
-# MAGIC       PARTITION BY h.coach_id
-# MAGIC       ORDER BY h.game_index DESC
-# MAGIC     ) AS rn
-# MAGIC   FROM naf_catalog.gold_presentation.coach_global_elo_rating_history AS h
-# MAGIC   WHERE h.rating_system = 'NAF_ELO'
-# MAGIC ),
-# MAGIC last_n_base AS (
-# MAGIC   SELECT
-# MAGIC     ci.coach_id,
-# MAGIC     ci.coach_name,
-# MAGIC     ci.nation_id,
-# MAGIC     ci.nation_name_display,
-# MAGIC     ci.flag_emoji,
-# MAGIC     CAST(SUM(CASE WHEN lr.result_numeric = 1.0 THEN 1 ELSE 0 END) AS BIGINT) AS wins,
-# MAGIC     CAST(SUM(CASE WHEN lr.result_numeric = 0.5 THEN 1 ELSE 0 END) AS BIGINT) AS draws,
-# MAGIC     CAST(SUM(CASE WHEN lr.result_numeric = 0.0 THEN 1 ELSE 0 END) AS BIGINT) AS losses,
-# MAGIC     CAST(COUNT(*) AS BIGINT) AS games_played_all,
-# MAGIC     CURRENT_TIMESTAMP() AS load_timestamp
-# MAGIC   FROM last_n_ranked AS lr
-# MAGIC   CROSS JOIN cfg
-# MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
-# MAGIC     ON lr.coach_id = ci.coach_id
-# MAGIC   WHERE lr.rn <= cfg.n
-# MAGIC   GROUP BY ci.coach_id, ci.coach_name, ci.nation_id, ci.nation_name_display, ci.flag_emoji
-# MAGIC   HAVING COUNT(*) >= MAX(cfg.n)
-# MAGIC ),
-# MAGIC
-# MAGIC -- Stack all-time
-# MAGIC all_long AS (
-# MAGIC   SELECT
-# MAGIC     coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
-# MAGIC     games_played_all,
-# MAGIC     'All time' AS level,
-# MAGIC     result, result_order, value, load_timestamp
-# MAGIC   FROM (
-# MAGIC     SELECT *, STACK(3,
-# MAGIC       'win',  1, wins,
-# MAGIC       'draw', 2, draws,
-# MAGIC       'loss', 3, losses
-# MAGIC     ) AS (result, result_order, value)
-# MAGIC     FROM all_base
-# MAGIC   ) x
-# MAGIC ),
-# MAGIC
-# MAGIC -- Stack last-N (label derived from analytical_config.last_n_games_window)
-# MAGIC last_n_long AS (
-# MAGIC   SELECT
-# MAGIC     coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
-# MAGIC     games_played_all,
-# MAGIC     CONCAT('Last ', CAST((SELECT n FROM cfg) AS STRING)) AS level,
-# MAGIC     result, result_order, value, load_timestamp
-# MAGIC   FROM (
-# MAGIC     SELECT *, STACK(3,
-# MAGIC       'win',  1, wins,
-# MAGIC       'draw', 2, draws,
-# MAGIC       'loss', 3, losses
-# MAGIC     ) AS (result, result_order, value)
-# MAGIC     FROM last_n_base
-# MAGIC   ) x
-# MAGIC )
-# MAGIC
-# MAGIC SELECT coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
-# MAGIC        games_played_all, level, result, result_order, value, load_timestamp
-# MAGIC FROM all_long
-# MAGIC UNION ALL
-# MAGIC SELECT coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
-# MAGIC        games_played_all, level, result, result_order, value, load_timestamp
-# MAGIC FROM last_n_long;
 # MAGIC
 
 # COMMAND ----------
@@ -2022,6 +1879,136 @@
 # MAGIC   ON h.opponent_coach_id = oi.coach_id
 # MAGIC LEFT JOIN naf_catalog.gold_dim.date_dim AS dd
 # MAGIC   ON h.date_id = dd.date_id;
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC -- VIEW: naf_catalog.gold_presentation.coach_results_all_long
+# MAGIC -- =====================================================================
+# MAGIC -- LAYER        : GOLD_PRESENTATION
+# MAGIC -- CONTRACT TYPE: Dashboard-facing long-format results (all + last-N games)
+# MAGIC --
+# MAGIC -- PURPOSE
+# MAGIC --   Provide a long-format W/D/L dataset at coach grain for two levels:
+# MAGIC --     - 'All time'  : lifetime W/D/L from coach_performance_summary
+# MAGIC --     - 'Last <N>'  : last N rated games (N from analytical_config.last_n_games_window)
+# MAGIC --   Intended for grouped bar charts comparing all-time vs recent form.
+# MAGIC --
+# MAGIC -- GRAIN / KEYS
+# MAGIC --   GRAIN       : (coach_id, level, result)
+# MAGIC --   PRIMARY KEY : (coach_id, level, result_order)
+# MAGIC --
+# MAGIC -- SOURCES
+# MAGIC --   - naf_catalog.gold_summary.coach_performance_summary   (all games)
+# MAGIC --   - naf_catalog.gold_presentation.coach_identity_v       (display fields)
+# MAGIC --   - naf_catalog.gold_presentation.coach_global_elo_rating_history (last-N)
+# MAGIC --   - naf_catalog.gold_dim.analytical_config               (N value)
+# MAGIC --
+# MAGIC -- DASHBOARD CONTRACT NOTES
+# MAGIC --   - level values are user-friendly labels ('All time', 'Last <N>').
+# MAGIC --   - <N> is derived from analytical_config.last_n_games_window.
+# MAGIC --   - Last-N rows only produced for coaches with >= N rated games.
+# MAGIC -- =====================================================================
+# MAGIC
+# MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.coach_results_all_long AS
+# MAGIC WITH cfg AS (
+# MAGIC   SELECT CAST(last_n_games_window AS INT) AS n
+# MAGIC   FROM naf_catalog.gold_dim.analytical_config
+# MAGIC ),
+# MAGIC
+# MAGIC -- All-time W/D/L
+# MAGIC all_base AS (
+# MAGIC   SELECT
+# MAGIC     ci.coach_id,
+# MAGIC     ci.coach_name,
+# MAGIC     ci.nation_id,
+# MAGIC     ci.nation_name_display,
+# MAGIC     ci.flag_emoji,
+# MAGIC     CAST(COALESCE(s.wins, 0)   AS BIGINT) AS wins,
+# MAGIC     CAST(COALESCE(s.draws, 0)  AS BIGINT) AS draws,
+# MAGIC     CAST(COALESCE(s.losses, 0) AS BIGINT) AS losses,
+# MAGIC     CAST(COALESCE(s.games_played, 0) AS BIGINT) AS games_played_all,
+# MAGIC     s.load_timestamp
+# MAGIC   FROM naf_catalog.gold_presentation.coach_identity_v AS ci
+# MAGIC   LEFT JOIN naf_catalog.gold_summary.coach_performance_summary AS s
+# MAGIC     ON ci.coach_id = s.coach_id
+# MAGIC ),
+# MAGIC
+# MAGIC -- Last-N W/D/L (only for coaches with >= N rated games)
+# MAGIC last_n_ranked AS (
+# MAGIC   SELECT
+# MAGIC     h.coach_id,
+# MAGIC     h.result_numeric,
+# MAGIC     ROW_NUMBER() OVER (
+# MAGIC       PARTITION BY h.coach_id
+# MAGIC       ORDER BY h.game_index DESC
+# MAGIC     ) AS rn
+# MAGIC   FROM naf_catalog.gold_presentation.coach_global_elo_rating_history AS h
+# MAGIC   WHERE h.rating_system = 'NAF_ELO'
+# MAGIC ),
+# MAGIC last_n_base AS (
+# MAGIC   SELECT
+# MAGIC     ci.coach_id,
+# MAGIC     ci.coach_name,
+# MAGIC     ci.nation_id,
+# MAGIC     ci.nation_name_display,
+# MAGIC     ci.flag_emoji,
+# MAGIC     CAST(SUM(CASE WHEN lr.result_numeric = 1.0 THEN 1 ELSE 0 END) AS BIGINT) AS wins,
+# MAGIC     CAST(SUM(CASE WHEN lr.result_numeric = 0.5 THEN 1 ELSE 0 END) AS BIGINT) AS draws,
+# MAGIC     CAST(SUM(CASE WHEN lr.result_numeric = 0.0 THEN 1 ELSE 0 END) AS BIGINT) AS losses,
+# MAGIC     CAST(COUNT(*) AS BIGINT) AS games_played_all,
+# MAGIC     CURRENT_TIMESTAMP() AS load_timestamp
+# MAGIC   FROM last_n_ranked AS lr
+# MAGIC   CROSS JOIN cfg
+# MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
+# MAGIC     ON lr.coach_id = ci.coach_id
+# MAGIC   WHERE lr.rn <= cfg.n
+# MAGIC   GROUP BY ci.coach_id, ci.coach_name, ci.nation_id, ci.nation_name_display, ci.flag_emoji
+# MAGIC   HAVING COUNT(*) >= MAX(cfg.n)
+# MAGIC ),
+# MAGIC
+# MAGIC -- Stack all-time
+# MAGIC all_long AS (
+# MAGIC   SELECT
+# MAGIC     coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
+# MAGIC     games_played_all,
+# MAGIC     'All time' AS level,
+# MAGIC     result, result_order, value, load_timestamp
+# MAGIC   FROM (
+# MAGIC     SELECT *, STACK(3,
+# MAGIC       'win',  1, wins,
+# MAGIC       'draw', 2, draws,
+# MAGIC       'loss', 3, losses
+# MAGIC     ) AS (result, result_order, value)
+# MAGIC     FROM all_base
+# MAGIC   ) x
+# MAGIC ),
+# MAGIC
+# MAGIC -- Stack last-N (label derived from analytical_config.last_n_games_window)
+# MAGIC last_n_long AS (
+# MAGIC   SELECT
+# MAGIC     coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
+# MAGIC     games_played_all,
+# MAGIC     CONCAT('Last ', CAST((SELECT n FROM cfg) AS STRING)) AS level,
+# MAGIC     result, result_order, value, load_timestamp
+# MAGIC   FROM (
+# MAGIC     SELECT *, STACK(3,
+# MAGIC       'win',  1, wins,
+# MAGIC       'draw', 2, draws,
+# MAGIC       'loss', 3, losses
+# MAGIC     ) AS (result, result_order, value)
+# MAGIC     FROM last_n_base
+# MAGIC   ) x
+# MAGIC )
+# MAGIC
+# MAGIC SELECT coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
+# MAGIC        games_played_all, level, result, result_order, value, load_timestamp
+# MAGIC FROM all_long
+# MAGIC UNION ALL
+# MAGIC SELECT coach_id, coach_name, nation_id, nation_name_display, flag_emoji,
+# MAGIC        games_played_all, level, result, result_order, value, load_timestamp
+# MAGIC FROM last_n_long;
+# MAGIC
 
 # COMMAND ----------
 

@@ -332,8 +332,7 @@
         "  ppg,\r\n",
         "  nation_name_display\r\n",
         "FROM naf_catalog.gold_presentation.nation_opponent_elo_bin_wdl_display\r\n",
-        "WHERE metric_type = :glo_metric\r\n",
-        "  AND nation_name_display = :nation_name_display\r\n",
+        "WHERE nation_name_display = :nation_name_display\r\n",
         "ORDER BY bin_index\r\n"
       ],
       "parameters": [
@@ -347,21 +346,6 @@
               "values": [
                 {
                   "value": "Denmark"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "displayName": "glo_metric",
-          "keyword": "glo_metric",
-          "dataType": "STRING",
-          "defaultSelection": {
-            "values": {
-              "dataType": "STRING",
-              "values": [
-                {
-                  "value": "MEDIAN"
                 }
               ]
             }
@@ -492,25 +476,6 @@
       ]
     },
     {
-      "name": "filter_glo_metric_values",
-      "displayName": "Filter GLO Metric Values",
-      "queryLines": [
-        "SELECT DISTINCT metric_type\r\n",
-        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
-        "ORDER BY metric_type"
-      ]
-    },
-    {
-      "name": "filter_race_values",
-      "displayName": "Filter Race Values",
-      "queryLines": [
-        "SELECT DISTINCT race_name\r\n",
-        "FROM naf_catalog.gold_dim.race_dim\r\n",
-        "WHERE race_name IS NOT NULL\r\n",
-        "ORDER BY race_name"
-      ]
-    },
-    {
       "name": "w7b_race_participations",
       "displayName": "Race Popularity (% of Game Participations)",
       "queryLines": [
@@ -561,19 +526,31 @@
       ]
     },
     {
+      "name": "filter_glo_metric_values",
+      "displayName": "Filter GLO Metric Values",
+      "queryLines": [
+        "SELECT DISTINCT metric_type\r\n",
+        "FROM naf_catalog.gold_presentation.nation_glo_binned_distribution_display\r\n",
+        "ORDER BY metric_type"
+      ]
+    },
+    {
+      "name": "filter_race_values",
+      "displayName": "Filter Race Values",
+      "queryLines": [
+        "SELECT DISTINCT race_name\r\n",
+        "FROM naf_catalog.gold_dim.race_dim\r\n",
+        "WHERE race_name IS NOT NULL\r\n",
+        "ORDER BY race_name"
+      ]
+    },
+    {
       "name": "7c4abac8",
       "displayName": "Global Nation Peak Density Aggregated Values",
       "queryLines": [
         "SELECT COUNT(*) \r\n",
         "FROM naf_catalog.gold_summary.nation_coach_glo_metrics \r\n",
         "WHERE nation_id = 0 AND is_valid_glo = TRUE"
-      ]
-    },
-    {
-      "name": "a94ee829",
-      "displayName": "Untitled dataset",
-      "queryLines": [
-        ""
       ]
     }
   ],
