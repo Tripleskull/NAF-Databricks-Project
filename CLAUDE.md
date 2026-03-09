@@ -24,16 +24,21 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 
 ### Git Workflow
 1. **Work**: Claude edits files in the mounted folder
-2. **Save**: Changes automatically save locally
-3. **Commit** (user runs on Windows):
+2. **Commit**: Claude always commits locally after completing a batch of changes (never leave uncommitted work). Claude drafts the commit message and runs `git commit` in the VM.
+3. **Push** (user runs on Windows): Claude cannot push to GitHub (no remote credentials). User pushes when ready:
    ```bash
    cd "C:\Users\tripl\NAF-Databricks-Project"
-   git status
-   git add .
-   git commit -m "Description of changes"
    git push
    ```
 4. **Sync Databricks**: Pull changes in Databricks Repos to update notebooks
+
+#### Commit Rules
+- **Always commit** after completing a logical batch of changes — never end a task with uncommitted work
+- **Commit message style**: Short summary line, then blank line, then bullet details of what changed per file/notebook
+- **Co-author tag**: Always include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+- **Stage specific files** by name (not `git add -A` or `git add .`)
+- **Never amend** previous commits — always create new commits
+- **Never push** — user handles push from Windows
 
 ## Initial Setup Task
 **Status: Complete (2025-02-15)**
