@@ -350,10 +350,11 @@
 # MAGIC -- PURPOSE:
 # MAGIC --   Nation participation activity over time (via coach nationality)
 # MAGIC -- GRAIN:
-# MAGIC --   One row per (nation_id, game_date)
+# MAGIC --   One row per (nation_id, date_id)
 # MAGIC -- SOURCES:
 # MAGIC --   naf_catalog.gold_summary.nation_coach_activity_timeseries
 # MAGIC --   naf_catalog.gold_dim.nation_dim
+# MAGIC --   naf_catalog.gold_dim.date_dim
 # MAGIC -- =============================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_coach_activity_timeseries AS
@@ -364,8 +365,8 @@
 # MAGIC   n.fifa_code,
 # MAGIC   n.flag_code,
 # MAGIC
-# MAGIC   s.game_date,
-# MAGIC   CAST(date_format(s.game_date, 'yyyyMMdd') AS INT) AS date_id,
+# MAGIC   s.date_id,
+# MAGIC   d.game_date,
 # MAGIC
 # MAGIC   -- legacy-friendly names for dashboards
 # MAGIC   COALESCE(s.coach_participations_count, 0) AS games_participated_count,
@@ -374,7 +375,9 @@
 # MAGIC   s.load_timestamp
 # MAGIC FROM naf_catalog.gold_summary.nation_coach_activity_timeseries AS s
 # MAGIC LEFT JOIN naf_catalog.gold_dim.nation_dim AS n
-# MAGIC   ON s.nation_id = n.nation_id;
+# MAGIC   ON s.nation_id = n.nation_id
+# MAGIC LEFT JOIN naf_catalog.gold_dim.date_dim AS d
+# MAGIC   ON s.date_id = d.date_id;
 # MAGIC
 
 # COMMAND ----------
@@ -1520,8 +1523,8 @@
 # MAGIC   -- Game-level context
 # MAGIC   s.game_sequence_number,
 # MAGIC   s.game_id,
-# MAGIC   s.game_date,
 # MAGIC   s.date_id,
+# MAGIC   d.game_date,
 # MAGIC   d.year_month,
 # MAGIC   s.event_timestamp,
 # MAGIC   s.tournament_id,

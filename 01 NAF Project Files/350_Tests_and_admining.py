@@ -42,8 +42,8 @@
 # MAGIC     ('gold_summary',     'coach_game_spine_v',                     'PLAN', 'VIEW'),
 # MAGIC     ('gold_summary',     'coach_performance_summary',              'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_race_summary',                     'PLAN', 'TABLE'),
-# MAGIC     ('gold_summary',     'coach_streak_segments',                  'PLAN', 'TABLE'),
-# MAGIC     ('gold_summary',     'coach_streak_summary',                   'PLAN', 'TABLE'),
+# MAGIC     ('gold_summary',     'coach_streak_detail',                  'PLAN', 'TABLE'),
+# MAGIC     ('gold_summary',     'coach_streak_overview',                   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_tournament_performance_summary',   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_form_summary',                     'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_opponent_median_glo_bin_summary',  'PLAN', 'TABLE'),
@@ -432,9 +432,9 @@
 # MAGIC SELECT 'coach_opponent_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
 # MAGIC FROM (SELECT rating_system, coach_id, opponent_coach_id FROM naf_catalog.gold_summary.coach_opponent_summary GROUP BY rating_system, coach_id, opponent_coach_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
-# MAGIC -- PK: coach_streak_summary (scope, coach_id, scope_race_id)
-# MAGIC SELECT 'coach_streak_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
-# MAGIC FROM (SELECT scope, coach_id, scope_race_id FROM naf_catalog.gold_summary.coach_streak_summary GROUP BY scope, coach_id, scope_race_id HAVING COUNT(*) > 1)
+# MAGIC -- PK: coach_streak_overview (scope, coach_id, scope_race_id)
+# MAGIC SELECT 'coach_streak_overview: PK duplicates' AS check_name, COUNT(*) AS fail_rows
+# MAGIC FROM (SELECT scope, coach_id, scope_race_id FROM naf_catalog.gold_summary.coach_streak_overview GROUP BY scope, coach_id, scope_race_id HAVING COUNT(*) > 1)
 # MAGIC UNION ALL
 # MAGIC -- PK: coach_tournament_performance_summary (rating_system, coach_id, tournament_id)
 # MAGIC SELECT 'coach_tournament_performance_summary: PK duplicates' AS check_name, COUNT(*) AS fail_rows
@@ -1767,8 +1767,8 @@
 # MAGIC     ('gold_summary',     'coach_game_spine_v',                     'PLAN', 'VIEW'),
 # MAGIC     ('gold_summary',     'coach_performance_summary',              'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_race_summary',                     'PLAN', 'TABLE'),
-# MAGIC     ('gold_summary',     'coach_streak_segments',                  'PLAN', 'TABLE'),
-# MAGIC     ('gold_summary',     'coach_streak_summary',                   'PLAN', 'TABLE'),
+# MAGIC     ('gold_summary',     'coach_streak_detail',                  'PLAN', 'TABLE'),
+# MAGIC     ('gold_summary',     'coach_streak_overview',                   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_tournament_performance_summary',   'PLAN', 'TABLE'),
 # MAGIC     ('gold_summary',     'coach_form_summary',                     'PLAN', 'TABLE'),
 # MAGIC     ('gold_presentation','coach_profile',                          'PLAN', 'VIEW'),
@@ -1961,8 +1961,8 @@
 # MAGIC   SELECT 'ERROR', 'coach_opponent_summary: PK duplicates', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM (SELECT rating_system, coach_id, opponent_coach_id FROM naf_catalog.gold_summary.coach_opponent_summary GROUP BY rating_system, coach_id, opponent_coach_id HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
-# MAGIC   SELECT 'ERROR', 'coach_streak_summary: PK duplicates', CAST(COUNT(*) AS BIGINT)
-# MAGIC   FROM (SELECT scope, coach_id, scope_race_id FROM naf_catalog.gold_summary.coach_streak_summary GROUP BY scope, coach_id, scope_race_id HAVING COUNT(*) > 1)
+# MAGIC   SELECT 'ERROR', 'coach_streak_overview: PK duplicates', CAST(COUNT(*) AS BIGINT)
+# MAGIC   FROM (SELECT scope, coach_id, scope_race_id FROM naf_catalog.gold_summary.coach_streak_overview GROUP BY scope, coach_id, scope_race_id HAVING COUNT(*) > 1)
 # MAGIC   UNION ALL
 # MAGIC   SELECT 'ERROR', 'coach_tournament_performance_summary: PK duplicates', CAST(COUNT(*) AS BIGINT)
 # MAGIC   FROM (SELECT rating_system, coach_id, tournament_id FROM naf_catalog.gold_summary.coach_tournament_performance_summary GROUP BY rating_system, coach_id, tournament_id HAVING COUNT(*) > 1)

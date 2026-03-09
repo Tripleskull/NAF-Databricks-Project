@@ -371,7 +371,7 @@
 # MAGIC -- PURPOSE:
 # MAGIC --   - Nation "host" activity over time (via tournament host nation)
 # MAGIC -- GRAIN:
-# MAGIC --   - One row per (nation_id, game_date)
+# MAGIC --   - One row per (nation_id, date_id)
 # MAGIC -- =============================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.nation_games_timeseries
@@ -381,29 +381,29 @@
 # MAGIC   SELECT DISTINCT
 # MAGIC     g.game_id,
 # MAGIC     g.tournament_id,
-# MAGIC     g.game_date,
+# MAGIC     g.date_id,
 # MAGIC     td.nation_id
 # MAGIC   FROM naf_catalog.gold_fact.games_fact g
 # MAGIC   INNER JOIN naf_catalog.gold_dim.tournament_dim td
 # MAGIC     ON g.tournament_id = td.tournament_id
 # MAGIC   WHERE td.nation_id IS NOT NULL
 # MAGIC     AND g.game_id IS NOT NULL
-# MAGIC     AND g.game_date IS NOT NULL
+# MAGIC     AND g.date_id IS NOT NULL
 # MAGIC ),
 # MAGIC
 # MAGIC agg AS (
 # MAGIC   SELECT
 # MAGIC     nation_id,
-# MAGIC     game_date,
+# MAGIC     date_id,
 # MAGIC     CAST(COUNT(DISTINCT game_id) AS INT)       AS games_count,
 # MAGIC     CAST(COUNT(DISTINCT tournament_id) AS INT) AS tournaments_count
 # MAGIC   FROM base
-# MAGIC   GROUP BY nation_id, game_date
+# MAGIC   GROUP BY nation_id, date_id
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
 # MAGIC   nation_id,
-# MAGIC   game_date,
+# MAGIC   date_id,
 # MAGIC   games_count,
 # MAGIC   tournaments_count,
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
@@ -417,7 +417,7 @@
 # MAGIC -- PURPOSE:
 # MAGIC --   - Nation participation activity over time (via coach nationality)
 # MAGIC -- GRAIN:
-# MAGIC --   - One row per (nation_id, game_date)
+# MAGIC --   - One row per (nation_id, date_id)
 # MAGIC -- MEASURES:
 # MAGIC --   - coach_participations_count  = distinct (coach_id, game_id)
 # MAGIC --   - game_representations_count  = distinct game_id
@@ -434,7 +434,7 @@
 # MAGIC WITH base AS (
 # MAGIC   SELECT
 # MAGIC     cd.nation_id,
-# MAGIC     cg.game_date,
+# MAGIC     cg.date_id,
 # MAGIC     cg.game_id,
 # MAGIC     cg.coach_id,
 # MAGIC     cg.tournament_id
@@ -442,7 +442,7 @@
 # MAGIC   INNER JOIN naf_catalog.gold_dim.coach_dim cd
 # MAGIC     ON cg.coach_id = cd.coach_id
 # MAGIC   WHERE cd.nation_id IS NOT NULL
-# MAGIC     AND cg.game_date IS NOT NULL
+# MAGIC     AND cg.date_id IS NOT NULL
 # MAGIC     AND cg.game_id   IS NOT NULL
 # MAGIC     AND cg.coach_id  IS NOT NULL
 # MAGIC ),
@@ -450,18 +450,18 @@
 # MAGIC agg AS (
 # MAGIC   SELECT
 # MAGIC     nation_id,
-# MAGIC     game_date,
+# MAGIC     date_id,
 # MAGIC     CAST(COUNT(*) AS INT)                  AS coach_participations_count,
 # MAGIC     CAST(COUNT(DISTINCT game_id) AS INT)   AS game_representations_count,
 # MAGIC     CAST(COUNT(DISTINCT coach_id) AS INT)  AS coaches_active_count,
 # MAGIC     CAST(COUNT(DISTINCT tournament_id) AS INT) AS tournaments_represented_count
 # MAGIC   FROM base
-# MAGIC   GROUP BY nation_id, game_date
+# MAGIC   GROUP BY nation_id, date_id
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
 # MAGIC   nation_id,
-# MAGIC   game_date,
+# MAGIC   date_id,
 # MAGIC   coach_participations_count,
 # MAGIC   game_representations_count,
 # MAGIC   coaches_active_count,
@@ -582,7 +582,6 @@
 # MAGIC WITH international_games AS (
 # MAGIC   SELECT
 # MAGIC     cgf.game_id,
-# MAGIC     cgf.game_date,
 # MAGIC     cgf.date_id,
 # MAGIC     cgf.event_timestamp,
 # MAGIC     cgf.tournament_id,
@@ -603,7 +602,6 @@
 # MAGIC   SELECT
 # MAGIC     nation_id,
 # MAGIC     game_id,
-# MAGIC     game_date,
 # MAGIC     date_id,
 # MAGIC     event_timestamp,
 # MAGIC     tournament_id,
@@ -645,7 +643,6 @@
 # MAGIC   nation_id,
 # MAGIC   game_sequence_number,
 # MAGIC   game_id,
-# MAGIC   game_date,
 # MAGIC   date_id,
 # MAGIC   event_timestamp,
 # MAGIC   tournament_id,
