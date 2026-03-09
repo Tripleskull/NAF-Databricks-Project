@@ -366,7 +366,7 @@
 # MAGIC   n.flag_code,
 # MAGIC
 # MAGIC   s.date_id,
-# MAGIC   d.game_date,
+# MAGIC   d.date AS game_date,
 # MAGIC
 # MAGIC   -- legacy-friendly names for dashboards
 # MAGIC   COALESCE(s.coach_participations_count, 0) AS games_participated_count,
@@ -1524,7 +1524,7 @@
 # MAGIC   s.game_sequence_number,
 # MAGIC   s.game_id,
 # MAGIC   s.date_id,
-# MAGIC   d.game_date,
+# MAGIC   d.date AS game_date,
 # MAGIC   d.year_month,
 # MAGIC   s.event_timestamp,
 # MAGIC   s.tournament_id,
