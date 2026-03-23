@@ -224,6 +224,60 @@
 # MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
 # MAGIC     ON og.coach_id = ci.coach_id
 # MAGIC   WHERE og.rating_system = 'NAF_ELO'
+# MAGIC ),
+# MAGIC
+# MAGIC -- Active coaches: played in current or prior calendar year (2-year rolling window)
+# MAGIC active_coaches AS (
+# MAGIC   SELECT coach_id
+# MAGIC   FROM naf_catalog.gold_summary.coach_performance_summary
+# MAGIC   WHERE CAST(date_last_game_id / 10000 AS INT) >= YEAR(CURRENT_DATE()) - 1
+# MAGIC ),
+# MAGIC
+# MAGIC -- GLO ranks among ACTIVE coaches only
+# MAGIC glo_ranks_active AS (
+# MAGIC   SELECT
+# MAGIC     rg.coach_id,
+# MAGIC     ci.nation_id,
+# MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_current DESC)   AS world_rank_current_active,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY rg.global_elo_current DESC
+# MAGIC     ) AS nation_rank_current_active,
+# MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_peak_last_50 DESC) AS world_rank_peak_active,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY rg.global_elo_peak_last_50 DESC
+# MAGIC     ) AS nation_rank_peak_active,
+# MAGIC     DENSE_RANK() OVER (ORDER BY rg.global_elo_median_all DESC) AS world_rank_median_active,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY rg.global_elo_median_all DESC
+# MAGIC     ) AS nation_rank_median_active
+# MAGIC   FROM naf_catalog.gold_summary.coach_rating_global_elo_summary AS rg
+# MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
+# MAGIC     ON rg.coach_id = ci.coach_id
+# MAGIC   JOIN active_coaches ac
+# MAGIC     ON rg.coach_id = ac.coach_id
+# MAGIC   WHERE rg.rating_system = 'NAF_ELO'
+# MAGIC     AND rg.global_elo_current IS NOT NULL
+# MAGIC ),
+# MAGIC
+# MAGIC -- Opponent GLO ranks among ACTIVE coaches only
+# MAGIC opp_glo_ranks_active AS (
+# MAGIC   SELECT
+# MAGIC     og.coach_id,
+# MAGIC     ci.nation_id,
+# MAGIC     DENSE_RANK() OVER (ORDER BY og.opponent_global_elo_median_weighted DESC) AS world_rank_opp_median_active,
+# MAGIC     DENSE_RANK() OVER (
+# MAGIC       PARTITION BY ci.nation_id
+# MAGIC       ORDER BY og.opponent_global_elo_median_weighted DESC
+# MAGIC     ) AS nation_rank_opp_median_active
+# MAGIC   FROM naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v AS og
+# MAGIC   JOIN naf_catalog.gold_presentation.coach_identity_v AS ci
+# MAGIC     ON og.coach_id = ci.coach_id
+# MAGIC   JOIN active_coaches ac
+# MAGIC     ON og.coach_id = ac.coach_id
+# MAGIC   WHERE og.rating_system = 'NAF_ELO'
 # MAGIC )
 # MAGIC
 # MAGIC SELECT
@@ -324,6 +378,16 @@
 # MAGIC   ogr.world_rank_opp_median,
 # MAGIC   ogr.nation_rank_opp_median,
 # MAGIC
+# MAGIC   -- GLO ranks among ACTIVE coaches (NULL if coach is inactive)
+# MAGIC   gra.world_rank_current_active,
+# MAGIC   gra.nation_rank_current_active,
+# MAGIC   gra.world_rank_peak_active,
+# MAGIC   gra.nation_rank_peak_active,
+# MAGIC   gra.world_rank_median_active,
+# MAGIC   gra.nation_rank_median_active,
+# MAGIC   ogra.world_rank_opp_median_active,
+# MAGIC   ogra.nation_rank_opp_median_active,
+# MAGIC
 # MAGIC   -- Opponent strength (weighted mean of opponent median GLO)
 # MAGIC   og.opponent_global_elo_median_weighted,
 # MAGIC   og.opponents_count,
@@ -423,6 +487,10 @@
 # MAGIC   ON ci.coach_id = gr.coach_id
 # MAGIC LEFT JOIN opp_glo_ranks AS ogr
 # MAGIC   ON ci.coach_id = ogr.coach_id
+# MAGIC LEFT JOIN glo_ranks_active AS gra
+# MAGIC   ON ci.coach_id = gra.coach_id
+# MAGIC LEFT JOIN opp_glo_ranks_active AS ogra
+# MAGIC   ON ci.coach_id = ogra.coach_id
 # MAGIC LEFT JOIN naf_catalog.gold_summary.nation_team_candidate_scores AS sel
 # MAGIC   ON ci.coach_id = sel.coach_id
 # MAGIC ;
