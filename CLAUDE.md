@@ -20,7 +20,6 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 ### Working Folder
 **IMPORTANT**: Always work in the GitHub-connected folder:
 - **Path**: `C:\Users\tripl\NAF-Databricks-Project`
-- **Do NOT use**: `NAF Project with Claude` (old folder, to be cleaned up)
 
 ### Git Workflow
 1. **Work**: Claude edits files in the mounted folder
@@ -38,7 +37,7 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - **Co-author tag**: Always include `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
 - **Stage specific files** by name (not `git add -A` or `git add .`)
 - **Never amend** previous commits — always create new commits
-- **Never push** — user handles push from Windows
+- **Never push** — user handles push
 
 ## Initial Setup Task
 **Status: Complete (2025-02-15)**
@@ -85,12 +84,12 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 ### Communication Style
 - **Direct, matter-of-fact feedback** without excessive positivity
 - **Critical and constructive approach**
-- **Scandinavian directness** over American politeness
+- directness over politeness
 - No excessive apologizing or hedging
 - Get to the point efficiently
 
 ### Domain Knowledge
-- **Ask for Blood Bowl/NAF context** when needed rather than assuming domain knowledge
+- **Ask for Blood Bowl/NAF context** or other context when needed rather than assuming domain knowledge
 - Clarify terminology when uncertain
 - User has deep domain expertise - leverage it
 
