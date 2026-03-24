@@ -845,6 +845,7 @@ plt.show()
 # OUTPUT       : naf_catalog.gold_fact.ssm2_rating_history_fact
 # GRAIN / PK   : 1 row per (game_id, coach_id)
 # NOTES        : Uses distinct SSM2_* names and a new output table to avoid conflicts.
+# Tunes parameters: sigma2_obs = 0.1000   q_time     = 2.0000   q_game     = 0.0250   v_scale    = 24.0000
 # =============================================================================
 
 import math
@@ -867,12 +868,12 @@ SSM2_PRIOR_SIGMA = 50.0
 SSM2_PRIOR_P = SSM2_PRIOR_SIGMA ** 2
 
 # Observation noise (same role as in current SSM)
-SSM2_SIGMA2_OBS = 0.05
+SSM2_SIGMA2_OBS = 0.10
 
 # Time-aware process variance:
 #   P_pred = P_prev + q_time * sqrt(capped_days_since_prev_game) + q_game + volatility
-SSM2_Q_TIME = 1.50          # variance added per sqrt(day)
-SSM2_Q_GAME = 0.25          # small baseline variance per played game
+SSM2_Q_TIME = 2.00          # variance added per sqrt(day)
+SSM2_Q_GAME = 0.025          # small baseline variance per played game
 SSM2_MAX_DAYS = 180.0       # cap very long inactivity gaps
 SSM2_MIN_P = 1e-6
 
@@ -880,7 +881,7 @@ SSM2_MIN_P = 1e-6
 # shock_ewma_post = decay * shock_ewma_prev + (1-decay) * innovation^2
 # volatility_post = clip(v_base + v_scale * shock_ewma_post, v_min, v_max)
 SSM2_V_BASE = 0.25
-SSM2_V_SCALE = 12.0
+SSM2_V_SCALE = 24.0
 SSM2_V_DECAY = 0.90
 SSM2_V_MIN = 0.00
 SSM2_V_MAX = 16.0
@@ -1238,7 +1239,9 @@ ssm2_top_coach_row = spark.sql("""
 """).first()
 
 ssm2_coach_id = ssm2_top_coach_row["coach_id"]
-# ssm2_coach_id = 9524   # uncomment to override with a specific coach
+ssm2_coach_id = 9524   # uncomment to override with a specific coach
+ssm2_coach_id = 34738 
+ssm2_coach_id = 35505
 
 ssm2_total_games_row = spark.sql(f"""
     SELECT COUNT(*) AS games
@@ -1351,7 +1354,7 @@ hp_text = (
 )
 ax1.plot([], [], ' ', label=hp_text)
 
-ax1.legend(loc="upper left", fontsize=7)
+ax1.legend(loc="lower right", fontsize=7)
 ax1.grid(True, alpha=0.3)
 
 # Panel 2: posterior uncertainty
@@ -1511,449 +1514,449 @@ print("=" * 70)
 
 # COMMAND ----------
 
-# =============================================================================
-# COMPONENT: SSM2 Hyperparameter Tuner
-# =============================================================================
-# PURPOSE      : Find optimal (sigma2_obs, q_time, q_game, v_scale) by grid
-#                search, calibrated against 50-game rolling median Elo.
-# TARGET       : Rolling median Elo inside SSM2 ± 2σ ~95% of the time for
-#                coaches with 100+ games (weighted toward veterans).
-# STRATEGY     : Two-pass grid search — coarse (4D, wide) then fine (4D,
-#                narrow neighbourhood around coarse best).
-# FIXED PARAMS : prior_sigma=50, max_days=180, v_decay=0.90, v_base=0.25,
-#                v_min=0.0, v_max=16.0
-# PREREQS      : Requires ssm2_feed_rows (from the SSM2 engine cell above)
-#                and Elo data loaded from rating_history_fact.
-# RUNTIME NOTE : Each grid point runs the full SSM2 loop over all games.
-#                Coarse grid (~80 points) + fine grid (~81 points) ≈ 160 runs.
-#                At ~30-60s per run on Community Edition, expect 1-3 hours.
-# =============================================================================
+# # =============================================================================
+# # COMPONENT: SSM2 Hyperparameter Tuner
+# # =============================================================================
+# # PURPOSE      : Find optimal (sigma2_obs, q_time, q_game, v_scale) by grid
+# #                search, calibrated against 50-game rolling median Elo.
+# # TARGET       : Rolling median Elo inside SSM2 ± 2σ ~95% of the time for
+# #                coaches with 100+ games (weighted toward veterans).
+# # STRATEGY     : Two-pass grid search — coarse (4D, wide) then fine (4D,
+# #                narrow neighbourhood around coarse best).
+# # FIXED PARAMS : prior_sigma=50, max_days=180, v_decay=0.90, v_base=0.25,
+# #                v_min=0.0, v_max=16.0
+# # PREREQS      : Requires ssm2_feed_rows (from the SSM2 engine cell above)
+# #                and Elo data loaded from rating_history_fact.
+# # RUNTIME NOTE : Each grid point runs the full SSM2 loop over all games.
+# #                Coarse grid (~80 points) + fine grid (~81 points) ≈ 160 runs.
+# #                At ~30-60s per run on Community Edition, expect 1-3 hours.
+# # =============================================================================
 
-import math
-import datetime as dt
-import time
-from collections import defaultdict
-import itertools
+# import math
+# import datetime as dt
+# import time
+# from collections import defaultdict
+# import itertools
 
-# ---------------------------------------------------------------------------
-# 1) Fixed parameters (structural — not tuned)
-# ---------------------------------------------------------------------------
-TUNE_PRIOR_SIGMA = 50.0
-TUNE_PRIOR_P     = TUNE_PRIOR_SIGMA ** 2
-TUNE_MAX_DAYS    = 180.0
-TUNE_V_DECAY     = 0.90
-TUNE_V_BASE      = 0.25
-TUNE_V_MIN       = 0.00
-TUNE_V_MAX       = 16.0
-TUNE_MIN_P       = 1e-6
+# # ---------------------------------------------------------------------------
+# # 1) Fixed parameters (structural — not tuned)
+# # ---------------------------------------------------------------------------
+# TUNE_PRIOR_SIGMA = 50.0
+# TUNE_PRIOR_P     = TUNE_PRIOR_SIGMA ** 2
+# TUNE_MAX_DAYS    = 180.0
+# TUNE_V_DECAY     = 0.90
+# TUNE_V_BASE      = 0.25
+# TUNE_V_MIN       = 0.00
+# TUNE_V_MAX       = 16.0
+# TUNE_MIN_P       = 1e-6
 
-# Use same initial rating and Elo scale from config (already loaded above)
-TUNE_INITIAL_RATING  = SSM2_INITIAL_RATING
-TUNE_ELO_SCALE       = SSM2_ELO_SCALE
-TUNE_LN10_OVER_SCALE = SSM2_LN10_OVER_SCALE
+# # Use same initial rating and Elo scale from config (already loaded above)
+# TUNE_INITIAL_RATING  = SSM2_INITIAL_RATING
+# TUNE_ELO_SCALE       = SSM2_ELO_SCALE
+# TUNE_LN10_OVER_SCALE = SSM2_LN10_OVER_SCALE
 
-# Median window for calibration target
-TUNE_MEDIAN_WINDOW = 50
+# # Median window for calibration target
+# TUNE_MEDIAN_WINDOW = 50
 
-# ---------------------------------------------------------------------------
-# 2) Load Elo trajectories into a dict: coach_id -> list of (game_number, elo)
-#    Reuses the rating_history_fact table. Built once for all grid points.
-# ---------------------------------------------------------------------------
-print("Loading Elo trajectories for calibration target...")
-_elo_raw = spark.sql("""
-    SELECT
-        coach_id,
-        game_id,
-        game_index,
-        rating_after,
-        ROW_NUMBER() OVER (
-            PARTITION BY coach_id
-            ORDER BY game_index, game_id
-        ) AS coach_game_number
-    FROM naf_catalog.gold_fact.rating_history_fact
-    WHERE scope = 'GLOBAL'
-""").collect()
+# # ---------------------------------------------------------------------------
+# # 2) Load Elo trajectories into a dict: coach_id -> list of (game_number, elo)
+# #    Reuses the rating_history_fact table. Built once for all grid points.
+# # ---------------------------------------------------------------------------
+# print("Loading Elo trajectories for calibration target...")
+# _elo_raw = spark.sql("""
+#     SELECT
+#         coach_id,
+#         game_id,
+#         game_index,
+#         rating_after,
+#         ROW_NUMBER() OVER (
+#             PARTITION BY coach_id
+#             ORDER BY game_index, game_id
+#         ) AS coach_game_number
+#     FROM naf_catalog.gold_fact.rating_history_fact
+#     WHERE scope = 'GLOBAL'
+# """).collect()
 
-# Build per-coach Elo arrays and rolling medians
-_elo_by_coach = defaultdict(list)
-for row in _elo_raw:
-    _elo_by_coach[int(row["coach_id"])].append(
-        (int(row["coach_game_number"]), float(row["rating_after"]))
-    )
+# # Build per-coach Elo arrays and rolling medians
+# _elo_by_coach = defaultdict(list)
+# for row in _elo_raw:
+#     _elo_by_coach[int(row["coach_id"])].append(
+#         (int(row["coach_game_number"]), float(row["rating_after"]))
+#     )
 
-# Pre-compute rolling median Elo per coach: dict[coach_id][game_number] -> median
-import statistics
+# # Pre-compute rolling median Elo per coach: dict[coach_id][game_number] -> median
+# import statistics
 
-elo_rolling_median = {}
-for cid, games in _elo_by_coach.items():
-    games.sort(key=lambda x: x[0])
-    elos = [e for _, e in games]
-    medians = {}
-    for i, (gn, _) in enumerate(games):
-        window_start = max(0, i - TUNE_MEDIAN_WINDOW + 1)
-        window = elos[window_start:i + 1]
-        medians[gn] = statistics.median(window)
-    elo_rolling_median[cid] = medians
+# elo_rolling_median = {}
+# for cid, games in _elo_by_coach.items():
+#     games.sort(key=lambda x: x[0])
+#     elos = [e for _, e in games]
+#     medians = {}
+#     for i, (gn, _) in enumerate(games):
+#         window_start = max(0, i - TUNE_MEDIAN_WINDOW + 1)
+#         window = elos[window_start:i + 1]
+#         medians[gn] = statistics.median(window)
+#     elo_rolling_median[cid] = medians
 
-del _elo_raw, _elo_by_coach
-print(f"Loaded rolling {TUNE_MEDIAN_WINDOW}-game median Elo for "
-      f"{len(elo_rolling_median)} coaches")
+# del _elo_raw, _elo_by_coach
+# print(f"Loaded rolling {TUNE_MEDIAN_WINDOW}-game median Elo for "
+#       f"{len(elo_rolling_median)} coaches")
 
-# ---------------------------------------------------------------------------
-# 3) Pre-process feed rows into a compact list for fast iteration
-#    (avoid repeated dict lookups inside the inner loop)
-# ---------------------------------------------------------------------------
-print("Pre-processing feed rows...")
-_feed_compact = []
-for r in ssm2_feed_rows:
-    event_ts = r["event_timestamp"]
-    game_date = r["game_date"]
-    date_id = int(r["date_id"])
-    if event_ts is not None:
-        cur_dt = event_ts.replace(tzinfo=None) if getattr(event_ts, "tzinfo", None) else event_ts
-    elif game_date is not None:
-        cur_dt = dt.datetime.combine(game_date, dt.time(0, 0))
-    else:
-        cur_dt = dt.datetime.strptime(str(date_id), "%Y%m%d")
+# # ---------------------------------------------------------------------------
+# # 3) Pre-process feed rows into a compact list for fast iteration
+# #    (avoid repeated dict lookups inside the inner loop)
+# # ---------------------------------------------------------------------------
+# print("Pre-processing feed rows...")
+# _feed_compact = []
+# for r in ssm2_feed_rows:
+#     event_ts = r["event_timestamp"]
+#     game_date = r["game_date"]
+#     date_id = int(r["date_id"])
+#     if event_ts is not None:
+#         cur_dt = event_ts.replace(tzinfo=None) if getattr(event_ts, "tzinfo", None) else event_ts
+#     elif game_date is not None:
+#         cur_dt = dt.datetime.combine(game_date, dt.time(0, 0))
+#     else:
+#         cur_dt = dt.datetime.strptime(str(date_id), "%Y%m%d")
 
-    _feed_compact.append((
-        int(r["home_coach_id"]),
-        int(r["away_coach_id"]),
-        float(r["result_home"]),
-        float(r["result_away"]),
-        cur_dt,
-    ))
-print(f"Feed ready: {len(_feed_compact)} games")
+#     _feed_compact.append((
+#         int(r["home_coach_id"]),
+#         int(r["away_coach_id"]),
+#         float(r["result_home"]),
+#         float(r["result_away"]),
+#         cur_dt,
+#     ))
+# print(f"Feed ready: {len(_feed_compact)} games")
 
-# ---------------------------------------------------------------------------
-# 4) Core engine function — runs the full SSM2 loop for one parameter set.
-#    Returns per-coach lists of (game_number, mu_after, sigma_after).
-# ---------------------------------------------------------------------------
-def run_ssm2_engine(sigma2_obs, q_time, q_game, v_scale):
-    """Run the full SSM2 engine with given tunable params.
+# # ---------------------------------------------------------------------------
+# # 4) Core engine function — runs the full SSM2 loop for one parameter set.
+# #    Returns per-coach lists of (game_number, mu_after, sigma_after).
+# # ---------------------------------------------------------------------------
+# def run_ssm2_engine(sigma2_obs, q_time, q_game, v_scale):
+#     """Run the full SSM2 engine with given tunable params.
 
-    Returns:
-        dict[coach_id] -> list of (game_number, mu_after, P_after)
-    """
-    # State: mu, P, volatility, shock_ewma, last_dt
-    state = {}
-    game_counts = {}
-    results = defaultdict(list)
+#     Returns:
+#         dict[coach_id] -> list of (game_number, mu_after, P_after)
+#     """
+#     # State: mu, P, volatility, shock_ewma, last_dt
+#     state = {}
+#     game_counts = {}
+#     results = defaultdict(list)
 
-    def _default():
-        return [TUNE_INITIAL_RATING, TUNE_PRIOR_P, TUNE_V_BASE, 0.0, None]
+#     def _default():
+#         return [TUNE_INITIAL_RATING, TUNE_PRIOR_P, TUNE_V_BASE, 0.0, None]
 
-    for home_id, away_id, res_h, res_a, cur_dt in _feed_compact:
-        # Get or init states
-        sh = state.get(home_id)
-        if sh is None:
-            sh = _default()
-            state[home_id] = sh
-        sa = state.get(away_id)
-        if sa is None:
-            sa = _default()
-            state[away_id] = sa
+#     for home_id, away_id, res_h, res_a, cur_dt in _feed_compact:
+#         # Get or init states
+#         sh = state.get(home_id)
+#         if sh is None:
+#             sh = _default()
+#             state[home_id] = sh
+#         sa = state.get(away_id)
+#         if sa is None:
+#             sa = _default()
+#             state[away_id] = sa
 
-        # --- Predict home ---
-        days_h = 0.0
-        if sh[4] is not None:
-            days_h = max((cur_dt - sh[4]).total_seconds() / 86400.0, 0.0)
-        ts_h = math.sqrt(min(days_h, TUNE_MAX_DAYS))
-        q_added_h = q_time * ts_h + q_game + sh[2]  # sh[2] = volatility
-        mu_h_pred = sh[0]
-        P_h_pred = sh[1] + q_added_h
+#         # --- Predict home ---
+#         days_h = 0.0
+#         if sh[4] is not None:
+#             days_h = max((cur_dt - sh[4]).total_seconds() / 86400.0, 0.0)
+#         ts_h = math.sqrt(min(days_h, TUNE_MAX_DAYS))
+#         q_added_h = q_time * ts_h + q_game + sh[2]  # sh[2] = volatility
+#         mu_h_pred = sh[0]
+#         P_h_pred = sh[1] + q_added_h
 
-        # --- Predict away ---
-        days_a = 0.0
-        if sa[4] is not None:
-            days_a = max((cur_dt - sa[4]).total_seconds() / 86400.0, 0.0)
-        ts_a = math.sqrt(min(days_a, TUNE_MAX_DAYS))
-        q_added_a = q_time * ts_a + q_game + sa[2]
-        mu_a_pred = sa[0]
-        P_a_pred = sa[1] + q_added_a
+#         # --- Predict away ---
+#         days_a = 0.0
+#         if sa[4] is not None:
+#             days_a = max((cur_dt - sa[4]).total_seconds() / 86400.0, 0.0)
+#         ts_a = math.sqrt(min(days_a, TUNE_MAX_DAYS))
+#         q_added_a = q_time * ts_a + q_game + sa[2]
+#         mu_a_pred = sa[0]
+#         P_a_pred = sa[1] + q_added_a
 
-        # --- Observe home ---
-        p_exp_h = 1.0 / (1.0 + 10.0 ** ((mu_a_pred - mu_h_pred) / TUNE_ELO_SCALE))
-        H_h = p_exp_h * (1.0 - p_exp_h) * TUNE_LN10_OVER_SCALE
-        S_h = H_h * H_h * P_h_pred + H_h * H_h * P_a_pred + sigma2_obs
-        innov_h = res_h - p_exp_h
-        if S_h < 1e-12:
-            K_h = 0.0
-            mu_h_post = mu_h_pred
-            P_h_post = max(P_h_pred, TUNE_MIN_P)
-        else:
-            K_h = H_h * P_h_pred / S_h
-            mu_h_post = mu_h_pred + K_h * innov_h
-            P_h_post = max((1.0 - K_h * H_h) * P_h_pred, TUNE_MIN_P)
+#         # --- Observe home ---
+#         p_exp_h = 1.0 / (1.0 + 10.0 ** ((mu_a_pred - mu_h_pred) / TUNE_ELO_SCALE))
+#         H_h = p_exp_h * (1.0 - p_exp_h) * TUNE_LN10_OVER_SCALE
+#         S_h = H_h * H_h * P_h_pred + H_h * H_h * P_a_pred + sigma2_obs
+#         innov_h = res_h - p_exp_h
+#         if S_h < 1e-12:
+#             K_h = 0.0
+#             mu_h_post = mu_h_pred
+#             P_h_post = max(P_h_pred, TUNE_MIN_P)
+#         else:
+#             K_h = H_h * P_h_pred / S_h
+#             mu_h_post = mu_h_pred + K_h * innov_h
+#             P_h_post = max((1.0 - K_h * H_h) * P_h_pred, TUNE_MIN_P)
 
-        # --- Observe away ---
-        p_exp_a = 1.0 / (1.0 + 10.0 ** ((mu_h_pred - mu_a_pred) / TUNE_ELO_SCALE))
-        H_a = p_exp_a * (1.0 - p_exp_a) * TUNE_LN10_OVER_SCALE
-        S_a = H_a * H_a * P_a_pred + H_a * H_a * P_h_pred + sigma2_obs
-        innov_a = res_a - p_exp_a
-        if S_a < 1e-12:
-            K_a = 0.0
-            mu_a_post = mu_a_pred
-            P_a_post = max(P_a_pred, TUNE_MIN_P)
-        else:
-            K_a = H_a * P_a_pred / S_a
-            mu_a_post = mu_a_pred + K_a * innov_a
-            P_a_post = max((1.0 - K_a * H_a) * P_a_pred, TUNE_MIN_P)
+#         # --- Observe away ---
+#         p_exp_a = 1.0 / (1.0 + 10.0 ** ((mu_h_pred - mu_a_pred) / TUNE_ELO_SCALE))
+#         H_a = p_exp_a * (1.0 - p_exp_a) * TUNE_LN10_OVER_SCALE
+#         S_a = H_a * H_a * P_a_pred + H_a * H_a * P_h_pred + sigma2_obs
+#         innov_a = res_a - p_exp_a
+#         if S_a < 1e-12:
+#             K_a = 0.0
+#             mu_a_post = mu_a_pred
+#             P_a_post = max(P_a_pred, TUNE_MIN_P)
+#         else:
+#             K_a = H_a * P_a_pred / S_a
+#             mu_a_post = mu_a_pred + K_a * innov_a
+#             P_a_post = max((1.0 - K_a * H_a) * P_a_pred, TUNE_MIN_P)
 
-        # --- Volatility update ---
-        shock_h = TUNE_V_DECAY * sh[3] + (1.0 - TUNE_V_DECAY) * (innov_h ** 2)
-        vol_h = max(TUNE_V_MIN, min(TUNE_V_BASE + v_scale * shock_h, TUNE_V_MAX))
+#         # --- Volatility update ---
+#         shock_h = TUNE_V_DECAY * sh[3] + (1.0 - TUNE_V_DECAY) * (innov_h ** 2)
+#         vol_h = max(TUNE_V_MIN, min(TUNE_V_BASE + v_scale * shock_h, TUNE_V_MAX))
 
-        shock_a = TUNE_V_DECAY * sa[3] + (1.0 - TUNE_V_DECAY) * (innov_a ** 2)
-        vol_a = max(TUNE_V_MIN, min(TUNE_V_BASE + v_scale * shock_a, TUNE_V_MAX))
+#         shock_a = TUNE_V_DECAY * sa[3] + (1.0 - TUNE_V_DECAY) * (innov_a ** 2)
+#         vol_a = max(TUNE_V_MIN, min(TUNE_V_BASE + v_scale * shock_a, TUNE_V_MAX))
 
-        # --- Game counts ---
-        gn_h = game_counts.get(home_id, 0) + 1
-        game_counts[home_id] = gn_h
-        gn_a = game_counts.get(away_id, 0) + 1
-        game_counts[away_id] = gn_a
+#         # --- Game counts ---
+#         gn_h = game_counts.get(home_id, 0) + 1
+#         game_counts[home_id] = gn_h
+#         gn_a = game_counts.get(away_id, 0) + 1
+#         game_counts[away_id] = gn_a
 
-        # --- Record results for calibration ---
-        results[home_id].append((gn_h, mu_h_post, P_h_post))
-        results[away_id].append((gn_a, mu_a_post, P_a_post))
+#         # --- Record results for calibration ---
+#         results[home_id].append((gn_h, mu_h_post, P_h_post))
+#         results[away_id].append((gn_a, mu_a_post, P_a_post))
 
-        # --- Persist state (in-place for speed) ---
-        sh[0] = mu_h_post
-        sh[1] = P_h_post
-        sh[2] = vol_h
-        sh[3] = shock_h
-        sh[4] = cur_dt
+#         # --- Persist state (in-place for speed) ---
+#         sh[0] = mu_h_post
+#         sh[1] = P_h_post
+#         sh[2] = vol_h
+#         sh[3] = shock_h
+#         sh[4] = cur_dt
 
-        sa[0] = mu_a_post
-        sa[1] = P_a_post
-        sa[2] = vol_a
-        sa[3] = shock_a
-        sa[4] = cur_dt
+#         sa[0] = mu_a_post
+#         sa[1] = P_a_post
+#         sa[2] = vol_a
+#         sa[3] = shock_a
+#         sa[4] = cur_dt
 
-    return results
+#     return results
 
-# ---------------------------------------------------------------------------
-# 5) Calibration scorer — computes weighted coverage against rolling median
-# ---------------------------------------------------------------------------
-def compute_coverage(engine_results):
-    """Compute coverage: fraction of games where rolling median Elo is
-    inside SSM2 mu ± 2*sigma.
+# # ---------------------------------------------------------------------------
+# # 5) Calibration scorer — computes weighted coverage against rolling median
+# # ---------------------------------------------------------------------------
+# def compute_coverage(engine_results):
+#     """Compute coverage: fraction of games where rolling median Elo is
+#     inside SSM2 mu ± 2*sigma.
 
-    Returns:
-        dict with keys: 'overall', 'mature', 'veteran', 'established',
-                        'developing', 'burnin', 'objective'
-    """
-    tier_hits = {
-        "burnin": [0, 0],       # [inside, total]  games 1-30
-        "developing": [0, 0],   # games 31-100
-        "established": [0, 0],  # games 101-300
-        "veteran": [0, 0],      # games 301+
-    }
+#     Returns:
+#         dict with keys: 'overall', 'mature', 'veteran', 'established',
+#                         'developing', 'burnin', 'objective'
+#     """
+#     tier_hits = {
+#         "burnin": [0, 0],       # [inside, total]  games 1-30
+#         "developing": [0, 0],   # games 31-100
+#         "established": [0, 0],  # games 101-300
+#         "veteran": [0, 0],      # games 301+
+#     }
 
-    for coach_id, trajectory in engine_results.items():
-        medians = elo_rolling_median.get(coach_id)
-        if medians is None:
-            continue
+#     for coach_id, trajectory in engine_results.items():
+#         medians = elo_rolling_median.get(coach_id)
+#         if medians is None:
+#             continue
 
-        for gn, mu_post, P_post in trajectory:
-            median_elo = medians.get(gn)
-            if median_elo is None:
-                continue
+#         for gn, mu_post, P_post in trajectory:
+#             median_elo = medians.get(gn)
+#             if median_elo is None:
+#                 continue
 
-            sigma = math.sqrt(P_post)
-            inside = 1 if abs(median_elo - mu_post) <= 2.0 * sigma else 0
+#             sigma = math.sqrt(P_post)
+#             inside = 1 if abs(median_elo - mu_post) <= 2.0 * sigma else 0
 
-            if gn <= 30:
-                tier_hits["burnin"][0] += inside
-                tier_hits["burnin"][1] += 1
-            elif gn <= 100:
-                tier_hits["developing"][0] += inside
-                tier_hits["developing"][1] += 1
-            elif gn <= 300:
-                tier_hits["established"][0] += inside
-                tier_hits["established"][1] += 1
-            else:
-                tier_hits["veteran"][0] += inside
-                tier_hits["veteran"][1] += 1
+#             if gn <= 30:
+#                 tier_hits["burnin"][0] += inside
+#                 tier_hits["burnin"][1] += 1
+#             elif gn <= 100:
+#                 tier_hits["developing"][0] += inside
+#                 tier_hits["developing"][1] += 1
+#             elif gn <= 300:
+#                 tier_hits["established"][0] += inside
+#                 tier_hits["established"][1] += 1
+#             else:
+#                 tier_hits["veteran"][0] += inside
+#                 tier_hits["veteran"][1] += 1
 
-    def _pct(key):
-        h, t = tier_hits[key]
-        return (h / t * 100) if t > 0 else 0.0
+#     def _pct(key):
+#         h, t = tier_hits[key]
+#         return (h / t * 100) if t > 0 else 0.0
 
-    cov = {
-        "burnin":      _pct("burnin"),
-        "developing":  _pct("developing"),
-        "established": _pct("established"),
-        "veteran":     _pct("veteran"),
-        "n_burnin":      tier_hits["burnin"][1],
-        "n_developing":  tier_hits["developing"][1],
-        "n_established": tier_hits["established"][1],
-        "n_veteran":     tier_hits["veteran"][1],
-    }
+#     cov = {
+#         "burnin":      _pct("burnin"),
+#         "developing":  _pct("developing"),
+#         "established": _pct("established"),
+#         "veteran":     _pct("veteran"),
+#         "n_burnin":      tier_hits["burnin"][1],
+#         "n_developing":  tier_hits["developing"][1],
+#         "n_established": tier_hits["established"][1],
+#         "n_veteran":     tier_hits["veteran"][1],
+#     }
 
-    # Mature = 100+ games
-    mat_inside = tier_hits["established"][0] + tier_hits["veteran"][0]
-    mat_total  = tier_hits["established"][1] + tier_hits["veteran"][1]
-    cov["mature"] = (mat_inside / mat_total * 100) if mat_total > 0 else 0.0
+#     # Mature = 100+ games
+#     mat_inside = tier_hits["established"][0] + tier_hits["veteran"][0]
+#     mat_total  = tier_hits["established"][1] + tier_hits["veteran"][1]
+#     cov["mature"] = (mat_inside / mat_total * 100) if mat_total > 0 else 0.0
 
-    all_inside = sum(v[0] for v in tier_hits.values())
-    all_total  = sum(v[1] for v in tier_hits.values())
-    cov["overall"] = (all_inside / all_total * 100) if all_total > 0 else 0.0
+#     all_inside = sum(v[0] for v in tier_hits.values())
+#     all_total  = sum(v[1] for v in tier_hits.values())
+#     cov["overall"] = (all_inside / all_total * 100) if all_total > 0 else 0.0
 
-    # Weighted objective: minimise |coverage - 95%|
-    # Weights: veteran 60%, established 25%, developing 10%, burn-in 5%
-    obj = (
-        0.60 * abs(cov["veteran"]     - 95.0)
-        + 0.25 * abs(cov["established"] - 95.0)
-        + 0.10 * abs(cov["developing"]  - 95.0)
-        + 0.05 * abs(cov["burnin"]      - 95.0)
-    )
-    cov["objective"] = obj
-    return cov
+#     # Weighted objective: minimise |coverage - 95%|
+#     # Weights: veteran 60%, established 25%, developing 10%, burn-in 5%
+#     obj = (
+#         0.60 * abs(cov["veteran"]     - 95.0)
+#         + 0.25 * abs(cov["established"] - 95.0)
+#         + 0.10 * abs(cov["developing"]  - 95.0)
+#         + 0.05 * abs(cov["burnin"]      - 95.0)
+#     )
+#     cov["objective"] = obj
+#     return cov
 
-# ---------------------------------------------------------------------------
-# 6) Grid definitions
-# ---------------------------------------------------------------------------
-# Coarse grid: ~4 values per param = 4^4 = 256 points (manageable)
-COARSE_GRID = {
-    "sigma2_obs": [0.01, 0.03, 0.05, 0.10],
-    "q_time":     [0.50, 1.00, 1.50, 2.50],
-    "q_game":     [0.05, 0.15, 0.30, 0.60],
-    "v_scale":    [4.0,  8.0,  12.0, 20.0],
-}
+# # ---------------------------------------------------------------------------
+# # 6) Grid definitions
+# # ---------------------------------------------------------------------------
+# # Coarse grid: ~4 values per param = 4^4 = 256 points (manageable)
+# COARSE_GRID = {
+#     "sigma2_obs": [0.01, 0.03, 0.05, 0.10],
+#     "q_time":     [0.50, 1.00, 1.50, 2.50],
+#     "q_game":     [0.05, 0.15, 0.30, 0.60],
+#     "v_scale":    [4.0,  8.0,  12.0, 20.0],
+# }
 
-def make_fine_grid(best_params):
-    """Create a fine grid centred on best coarse params.
+# def make_fine_grid(best_params):
+#     """Create a fine grid centred on best coarse params.
 
-    3 values per param (below, at, above) = 3^4 = 81 points.
-    Step sizes are ~half the coarse spacing around the best value.
-    """
-    def _neighbourhood(val, candidates):
-        idx = min(range(len(candidates)), key=lambda i: abs(candidates[i] - val))
-        if idx == 0:
-            step = (candidates[1] - candidates[0]) / 2
-        elif idx == len(candidates) - 1:
-            step = (candidates[-1] - candidates[-2]) / 2
-        else:
-            step = min(candidates[idx] - candidates[idx - 1],
-                       candidates[idx + 1] - candidates[idx]) / 2
-        return [max(val - step, candidates[0] * 0.5), val, val + step]
+#     3 values per param (below, at, above) = 3^4 = 81 points.
+#     Step sizes are ~half the coarse spacing around the best value.
+#     """
+#     def _neighbourhood(val, candidates):
+#         idx = min(range(len(candidates)), key=lambda i: abs(candidates[i] - val))
+#         if idx == 0:
+#             step = (candidates[1] - candidates[0]) / 2
+#         elif idx == len(candidates) - 1:
+#             step = (candidates[-1] - candidates[-2]) / 2
+#         else:
+#             step = min(candidates[idx] - candidates[idx - 1],
+#                        candidates[idx + 1] - candidates[idx]) / 2
+#         return [max(val - step, candidates[0] * 0.5), val, val + step]
 
-    return {
-        "sigma2_obs": _neighbourhood(best_params["sigma2_obs"],
-                                     COARSE_GRID["sigma2_obs"]),
-        "q_time":     _neighbourhood(best_params["q_time"],
-                                     COARSE_GRID["q_time"]),
-        "q_game":     _neighbourhood(best_params["q_game"],
-                                     COARSE_GRID["q_game"]),
-        "v_scale":    _neighbourhood(best_params["v_scale"],
-                                     COARSE_GRID["v_scale"]),
-    }
+#     return {
+#         "sigma2_obs": _neighbourhood(best_params["sigma2_obs"],
+#                                      COARSE_GRID["sigma2_obs"]),
+#         "q_time":     _neighbourhood(best_params["q_time"],
+#                                      COARSE_GRID["q_time"]),
+#         "q_game":     _neighbourhood(best_params["q_game"],
+#                                      COARSE_GRID["q_game"]),
+#         "v_scale":    _neighbourhood(best_params["v_scale"],
+#                                      COARSE_GRID["v_scale"]),
+#     }
 
-# ---------------------------------------------------------------------------
-# 7) Run grid search
-# ---------------------------------------------------------------------------
-def run_grid(grid, label="Grid"):
-    """Run all combinations in the grid. Returns list of (params, coverage)."""
-    keys = list(grid.keys())
-    combos = list(itertools.product(*[grid[k] for k in keys]))
-    print(f"\n{'='*70}")
-    print(f"{label}: {len(combos)} parameter combinations")
-    print(f"{'='*70}")
+# # ---------------------------------------------------------------------------
+# # 7) Run grid search
+# # ---------------------------------------------------------------------------
+# def run_grid(grid, label="Grid"):
+#     """Run all combinations in the grid. Returns list of (params, coverage)."""
+#     keys = list(grid.keys())
+#     combos = list(itertools.product(*[grid[k] for k in keys]))
+#     print(f"\n{'='*70}")
+#     print(f"{label}: {len(combos)} parameter combinations")
+#     print(f"{'='*70}")
 
-    all_results = []
-    t0 = time.time()
+#     all_results = []
+#     t0 = time.time()
 
-    for i, vals in enumerate(combos):
-        params = dict(zip(keys, vals))
-        t_start = time.time()
+#     for i, vals in enumerate(combos):
+#         params = dict(zip(keys, vals))
+#         t_start = time.time()
 
-        engine_out = run_ssm2_engine(
-            sigma2_obs=params["sigma2_obs"],
-            q_time=params["q_time"],
-            q_game=params["q_game"],
-            v_scale=params["v_scale"],
-        )
-        cov = compute_coverage(engine_out)
-        cov["params"] = params
-        all_results.append(cov)
+#         engine_out = run_ssm2_engine(
+#             sigma2_obs=params["sigma2_obs"],
+#             q_time=params["q_time"],
+#             q_game=params["q_game"],
+#             v_scale=params["v_scale"],
+#         )
+#         cov = compute_coverage(engine_out)
+#         cov["params"] = params
+#         all_results.append(cov)
 
-        elapsed = time.time() - t_start
-        total_elapsed = time.time() - t0
-        avg_per = total_elapsed / (i + 1)
-        remaining = avg_per * (len(combos) - i - 1)
+#         elapsed = time.time() - t_start
+#         total_elapsed = time.time() - t0
+#         avg_per = total_elapsed / (i + 1)
+#         remaining = avg_per * (len(combos) - i - 1)
 
-        if (i + 1) % 10 == 0 or (i + 1) == len(combos):
-            print(
-                f"  [{i+1}/{len(combos)}] "
-                f"obj={cov['objective']:5.2f}  "
-                f"mature={cov['mature']:5.1f}%  "
-                f"vet={cov['veteran']:5.1f}%  "
-                f"est={cov['established']:5.1f}%  "
-                f"σ²_obs={params['sigma2_obs']:.3f} "
-                f"q_t={params['q_time']:.2f} "
-                f"q_g={params['q_game']:.2f} "
-                f"v_s={params['v_scale']:.1f}  "
-                f"({elapsed:.0f}s, ~{remaining/60:.0f}m left)"
-            )
+#         if (i + 1) % 10 == 0 or (i + 1) == len(combos):
+#             print(
+#                 f"  [{i+1}/{len(combos)}] "
+#                 f"obj={cov['objective']:5.2f}  "
+#                 f"mature={cov['mature']:5.1f}%  "
+#                 f"vet={cov['veteran']:5.1f}%  "
+#                 f"est={cov['established']:5.1f}%  "
+#                 f"σ²_obs={params['sigma2_obs']:.3f} "
+#                 f"q_t={params['q_time']:.2f} "
+#                 f"q_g={params['q_game']:.2f} "
+#                 f"v_s={params['v_scale']:.1f}  "
+#                 f"({elapsed:.0f}s, ~{remaining/60:.0f}m left)"
+#             )
 
-    return all_results
+#     return all_results
 
-# --- Coarse pass ---
-coarse_results = run_grid(COARSE_GRID, "COARSE GRID")
-coarse_best = min(coarse_results, key=lambda x: x["objective"])
+# # --- Coarse pass ---
+# coarse_results = run_grid(COARSE_GRID, "COARSE GRID")
+# coarse_best = min(coarse_results, key=lambda x: x["objective"])
 
-print(f"\nCoarse best: objective={coarse_best['objective']:.3f}")
-print(f"  Params: {coarse_best['params']}")
-print(f"  Veteran={coarse_best['veteran']:.1f}%  "
-      f"Established={coarse_best['established']:.1f}%  "
-      f"Developing={coarse_best['developing']:.1f}%  "
-      f"Burn-in={coarse_best['burnin']:.1f}%")
+# print(f"\nCoarse best: objective={coarse_best['objective']:.3f}")
+# print(f"  Params: {coarse_best['params']}")
+# print(f"  Veteran={coarse_best['veteran']:.1f}%  "
+#       f"Established={coarse_best['established']:.1f}%  "
+#       f"Developing={coarse_best['developing']:.1f}%  "
+#       f"Burn-in={coarse_best['burnin']:.1f}%")
 
-# --- Fine pass ---
-fine_grid = make_fine_grid(coarse_best["params"])
-print(f"\nFine grid neighbourhood:")
-for k, v in fine_grid.items():
-    print(f"  {k}: {[round(x, 4) for x in v]}")
+# # --- Fine pass ---
+# fine_grid = make_fine_grid(coarse_best["params"])
+# print(f"\nFine grid neighbourhood:")
+# for k, v in fine_grid.items():
+#     print(f"  {k}: {[round(x, 4) for x in v]}")
 
-fine_results = run_grid(fine_grid, "FINE GRID")
-fine_best = min(fine_results, key=lambda x: x["objective"])
+# fine_results = run_grid(fine_grid, "FINE GRID")
+# fine_best = min(fine_results, key=lambda x: x["objective"])
 
-print(f"\n{'='*70}")
-print(f"FINAL BEST PARAMETERS")
-print(f"{'='*70}")
-print(f"  sigma2_obs = {fine_best['params']['sigma2_obs']:.4f}")
-print(f"  q_time     = {fine_best['params']['q_time']:.4f}")
-print(f"  q_game     = {fine_best['params']['q_game']:.4f}")
-print(f"  v_scale    = {fine_best['params']['v_scale']:.4f}")
-print(f"\n  Objective  = {fine_best['objective']:.3f}")
-print(f"  Veteran    = {fine_best['veteran']:.2f}%  (n={fine_best['n_veteran']})")
-print(f"  Established= {fine_best['established']:.2f}%  (n={fine_best['n_established']})")
-print(f"  Developing = {fine_best['developing']:.2f}%  (n={fine_best['n_developing']})")
-print(f"  Burn-in    = {fine_best['burnin']:.2f}%  (n={fine_best['n_burnin']})")
-print(f"  Mature(100+)={fine_best['mature']:.2f}%")
-print(f"  Overall    = {fine_best['overall']:.2f}%")
-print(f"\nFixed params: prior_σ={TUNE_PRIOR_SIGMA} max_days={TUNE_MAX_DAYS} "
-      f"v_decay={TUNE_V_DECAY} v_base={TUNE_V_BASE} v_min={TUNE_V_MIN} "
-      f"v_max={TUNE_V_MAX}")
-print(f"\nCalibration target: {TUNE_MEDIAN_WINDOW}-game rolling median Elo "
-      f"inside ±2σ")
-print(f"Objective: weighted |coverage - 95%| "
-      f"(vet 60%, est 25%, dev 10%, burn 5%)")
+# print(f"\n{'='*70}")
+# print(f"FINAL BEST PARAMETERS")
+# print(f"{'='*70}")
+# print(f"  sigma2_obs = {fine_best['params']['sigma2_obs']:.4f}")
+# print(f"  q_time     = {fine_best['params']['q_time']:.4f}")
+# print(f"  q_game     = {fine_best['params']['q_game']:.4f}")
+# print(f"  v_scale    = {fine_best['params']['v_scale']:.4f}")
+# print(f"\n  Objective  = {fine_best['objective']:.3f}")
+# print(f"  Veteran    = {fine_best['veteran']:.2f}%  (n={fine_best['n_veteran']})")
+# print(f"  Established= {fine_best['established']:.2f}%  (n={fine_best['n_established']})")
+# print(f"  Developing = {fine_best['developing']:.2f}%  (n={fine_best['n_developing']})")
+# print(f"  Burn-in    = {fine_best['burnin']:.2f}%  (n={fine_best['n_burnin']})")
+# print(f"  Mature(100+)={fine_best['mature']:.2f}%")
+# print(f"  Overall    = {fine_best['overall']:.2f}%")
+# print(f"\nFixed params: prior_σ={TUNE_PRIOR_SIGMA} max_days={TUNE_MAX_DAYS} "
+#       f"v_decay={TUNE_V_DECAY} v_base={TUNE_V_BASE} v_min={TUNE_V_MIN} "
+#       f"v_max={TUNE_V_MAX}")
+# print(f"\nCalibration target: {TUNE_MEDIAN_WINDOW}-game rolling median Elo "
+#       f"inside ±2σ")
+# print(f"Objective: weighted |coverage - 95%| "
+#       f"(vet 60%, est 25%, dev 10%, burn 5%)")
 
-# --- Top 10 from fine grid ---
-fine_sorted = sorted(fine_results, key=lambda x: x["objective"])
-print(f"\nTop 10 fine-grid candidates:")
-print(f"{'Obj':>6}  {'Vet%':>6}  {'Est%':>6}  {'Dev%':>6}  {'Brn%':>6}  "
-      f"{'σ²_obs':>7}  {'q_time':>7}  {'q_game':>7}  {'v_scale':>7}")
-for r in fine_sorted[:10]:
-    p = r["params"]
-    print(f"{r['objective']:6.2f}  {r['veteran']:6.1f}  {r['established']:6.1f}  "
-          f"{r['developing']:6.1f}  {r['burnin']:6.1f}  "
-          f"{p['sigma2_obs']:7.4f}  {p['q_time']:7.3f}  "
-          f"{p['q_game']:7.3f}  {p['v_scale']:7.2f}")
+# # --- Top 10 from fine grid ---
+# fine_sorted = sorted(fine_results, key=lambda x: x["objective"])
+# print(f"\nTop 10 fine-grid candidates:")
+# print(f"{'Obj':>6}  {'Vet%':>6}  {'Est%':>6}  {'Dev%':>6}  {'Brn%':>6}  "
+#       f"{'σ²_obs':>7}  {'q_time':>7}  {'q_game':>7}  {'v_scale':>7}")
+# for r in fine_sorted[:10]:
+#     p = r["params"]
+#     print(f"{r['objective']:6.2f}  {r['veteran']:6.1f}  {r['established']:6.1f}  "
+#           f"{r['developing']:6.1f}  {r['burnin']:6.1f}  "
+#           f"{p['sigma2_obs']:7.4f}  {p['q_time']:7.3f}  "
+#           f"{p['q_game']:7.3f}  {p['v_scale']:7.2f}")
 
-print(f"\n{'='*70}")
-print("To apply: update SSM2_SIGMA2_OBS, SSM2_Q_TIME, SSM2_Q_GAME, "
-      "SSM2_V_SCALE above and re-run the engine cell.")
-print(f"{'='*70}")
+# print(f"\n{'='*70}")
+# print("To apply: update SSM2_SIGMA2_OBS, SSM2_Q_TIME, SSM2_Q_GAME, "
+#       "SSM2_V_SCALE above and re-run the engine cell.")
+# print(f"{'='*70}")
