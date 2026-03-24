@@ -145,7 +145,7 @@ ELO_SCALE      = float(_cfg["elo_scale"])            # 150.0
 MU_GLOBAL = INITIAL_RATING  # 150.0
 
 # Mean-reversion coefficient: very slow, ~0.5% pull per game
-PHI = 0.995
+PHI = 1.000 # 0.995
 
 # Prior uncertainty for new coaches: SD = 50 Elo points → P₀ = 2500
 PRIOR_SIGMA = 50.0
@@ -159,7 +159,7 @@ PRIOR_P = PRIOR_SIGMA ** 2
 #   sqrt(φ² × 25 + σ²_process) ≈ sqrt(25 + σ²_process) ≈ 6
 #   → σ²_process ≈ 11
 # For a new coach (P = 2500): σ²_process is negligible.
-SIGMA2_PROCESS = 11.0
+SIGMA2_PROCESS = 2.0
 
 # Observation noise baseline: represents inherent game-level randomness
 # (dice, matchup variance, etc.) independent of skill. On the logistic
@@ -167,7 +167,7 @@ SIGMA2_PROCESS = 11.0
 # estimate. Higher = more conservative updates.
 # Tuned to produce Kalman gains of ~0.05-0.15 for well-estimated coaches
 # (comparable to Elo K-factors of 8-24 on a 150-scale).
-SIGMA2_OBS = 1.0
+SIGMA2_OBS = 0.02
 
 # Logistic scaling: ln(10) / ELO_SCALE — used in the EKF linearisation
 LN10_OVER_SCALE = math.log(10.0) / ELO_SCALE
@@ -621,8 +621,7 @@ print(f"SSM engine: wrote {hist_df.count()} rows to {target}")
 # MAGIC     ) AS final_sigma,
 # MAGIC     AVG(kalman_gain) OVER (PARTITION BY coach_id) AS avg_K
 # MAGIC   FROM naf_catalog.gold_fact.ssm_rating_history_fact
-# MAGIC )
-# MAGIC GROUP BY 1 HAVING 1=1;  -- collapse to one row
+# MAGIC );
 
 # COMMAND ----------
 
@@ -655,7 +654,7 @@ print(f"SSM engine: wrote {hist_df.count()} rows to {target}")
 # MAGIC %sql
 # MAGIC -- Compare SSM final mu against Elo current rating for coaches with 50+ games
 # MAGIC WITH ssm_final AS (
-# MAGIC   SELECT coach_id, mu_after AS ssm_mu, sigma_after AS ssm_sigma
+# MAGIC   SELECT coach_id, mu_after AS ssm_mu, sigma_after AS ssm_sigma, coach_game_number AS total_games
 # MAGIC   FROM (
 # MAGIC     SELECT *, ROW_NUMBER() OVER (PARTITION BY coach_id ORDER BY coach_game_number DESC) AS rn
 # MAGIC     FROM naf_catalog.gold_fact.ssm_rating_history_fact
@@ -682,8 +681,7 @@ print(f"SSM engine: wrote {hist_df.count()} rows to {target}")
 # MAGIC   ROUND(AVG(s.ssm_sigma), 2)                             AS avg_ssm_sigma
 # MAGIC FROM ssm_final s
 # MAGIC JOIN elo_final e ON s.coach_id = e.coach_id
-# MAGIC JOIN naf_catalog.gold_summary.coach_performance_summary cps ON s.coach_id = cps.coach_id
-# MAGIC WHERE cps.games_played >= 50;
+# MAGIC WHERE s.total_games >= 50;
 
 # COMMAND ----------
 
@@ -702,6 +700,7 @@ top_coach_row = spark.sql("""
 """).first()
 
 coach_id = top_coach_row["coach_id"]
+coach_id = 9524
 total_games = top_coach_row["games"]
 
 # --- Load SSM trajectory ---
