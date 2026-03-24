@@ -106,6 +106,8 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `200_NAF_silver.py` - Silver layer (cleansed/conformed)
 - `310_NAF_gold_dim.py` - Dimension tables
 - `320_NAF_gold_fact.py` - Fact tables + ELO engine
+- `321_NAF_gold_fact_ssm.py` - SSM rating engine (v1: random walk EKF, v2: time-aware + adaptive volatility)
+- `330_NAF_gold_summary_core.py` - Core summary objects (nation_coach_glo_metrics, world_glo_metric_quantiles)
 - `331_NAF_gold_summary_coach.py` - Coach summaries
 - `332_NAF_gold_summary_nation.py` - Nation summaries
 - `333_NAF_gold_summary_tournament.py` - Tournament summaries
@@ -126,6 +128,8 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `Analytical_Parameters.md` - All tuneable parameters + config column mapping + change protocol
 - `Pipeline_Object_Index.md` - Logical ordering and dependency map for all summary/presentation objects
 - `Expansion_Plan.md` - 9-phase roadmap (nation dashboard, team selector, global status report)
+- `Skill_Estimation_Plan.md` - SSM design options analysis (Option 4 selected and implemented)
+- `ssm_model_outline_v2_with_suggestions.md` - SSM v2 design spec (time-aware + adaptive volatility)
 - `Nation_plan.md` - Nation dashboard content plan (retire after nation pipeline is finalised)
 - `style_guides.md` - SQL/PySpark formatting rules
 
@@ -160,6 +164,6 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - Until fixed, `git diff` will show phantom changes on every file
 
 ### Testing
-- Run pipeline in order: 100 → 200 → 310 → 320 → 331 → 332 → 333 → 334 → 340 → 341 → 342 → 343 → 344 → 350 (tests)
+- Run pipeline in order: 100 → 200 → 310 → 320 → 321 → 330 → 331 → 332 → 333 → 334 → 340 → 341 → 342 → 343 → 344 → 350 (tests)
 - Verify dashboards after pipeline changes
 - Check parameter names match between queries and dashboard config

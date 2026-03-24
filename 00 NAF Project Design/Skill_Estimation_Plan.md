@@ -95,9 +95,15 @@ The principled choice. Separates process noise from observation noise, accounts 
 
 More complex to implement (Python EKF, sequential processing, three hyperparameters to tune), but the data volume is manageable and the implementation is a one-time cost.
 
-### Current leaning: Option 4
+### Decision: Option 4 (implemented)
 
-The SSM is the better model. The question is whether the additional accuracy justifies the implementation effort. A reasonable path is to implement Option 3b first (quick, validates the weighting approach), then prototype the SSM and compare predictive accuracy. If the SSM wins on backtesting, promote it to the pipeline.
+Option 4 was selected and implemented in notebook `321_NAF_gold_fact_ssm.py`. Two versions exist:
+
+**SSM v1** (`ssm_rating_history_fact`): Game-indexed random walk with EKF. Originally designed with AR(1) mean reversion (φ=0.995), but tuning showed mean reversion was harmful — it pulled SSM μ far below Elo over hundreds of games. Final v1 uses φ=1.0 (pure random walk). Constant process noise per game. Opponent uncertainty propagated into innovation variance.
+
+**SSM v2** (`ssm2_rating_history_fact`): Time-aware uncertainty growth with adaptive volatility. No mean reversion. Process variance depends on time gap (`q_time × √(min(Δt, 180))`), a baseline per-game term (`q_game`), and a coach-level volatility term driven by EWMA of squared innovations. See `ssm_model_outline_v2_with_suggestions.md` for full design spec.
+
+Both models are in active tuning. Calibration target: Elo should fall inside SSM ±2σ approximately 95% of the time for coaches with 100+ games.
 
 ## External Input (Jan Christian Refsgaard, 2026-03-09)
 
@@ -108,29 +114,30 @@ JCR independently arrived at the same exponential weighting idea (λ = 0.98, whi
 - **Opponent strength matters for uncertainty:** 50 games against hard opponents should give different uncertainty than 50 against easy opponents, because variance is highest on a 50:50 coin. This is a limitation of the analytical approach and a strength of the SSM.
 - **Visualisation:** Suggested using KDE plots more; acknowledged they're less intuitive for general audiences than box/histogram plots.
 
-## Implementation Sketch
+## Implementation (Actual)
 
-### Phase 1: Prototype (standalone notebook)
+### Notebook: `321_NAF_gold_fact_ssm.py`
 
-1. **New notebook:** `360_NAF_gold_ssm_prototype.py` (or a separate Python notebook outside the pipeline)
-2. **Input:** `rating_history_fact` — one row per (coach, game) with `rating_before`, `opponent_rating_before`, `result_numeric`, game sequence
-3. **Implementation:** Python EKF loop per coach via `groupBy(coach_id).applyInPandas()` or pure pandas if data fits in memory
-4. **Output:** Per coach per game: `skill_estimate`, `skill_variance` (or `skill_sd`), `kalman_gain`
-5. **Validation:** Backtest against held-out games — compare log-likelihood and prediction accuracy vs current Elo
-6. **Parameter estimation:** Fit φ, σ²_process, σ²_observation by maximising log-likelihood across all coaches, or set from domain knowledge and iterate
+**Position**: Runs after 320 (Elo engine), before 331 (coach summaries). Can run in parallel with 331+.
 
-### Phase 2: Pipeline Integration (if prototype validates)
+**Input**: `game_feed_for_ratings_fact` (same ordered feed as the Elo engine) + `analytical_config` (for initial rating and Elo scale).
 
-1. Wire into gold layer as a new fact or summary table
-2. Add φ, σ²_process, σ²_observation to `analytical_config`
-3. Expose `skill_estimate ± skill_sd` in presentation views
-4. Update dashboards to show confidence bands where relevant
+**Implementation**: Pure Python sequential loop over all games in `game_index` order. Both coaches in each game are predicted first, then observation updates run symmetrically using each other's predicted states. No `applyInPandas` — the global game ordering requires cross-coach state, so it processes all coaches in a single pass.
 
-### Dependencies
+**Output**:
+- `ssm_rating_history_fact` — v1, 1 row per (game_id, coach_id)
+- `ssm2_rating_history_fact` — v2, 1 row per (game_id, coach_id)
 
-- `rating_history_fact` (game-level Elo history, already exists)
-- Python: `numpy`, `scipy` (for logistic function). Optional: `filterpy` for off-the-shelf EKF
-- Databricks: `applyInPandas` for parallel processing across coaches
+Both contain: mu/sigma before and after, opponent mu/sigma, innovation, Kalman gain, score_expected, result_numeric, plus diagnostic columns (v2 adds days_since_prev, time_scale, process_variance_added, volatility before/after, shock_ewma).
+
+**Hyperparameters**: Currently hardcoded in the notebook. Plan to move to `analytical_config` once tuning stabilises.
+
+### Key Lessons from Tuning
+
+1. **Mean reversion is harmful** when tracking Elo (which has no mean reversion). φ=0.995 looked harmless but caused cumulative drag of ~0.5% × N games, pulling SSM μ far below Elo for active coaches.
+2. **σ²_obs must be small** (0.01–0.05). Large σ²_obs dominates the innovation variance S, making every game uninformative and preventing σ from shrinking.
+3. **Prior σ should be empirically grounded** — set from SD of median-career Elo for coaches with 50+ games.
+4. **Opponent uncertainty propagation** (H²×P_opp in S) is a deliberate design choice that makes games against poorly-estimated opponents less informative.
 
 ### Target Visualisation
 

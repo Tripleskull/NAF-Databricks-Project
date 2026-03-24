@@ -8,36 +8,45 @@
 # MAGIC ## Purpose
 # MAGIC
 # MAGIC Computes latent skill estimates with uncertainty for each coach using an
-# MAGIC **Extended Kalman Filter (EKF)** on an AR(1) mean-reverting state-space model.
+# MAGIC **Extended Kalman Filter (EKF)** on a state-space model.
 # MAGIC
 # MAGIC Unlike the Elo engine (which produces a point estimate with no uncertainty),
 # MAGIC the SSM produces `(mu, sigma)` — a skill estimate and its standard deviation —
 # MAGIC for every game in a coach's history.
 # MAGIC
-# MAGIC ## Model
+# MAGIC ## Models
 # MAGIC
-# MAGIC **State equation (skill evolution between games):**
-# MAGIC ```
-# MAGIC θ_t = μ_global + φ × (θ_{t-1} − μ_global) + η_t     where η_t ~ N(0, σ²_process)
-# MAGIC ```
+# MAGIC ### SSM v1 (game-indexed random walk)
 # MAGIC
-# MAGIC **Observation equation (game outcome):**
-# MAGIC ```
-# MAGIC P(win) = 1 / (1 + 10^((θ_opp − θ_self) / ELO_SCALE))
-# MAGIC ```
+# MAGIC **State equation:** `θ_t = θ_{t-1} + η_t` where `η_t ~ N(0, σ²_process)`
+# MAGIC (pure random walk, no mean reversion — φ was tuned to 1.0)
 # MAGIC
-# MAGIC The observation is non-Gaussian (Bernoulli/ternary W/D/L), so we use the
-# MAGIC Extended Kalman Filter to linearise the logistic observation model.
+# MAGIC **Observation equation:** `P(win) = 1 / (1 + 10^((θ_opp − θ_self) / ELO_SCALE))`
+# MAGIC
+# MAGIC Process noise is constant per game. Opponent uncertainty propagated into S.
+# MAGIC Output: `ssm_rating_history_fact`.
+# MAGIC
+# MAGIC ### SSM v2 (time-aware + adaptive volatility)
+# MAGIC
+# MAGIC **State equation:** `θ_t = θ_{t-1} + η_t` (no mean reversion)
+# MAGIC `P_pred = P_prev + q_time × √(min(Δt, 180)) + q_game + volatility`
+# MAGIC
+# MAGIC **Volatility:** EWMA of squared innovations drives coach-level adaptive noise.
+# MAGIC `shock_ewma = decay × prev + (1−decay) × innovation²`
+# MAGIC `volatility = clip(v_base + v_scale × shock_ewma, v_min, v_max)`
+# MAGIC
+# MAGIC **Observation equation:** Same logistic model as v1.
+# MAGIC Output: `ssm2_rating_history_fact`.
+# MAGIC
+# MAGIC See `00 NAF Project Design/ssm_model_outline_v2_with_suggestions.md` for full v2 spec.
 # MAGIC
 # MAGIC ## Key Design Choices
 # MAGIC
 # MAGIC - **Elo-scale compatible:** Initial rating = 150, logistic scale = 150 (same as Elo engine)
-# MAGIC - **Game-indexed, not time-indexed:** Process evolves per game, not per calendar day
-# MAGIC - **Very slow mean-reversion:** φ ≈ 0.995 — nearly invisible over 50–100 games
-# MAGIC - **Flat observation noise:** No tournament-level modulation — opponent skill/uncertainty
-# MAGIC   determines informativeness naturally
-# MAGIC - **Opponent uncertainty propagation:** The opponent's uncertainty (P_opp) is added to
-# MAGIC   the effective observation variance, making wins against poorly-estimated opponents
+# MAGIC - **No mean reversion:** Both v1 and v2 use φ=1.0 (random walk) since we aim to
+# MAGIC   track Elo which itself has no mean reversion
+# MAGIC - **Opponent uncertainty propagation:** The opponent's P_opp is added to
+# MAGIC   the innovation variance S, making games against poorly-estimated opponents
 # MAGIC   less informative
 # MAGIC - **Draws modelled as 0.5:** Same as Elo engine — result_numeric ∈ {0.0, 0.5, 1.0}
 # MAGIC
@@ -48,8 +57,9 @@
 # MAGIC
 # MAGIC ## Output
 # MAGIC
-# MAGIC - `naf_catalog.gold_fact.ssm_rating_history_fact` — 1 row per (game_id, coach_id)
-# MAGIC   for GLOBAL scope only. Contains mu/sigma before and after each game.
+# MAGIC - `naf_catalog.gold_fact.ssm_rating_history_fact` — v1, 1 row per (game_id, coach_id)
+# MAGIC - `naf_catalog.gold_fact.ssm2_rating_history_fact` — v2, 1 row per (game_id, coach_id)
+# MAGIC   Both GLOBAL scope only. Contain mu/sigma before and after each game.
 
 # COMMAND ----------
 
@@ -1228,10 +1238,7 @@ ssm2_top_coach_row = spark.sql("""
 """).first()
 
 ssm2_coach_id = ssm2_top_coach_row["coach_id"]
-# Optional override
-ssm2_coach_id = 9524
-ssm2_coach_id = 34738
-ssm2_coach_id = 37505
+# ssm2_coach_id = 9524   # uncomment to override with a specific coach
 
 ssm2_total_games_row = spark.sql(f"""
     SELECT COUNT(*) AS games
@@ -1334,7 +1341,17 @@ ax1.set_title(
     f"SSM2 Rating Diagnostics — {ssm2_coach_name} "
     f"(coach {ssm2_coach_id}, {ssm2_total_games} games)"
 )
-ax1.legend(loc="upper left", fontsize=9)
+
+# Hyperparameter summary in legend
+hp_text = (
+    f"σ²_obs={SSM2_SIGMA2_OBS}  q_time={SSM2_Q_TIME}  q_game={SSM2_Q_GAME}  "
+    f"prior_σ={SSM2_PRIOR_SIGMA}\n"
+    f"v_base={SSM2_V_BASE}  v_scale={SSM2_V_SCALE}  v_decay={SSM2_V_DECAY}  "
+    f"v_min={SSM2_V_MIN}  v_max={SSM2_V_MAX}  max_days={SSM2_MAX_DAYS}"
+)
+ax1.plot([], [], ' ', label=hp_text)
+
+ax1.legend(loc="upper left", fontsize=7)
 ax1.grid(True, alpha=0.3)
 
 # Panel 2: posterior uncertainty
@@ -1376,15 +1393,118 @@ plt.show()
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT
-# MAGIC     coach_game_number,
-# MAGIC     game_id,
-# MAGIC     event_timestamp,
-# MAGIC     game_date,
-# MAGIC     date_id,
-# MAGIC     days_since_prev_game
-# MAGIC FROM naf_catalog.gold_fact.ssm2_rating_history_fact
-# MAGIC WHERE coach_id = 9524
-# MAGIC ORDER BY days_since_prev_game DESC, coach_game_number
-# MAGIC LIMIT 20;
+# =============================================================================
+# SSM2 Calibration Coverage: does Elo fall inside SSM2 ± 2σ ~95% of the time?
+# Broken down by experience tier. Prioritise long-run accuracy (100+ games).
+# =============================================================================
+
+import pandas as pd
+
+cal_df = spark.sql("""
+    WITH ssm2_elo AS (
+        SELECT
+            s.coach_id,
+            s.coach_game_number,
+            s.mu_after,
+            s.sigma_after,
+            e.rating_after AS elo_rating
+        FROM naf_catalog.gold_fact.ssm2_rating_history_fact s
+        JOIN (
+            SELECT
+                coach_id,
+                game_id,
+                rating_after,
+                ROW_NUMBER() OVER (
+                    PARTITION BY coach_id
+                    ORDER BY game_index, game_id
+                ) AS coach_game_number
+            FROM naf_catalog.gold_fact.rating_history_fact
+            WHERE scope = 'GLOBAL'
+        ) e
+            ON  s.coach_id = e.coach_id
+            AND s.coach_game_number = e.coach_game_number
+    ),
+    max_games AS (
+        SELECT coach_id, MAX(coach_game_number) AS total_games
+        FROM ssm2_elo
+        GROUP BY coach_id
+    ),
+    flagged AS (
+        SELECT
+            se.*,
+            mg.total_games,
+            CASE
+                WHEN se.coach_game_number <= 30 THEN '01: 1-30 (burn-in)'
+                WHEN se.coach_game_number <= 100 THEN '02: 31-100 (developing)'
+                WHEN se.coach_game_number <= 300 THEN '03: 101-300 (established)'
+                ELSE '04: 301+ (veteran)'
+            END AS experience_tier,
+            CASE
+                WHEN ABS(se.elo_rating - se.mu_after) <= 2.0 * se.sigma_after
+                THEN 1 ELSE 0
+            END AS inside_2sigma
+        FROM ssm2_elo se
+        JOIN max_games mg ON se.coach_id = mg.coach_id
+    )
+    SELECT
+        experience_tier,
+        COUNT(*) AS n_observations,
+        COUNT(DISTINCT coach_id) AS n_coaches,
+        ROUND(AVG(inside_2sigma) * 100, 2) AS coverage_pct,
+        ROUND(AVG(sigma_after), 2) AS avg_sigma,
+        ROUND(PERCENTILE_APPROX(sigma_after, 0.5), 2) AS median_sigma
+    FROM flagged
+    GROUP BY experience_tier
+    ORDER BY experience_tier
+""").toPandas()
+
+# Also compute overall and mature-only (100+ games) coverage
+cal_overall = spark.sql("""
+    WITH ssm2_elo AS (
+        SELECT
+            s.coach_id,
+            s.coach_game_number,
+            s.mu_after,
+            s.sigma_after,
+            e.rating_after AS elo_rating
+        FROM naf_catalog.gold_fact.ssm2_rating_history_fact s
+        JOIN (
+            SELECT
+                coach_id,
+                game_id,
+                rating_after,
+                ROW_NUMBER() OVER (
+                    PARTITION BY coach_id
+                    ORDER BY game_index, game_id
+                ) AS coach_game_number
+            FROM naf_catalog.gold_fact.rating_history_fact
+            WHERE scope = 'GLOBAL'
+        ) e
+            ON  s.coach_id = e.coach_id
+            AND s.coach_game_number = e.coach_game_number
+    )
+    SELECT
+        'ALL' AS scope,
+        COUNT(*) AS n_obs,
+        ROUND(AVG(CASE WHEN ABS(elo_rating - mu_after) <= 2.0 * sigma_after THEN 1 ELSE 0 END) * 100, 2) AS coverage_pct
+    FROM ssm2_elo
+    UNION ALL
+    SELECT
+        'MATURE (game 100+)' AS scope,
+        COUNT(*) AS n_obs,
+        ROUND(AVG(CASE WHEN ABS(elo_rating - mu_after) <= 2.0 * sigma_after THEN 1 ELSE 0 END) * 100, 2) AS coverage_pct
+    FROM ssm2_elo
+    WHERE coach_game_number >= 100
+""").toPandas()
+
+print("=" * 70)
+print("SSM2 CALIBRATION COVERAGE — Elo inside ±2σ (target ≈ 95%)")
+print("=" * 70)
+print(f"\nHyperparameters: σ²_obs={SSM2_SIGMA2_OBS}  q_time={SSM2_Q_TIME}  "
+      f"q_game={SSM2_Q_GAME}  prior_σ={SSM2_PRIOR_SIGMA}")
+print(f"  v_base={SSM2_V_BASE}  v_scale={SSM2_V_SCALE}  v_decay={SSM2_V_DECAY}  "
+      f"v_min={SSM2_V_MIN}  v_max={SSM2_V_MAX}\n")
+print(cal_df.to_string(index=False))
+print()
+print(cal_overall.to_string(index=False))
+print("=" * 70)

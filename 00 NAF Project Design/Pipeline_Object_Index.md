@@ -46,6 +46,13 @@ These objects are consumed across all domains.
 | 3 | `gold_fact.game_feed_for_ratings_fact` | [V] | 1 row per game_id (ordered for Elo) |
 | 4 | `gold_fact.rating_history_fact` | [T] | 1 row per (scope, rating_system, game_id, coach_id, race_id) |
 
+### SSM Rating Facts (321)
+
+| # | Object | Type | Grain |
+|---|---|---|---|
+| 1 | `gold_fact.ssm_rating_history_fact` | [T] | 1 row per (game_id, coach_id) — SSM v1 (game-indexed random walk) |
+| 2 | `gold_fact.ssm2_rating_history_fact` | [T] | 1 row per (game_id, coach_id) — SSM v2 (time-aware + adaptive volatility) |
+
 ### Presentation Core (340)
 
 Identity shims consumed by all domain-specific presentation notebooks.
@@ -254,6 +261,7 @@ The correct notebook execution order, respecting all dependencies:
 ```
 310  Gold Dim           (dims + analytical_config + tournament_parameters)
 320  Gold Fact          (games_fact, coach_games_fact, rating_history_fact)
+321  Gold Fact SSM      (ssm_rating_history_fact, ssm2_rating_history_fact)
 331  Gold Summary Coach (spines → series → summaries → streaks → opponent → bins)
 332  Gold Summary Nation
 333  Gold Summary Tournament
@@ -263,4 +271,4 @@ The correct notebook execution order, respecting all dependencies:
 343  Gold Presentation Tournament
 ```
 
-Note: 340 (presentation core) can technically run after 310 (it only needs dims), but logically it groups with the presentation phase. 332 and 333 can run in parallel after 331.
+Note: 321 depends on 320 (`game_feed_for_ratings_fact`) and 310 (`analytical_config`). It can run in parallel with 331+. 340 (presentation core) can technically run after 310 (it only needs dims), but logically it groups with the presentation phase. 332 and 333 can run in parallel after 331.
