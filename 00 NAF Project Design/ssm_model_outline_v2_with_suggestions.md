@@ -115,12 +115,19 @@ v_i,new = clip(v_base + alpha * (v_i,old - v_base) + beta * g(innovation_i²), v
 - calibration by expected-score bins
 - behaviour after inactivity gaps
 
-## Tuning order
+## Tuning order (original plan)
 1. Choose `f(Δt)`
 2. Tune `q_time`
 3. Tune small `q_game`
 4. Tune `sigma2_obs`
 5. Tune volatility parameters: `v_base`, `alpha`, `beta`, bounds
+
+## Tuning approach (actual, 2026-03-24)
+Simultaneous 4D grid search over `sigma2_obs`, `q_time`, `q_game`, `v_scale`.
+Fixed structural params: `prior_sigma=50`, `max_days=180`, `v_decay=0.90`, `v_base=0.25`, `v_min=0.0`, `v_max=16.0`.
+Calibration target: 50-game rolling median Elo inside ±2σ ~95%, weighted toward veteran coaches (60% vet, 25% est, 10% dev, 5% burn-in).
+Two-pass: coarse grid (4^4=256) then fine grid (3^4=81) around best coarse result.
+Result: `sigma2_obs=0.10`, `q_time=2.0`, `q_game=0.025`, `v_scale=24.0`.
 
 ## Summary
 This v2 model is a:

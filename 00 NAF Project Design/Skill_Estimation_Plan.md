@@ -103,7 +103,7 @@ Option 4 was selected and implemented in notebook `321_NAF_gold_fact_ssm.py`. Tw
 
 **SSM v2** (`ssm2_rating_history_fact`): Time-aware uncertainty growth with adaptive volatility. No mean reversion. Process variance depends on time gap (`q_time × √(min(Δt, 180))`), a baseline per-game term (`q_game`), and a coach-level volatility term driven by EWMA of squared innovations. See `ssm_model_outline_v2_with_suggestions.md` for full design spec.
 
-Both models are in active tuning. Calibration target: Elo should fall inside SSM ±2σ approximately 95% of the time for coaches with 100+ games.
+Both models are in active tuning. Calibration target: 50-game rolling median Elo should fall inside SSM ±2σ approximately 95% of the time for coaches with 100+ games. Rolling median is used rather than raw Elo because it's a better proxy for true underlying skill — raw Elo is too noisy (one bad game can shift it 20+ points).
 
 ## External Input (Jan Christian Refsgaard, 2026-03-09)
 
@@ -135,9 +135,10 @@ Both contain: mu/sigma before and after, opponent mu/sigma, innovation, Kalman g
 ### Key Lessons from Tuning
 
 1. **Mean reversion is harmful** when tracking Elo (which has no mean reversion). φ=0.995 looked harmless but caused cumulative drag of ~0.5% × N games, pulling SSM μ far below Elo for active coaches.
-2. **σ²_obs must be small** (0.01–0.05). Large σ²_obs dominates the innovation variance S, making every game uninformative and preventing σ from shrinking.
+2. **σ²_obs controls learning rate**. Too large and every game is uninformative (σ won't shrink). Too small and the model over-reacts to individual results. Grid search found σ²_obs=0.10 optimal for v2 (higher than v1's 0.02, because v2's adaptive volatility handles surprises separately).
 3. **Prior σ should be empirically grounded** — set from SD of median-career Elo for coaches with 50+ games.
 4. **Opponent uncertainty propagation** (H²×P_opp in S) is a deliberate design choice that makes games against poorly-estimated opponents less informative.
+5. **Grid search tuning (v2, 2026-03-24)**: Two-pass grid search (256 coarse + 81 fine) calibrated against 50-game rolling median Elo inside ±2σ. Weighted objective: veteran 60%, established 25%, developing 10%, burn-in 5%. Results: σ²_obs=0.10, q_time=2.0, q_game=0.025, v_scale=24.0. Key insight: nearly all process variance should come from time gaps and volatility, not baseline per-game noise (q_game dropped from 0.25 to 0.025).
 
 ### Target Visualisation
 
