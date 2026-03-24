@@ -819,3 +819,572 @@ ax.set_title("SSM Uncertainty by Coach Experience")
 ax.grid(True, axis="y", alpha=0.3)
 plt.tight_layout()
 plt.show()
+
+# COMMAND ----------
+
+# COMPONENT: SSM2 Rating Engine (time-aware + volatility-aware, no mean reversion)
+# =============================================================================
+# PURPOSE      : Compute GLOBAL SSM ratings with:
+#                - no mean reversion
+#                - time-aware uncertainty growth
+#                - small baseline per-game process noise
+#                - coach-level adaptive volatility
+#                - expected-score treatment of draws (0.0 / 0.5 / 1.0)
+# INPUT        : naf_catalog.gold_fact.game_feed_for_ratings_fact
+# CONFIG       : naf_catalog.gold_dim.analytical_config (elo_initial_rating, elo_scale)
+# OUTPUT       : naf_catalog.gold_fact.ssm2_rating_history_fact
+# GRAIN / PK   : 1 row per (game_id, coach_id)
+# NOTES        : Uses distinct SSM2_* names and a new output table to avoid conflicts.
+# =============================================================================
+
+import math
+import datetime as dt
+from pyspark.sql import functions as F, types as T
+
+# ---------------------------------------------------------------------------
+# 1) Core config from existing singleton
+# ---------------------------------------------------------------------------
+_ssm2_cfg = spark.table("naf_catalog.gold_dim.analytical_config").first()
+SSM2_INITIAL_RATING = float(_ssm2_cfg["elo_initial_rating"])
+SSM2_ELO_SCALE      = float(_ssm2_cfg["elo_scale"])
+SSM2_LN10_OVER_SCALE = math.log(10.0) / SSM2_ELO_SCALE
+
+# ---------------------------------------------------------------------------
+# 2) SSM2 hyperparameters (local for now; can later move into analytical_config)
+# ---------------------------------------------------------------------------
+# Prior
+SSM2_PRIOR_SIGMA = 50.0
+SSM2_PRIOR_P = SSM2_PRIOR_SIGMA ** 2
+
+# Observation noise (same role as in current SSM)
+SSM2_SIGMA2_OBS = 0.05
+
+# Time-aware process variance:
+#   P_pred = P_prev + q_time * sqrt(capped_days_since_prev_game) + q_game + volatility
+SSM2_Q_TIME = 1.50          # variance added per sqrt(day)
+SSM2_Q_GAME = 0.25          # small baseline variance per played game
+SSM2_MAX_DAYS = 180.0       # cap very long inactivity gaps
+SSM2_MIN_P = 1e-6
+
+# Volatility dynamics
+# shock_ewma_post = decay * shock_ewma_prev + (1-decay) * innovation^2
+# volatility_post = clip(v_base + v_scale * shock_ewma_post, v_min, v_max)
+SSM2_V_BASE = 0.25
+SSM2_V_SCALE = 12.0
+SSM2_V_DECAY = 0.90
+SSM2_V_MIN = 0.00
+SSM2_V_MAX = 16.0
+
+# ---------------------------------------------------------------------------
+# 3) Load feed in deterministic order
+# ---------------------------------------------------------------------------
+ssm2_feed_df = (
+    spark.table("naf_catalog.gold_fact.game_feed_for_ratings_fact")
+    .withColumn("game_index", F.col("game_index").cast("int"))
+    .orderBy(F.col("game_index").asc(), F.col("game_id").asc())
+    .select(
+        "game_id",
+        "game_index",
+        "event_timestamp",
+        "game_date",
+        "date_id",
+        "tournament_id",
+        "variant_id",
+        "home_coach_id",
+        "away_coach_id",
+        "result_home",
+        "result_away",
+    )
+)
+
+ssm2_bad = ssm2_feed_df.filter(
+    F.col("game_id").isNull()
+    | F.col("game_index").isNull()
+    | F.col("date_id").isNull()
+    | F.col("home_coach_id").isNull()
+    | F.col("away_coach_id").isNull()
+    | (F.col("home_coach_id") == F.col("away_coach_id"))
+    | ~F.col("result_home").isin([0.0, 0.5, 1.0])
+    | ~F.col("result_away").isin([0.0, 0.5, 1.0])
+)
+
+if len(ssm2_bad.take(1)) > 0:
+    raise ValueError("SSM2: invalid rows detected in rating feed.")
+
+ssm2_feed_rows = ssm2_feed_df.collect()
+print(f"SSM2 engine: processing {len(ssm2_feed_rows)} games")
+
+# ---------------------------------------------------------------------------
+# 4) State containers
+# ---------------------------------------------------------------------------
+# Per coach:
+#   mu          : current skill estimate
+#   P           : posterior variance
+#   volatility  : adaptive extra process variance term
+#   shock_ewma  : EWMA of squared innovations
+#   last_dt     : datetime of previous game
+ssm2_state = {}
+ssm2_game_counts = {}
+
+def ssm2_default_state():
+    return {
+        "mu": SSM2_INITIAL_RATING,
+        "P": SSM2_PRIOR_P,
+        "volatility": SSM2_V_BASE,
+        "shock_ewma": 0.0,
+        "last_dt": None,
+    }
+
+def ssm2_get_state(coach_id):
+    return ssm2_state.get(coach_id, ssm2_default_state().copy())
+
+def ssm2_set_state(coach_id, state_dict):
+    ssm2_state[coach_id] = state_dict
+
+def ssm2_increment_game_count(coach_id):
+    ssm2_game_counts[coach_id] = ssm2_game_counts.get(coach_id, 0) + 1
+    return ssm2_game_counts[coach_id]
+
+def ssm2_win_probability(theta_self, theta_opp):
+    return 1.0 / (1.0 + 10.0 ** ((theta_opp - theta_self) / SSM2_ELO_SCALE))
+
+def ssm2_row_datetime(row):
+    event_ts = row["event_timestamp"]
+    game_date = row["game_date"]
+    date_id = int(row["date_id"])
+
+    if event_ts is not None:
+        return event_ts.replace(tzinfo=None) if getattr(event_ts, "tzinfo", None) is not None else event_ts
+    if game_date is not None:
+        return dt.datetime.combine(game_date, dt.time(0, 0))
+    # fallback from date_id = YYYYMMDD
+    ds = str(date_id)
+    return dt.datetime.strptime(ds, "%Y%m%d")
+
+def ssm2_days_since(prev_dt, current_dt):
+    if prev_dt is None:
+        return 0.0
+    delta_days = (current_dt - prev_dt).total_seconds() / 86400.0
+    return max(delta_days, 0.0)
+
+def ssm2_time_scale(days_since_prev):
+    return math.sqrt(min(days_since_prev, SSM2_MAX_DAYS))
+
+def ssm2_predict(state_dict, current_dt):
+    days_since_prev = ssm2_days_since(state_dict["last_dt"], current_dt)
+    time_scale = ssm2_time_scale(days_since_prev)
+    process_variance_added = (
+        SSM2_Q_TIME * time_scale
+        + SSM2_Q_GAME
+        + state_dict["volatility"]
+    )
+
+    mu_pred = state_dict["mu"]                 # no mean reversion
+    P_pred = state_dict["P"] + process_variance_added
+
+    return (
+        mu_pred,
+        P_pred,
+        days_since_prev,
+        time_scale,
+        process_variance_added,
+    )
+
+def ssm2_observe(mu_pred, P_pred, mu_opp_pred, P_opp_pred, result):
+    p_exp = ssm2_win_probability(mu_pred, mu_opp_pred)
+
+    # EKF linearisation of expected score wrt own skill
+    H = p_exp * (1.0 - p_exp) * SSM2_LN10_OVER_SCALE
+
+    # Opponent uncertainty propagated into effective observation variance
+    S = H * H * P_pred + H * H * P_opp_pred + SSM2_SIGMA2_OBS
+
+    innovation = result - p_exp
+
+    if S < 1e-12:
+        return (mu_pred, max(P_pred, SSM2_MIN_P), 0.0, innovation, p_exp)
+
+    K = H * P_pred / S
+    mu_post = mu_pred + K * innovation
+    P_post = max((1.0 - K * H) * P_pred, SSM2_MIN_P)
+
+    return (mu_post, P_post, K, innovation, p_exp)
+
+def ssm2_update_volatility(state_dict, innovation):
+    shock_ewma_post = (
+        SSM2_V_DECAY * state_dict["shock_ewma"]
+        + (1.0 - SSM2_V_DECAY) * (innovation ** 2)
+    )
+
+    volatility_post = SSM2_V_BASE + SSM2_V_SCALE * shock_ewma_post
+    volatility_post = max(SSM2_V_MIN, min(volatility_post, SSM2_V_MAX))
+
+    return volatility_post, shock_ewma_post
+
+# ---------------------------------------------------------------------------
+# 5) Iterate sequentially over games
+# ---------------------------------------------------------------------------
+ssm2_rows = []
+
+for ssm2_row in ssm2_feed_rows:
+    game_id = int(ssm2_row["game_id"])
+    game_index = int(ssm2_row["game_index"])
+
+    event_ts = ssm2_row["event_timestamp"]
+    game_date = ssm2_row["game_date"]
+    date_id = int(ssm2_row["date_id"])
+
+    tournament_id = int(ssm2_row["tournament_id"]) if ssm2_row["tournament_id"] is not None else None
+    variant_id = int(ssm2_row["variant_id"]) if ssm2_row["variant_id"] is not None else None
+
+    coach_home = int(ssm2_row["home_coach_id"])
+    coach_away = int(ssm2_row["away_coach_id"])
+
+    result_home = float(ssm2_row["result_home"])
+    result_away = float(ssm2_row["result_away"])
+
+    current_dt = ssm2_row_datetime(ssm2_row)
+
+    state_h_prev = ssm2_get_state(coach_home)
+    state_a_prev = ssm2_get_state(coach_away)
+
+    # Predict independently for each coach using own elapsed time
+    (
+        mu_h_pred,
+        P_h_pred,
+        days_h,
+        time_scale_h,
+        q_added_h,
+    ) = ssm2_predict(state_h_prev, current_dt)
+
+    (
+        mu_a_pred,
+        P_a_pred,
+        days_a,
+        time_scale_a,
+        q_added_a,
+    ) = ssm2_predict(state_a_prev, current_dt)
+
+    # Observe game from each side
+    (
+        mu_h_post,
+        P_h_post,
+        K_h,
+        innov_h,
+        p_exp_h,
+    ) = ssm2_observe(mu_h_pred, P_h_pred, mu_a_pred, P_a_pred, result_home)
+
+    (
+        mu_a_post,
+        P_a_post,
+        K_a,
+        innov_a,
+        p_exp_a,
+    ) = ssm2_observe(mu_a_pred, P_a_pred, mu_h_pred, P_h_pred, result_away)
+
+    # Update volatility after observing surprise
+    vol_h_post, shock_ewma_h_post = ssm2_update_volatility(state_h_prev, innov_h)
+    vol_a_post, shock_ewma_a_post = ssm2_update_volatility(state_a_prev, innov_a)
+
+    # Game counts
+    gn_h = ssm2_increment_game_count(coach_home)
+    gn_a = ssm2_increment_game_count(coach_away)
+
+    # Record home perspective
+    ssm2_rows.append((
+        game_id, coach_home,
+        event_ts, game_date, date_id, game_index, gn_h,
+        mu_h_pred, math.sqrt(P_h_pred),
+        coach_away, mu_a_pred, math.sqrt(P_a_pred),
+        result_home, p_exp_h,
+        K_h, innov_h,
+        days_h, time_scale_h, q_added_h,
+        state_h_prev["volatility"], vol_h_post, shock_ewma_h_post,
+        mu_h_post, math.sqrt(P_h_post),
+        tournament_id, variant_id,
+    ))
+
+    # Record away perspective
+    ssm2_rows.append((
+        game_id, coach_away,
+        event_ts, game_date, date_id, game_index, gn_a,
+        mu_a_pred, math.sqrt(P_a_pred),
+        coach_home, mu_h_pred, math.sqrt(P_h_pred),
+        result_away, p_exp_a,
+        K_a, innov_a,
+        days_a, time_scale_a, q_added_a,
+        state_a_prev["volatility"], vol_a_post, shock_ewma_a_post,
+        mu_a_post, math.sqrt(P_a_post),
+        tournament_id, variant_id,
+    ))
+
+    # Persist posteriors
+    ssm2_set_state(coach_home, {
+        "mu": mu_h_post,
+        "P": P_h_post,
+        "volatility": vol_h_post,
+        "shock_ewma": shock_ewma_h_post,
+        "last_dt": current_dt,
+    })
+
+    ssm2_set_state(coach_away, {
+        "mu": mu_a_post,
+        "P": P_a_post,
+        "volatility": vol_a_post,
+        "shock_ewma": shock_ewma_a_post,
+        "last_dt": current_dt,
+    })
+
+print(f"SSM2 engine: generated {len(ssm2_rows)} rows for {len(ssm2_state)} coaches")
+
+# ---------------------------------------------------------------------------
+# 6) Schema
+# ---------------------------------------------------------------------------
+ssm2_schema = T.StructType([
+    T.StructField("game_id",               T.IntegerType(),   False),
+    T.StructField("coach_id",              T.IntegerType(),   False),
+
+    T.StructField("event_timestamp",       T.TimestampType(), True),
+    T.StructField("game_date",             T.DateType(),      True),
+    T.StructField("date_id",               T.IntegerType(),   False),
+    T.StructField("game_index",            T.IntegerType(),   False),
+    T.StructField("coach_game_number",     T.IntegerType(),   False),
+
+    T.StructField("mu_before",             T.DoubleType(),    False),
+    T.StructField("sigma_before",          T.DoubleType(),    False),
+
+    T.StructField("opponent_coach_id",     T.IntegerType(),   False),
+    T.StructField("opponent_mu_before",    T.DoubleType(),    False),
+    T.StructField("opponent_sigma_before", T.DoubleType(),    False),
+
+    T.StructField("result_numeric",        T.DoubleType(),    False),
+    T.StructField("score_expected",        T.DoubleType(),    False),
+
+    T.StructField("kalman_gain",           T.DoubleType(),    False),
+    T.StructField("innovation",            T.DoubleType(),    False),
+
+    T.StructField("days_since_prev_game",  T.DoubleType(),    False),
+    T.StructField("time_scale_value",      T.DoubleType(),    False),
+    T.StructField("process_variance_added",T.DoubleType(),    False),
+
+    T.StructField("volatility_before",     T.DoubleType(),    False),
+    T.StructField("volatility_after",      T.DoubleType(),    False),
+    T.StructField("shock_ewma_after",      T.DoubleType(),    False),
+
+    T.StructField("mu_after",              T.DoubleType(),    False),
+    T.StructField("sigma_after",           T.DoubleType(),    False),
+
+    T.StructField("tournament_id",         T.IntegerType(),   True),
+    T.StructField("variant_id",            T.IntegerType(),   True),
+])
+
+# ---------------------------------------------------------------------------
+# 7) Create DataFrame and write to a distinct target table
+# ---------------------------------------------------------------------------
+ssm2_hist_df = (
+    spark.createDataFrame(ssm2_rows, ssm2_schema)
+    .withColumn("load_timestamp", F.current_timestamp())
+)
+
+ssm2_target = "naf_catalog.gold_fact.ssm2_rating_history_fact"
+
+ssm2_cols = [
+    "game_id", "coach_id",
+    "event_timestamp", "game_date", "date_id", "game_index", "coach_game_number",
+    "mu_before", "sigma_before",
+    "opponent_coach_id", "opponent_mu_before", "opponent_sigma_before",
+    "result_numeric", "score_expected",
+    "kalman_gain", "innovation",
+    "days_since_prev_game", "time_scale_value", "process_variance_added",
+    "volatility_before", "volatility_after", "shock_ewma_after",
+    "mu_after", "sigma_after",
+    "tournament_id", "variant_id",
+    "load_timestamp",
+]
+
+(
+    ssm2_hist_df.select(*ssm2_cols)
+    .write
+    .format("delta")
+    .mode("overwrite")
+    .option("overwriteSchema", "true")
+    .saveAsTable(ssm2_target)
+)
+
+print(f"SSM2 engine: wrote {ssm2_hist_df.count()} rows to {ssm2_target}")
+
+# COMMAND ----------
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+# --- Pick coach ---
+ssm2_top_coach_row = spark.sql("""
+    SELECT coach_id, COUNT(*) AS games
+    FROM naf_catalog.gold_fact.ssm2_rating_history_fact
+    GROUP BY coach_id
+    ORDER BY games DESC, coach_id
+    LIMIT 1
+""").first()
+
+ssm2_coach_id = ssm2_top_coach_row["coach_id"]
+# Optional override
+ssm2_coach_id = 9524
+ssm2_coach_id = 34738
+ssm2_coach_id = 37505
+
+ssm2_total_games_row = spark.sql(f"""
+    SELECT COUNT(*) AS games
+    FROM naf_catalog.gold_fact.ssm2_rating_history_fact
+    WHERE coach_id = {ssm2_coach_id}
+""").first()
+ssm2_total_games = ssm2_total_games_row["games"]
+
+# --- Load SSM2 trajectory ---
+ssm2_df = spark.sql(f"""
+    SELECT
+        coach_game_number,
+        mu_after,
+        sigma_after,
+        volatility_after,
+        days_since_prev_game
+    FROM naf_catalog.gold_fact.ssm2_rating_history_fact
+    WHERE coach_id = {ssm2_coach_id}
+    ORDER BY coach_game_number
+""").toPandas()
+
+# --- Load Elo trajectory for comparison ---
+elo_df = spark.sql(f"""
+    SELECT
+        ROW_NUMBER() OVER (ORDER BY game_index, game_id) AS coach_game_number,
+        rating_after AS elo_rating
+    FROM naf_catalog.gold_fact.rating_history_fact
+    WHERE coach_id = {ssm2_coach_id}
+      AND scope = 'GLOBAL'
+    ORDER BY game_index, game_id
+""").toPandas()
+
+# --- Load coach name ---
+ssm2_coach_name_row = spark.sql(f"""
+    SELECT coach_name
+    FROM naf_catalog.gold_dim.coach_dim
+    WHERE coach_id = {ssm2_coach_id}
+""").first()
+
+ssm2_coach_name = (
+    ssm2_coach_name_row["coach_name"]
+    if ssm2_coach_name_row is not None
+    else str(ssm2_coach_id)
+)
+
+# --- Extract arrays ---
+game_num = ssm2_df["coach_game_number"].values
+mu = ssm2_df["mu_after"].values
+sigma = ssm2_df["sigma_after"].values
+volatility = ssm2_df["volatility_after"].values
+days_since_prev = ssm2_df["days_since_prev_game"].values
+
+# --- Plot ---
+fig, (ax1, ax2, ax3, ax4) = plt.subplots(
+    4, 1,
+    figsize=(14, 11),
+    sharex=True,
+    gridspec_kw={"height_ratios": [3, 1, 1, 1]}
+)
+
+# Panel 1: rating + uncertainty band
+ax1.fill_between(
+    game_num,
+    mu - 2 * sigma,
+    mu + 2 * sigma,
+    alpha=0.20,
+    color="steelblue",
+    label="SSM2 ± 2σ"
+)
+ax1.plot(
+    game_num,
+    mu,
+    color="steelblue",
+    linewidth=1.2,
+    label="SSM2 μ"
+)
+
+if len(elo_df) == len(ssm2_df):
+    ax1.plot(
+        game_num,
+        elo_df["elo_rating"].values,
+        color="coral",
+        linewidth=0.8,
+        alpha=0.7,
+        linestyle="--",
+        label="Elo rating"
+    )
+
+ax1.axhline(
+    y=150,
+    color="gray",
+    linestyle=":",
+    linewidth=0.7,
+    alpha=0.6,
+    label="Initial (150)"
+)
+
+ax1.set_ylabel("Rating")
+ax1.set_title(
+    f"SSM2 Rating Diagnostics — {ssm2_coach_name} "
+    f"(coach {ssm2_coach_id}, {ssm2_total_games} games)"
+)
+ax1.legend(loc="upper left", fontsize=9)
+ax1.grid(True, alpha=0.3)
+
+# Panel 2: posterior uncertainty
+ax2.plot(
+    game_num,
+    sigma,
+    color="steelblue",
+    linewidth=1.0
+)
+ax2.set_ylabel("σ")
+ax2.set_ylim(bottom=0)
+ax2.grid(True, alpha=0.3)
+
+# Panel 3: volatility
+ax3.plot(
+    game_num,
+    volatility,
+    color="darkorange",
+    linewidth=1.0
+)
+ax3.set_ylabel("Volatility")
+ax3.set_ylim(bottom=0)
+ax3.grid(True, alpha=0.3)
+
+# Panel 4: days since previous game
+ax4.plot(
+    game_num,
+    days_since_prev,
+    color="seagreen",
+    linewidth=1.0
+)
+ax4.set_ylabel("Days gap")
+ax4.set_xlabel("Game number")
+ax4.set_ylim(bottom=0)
+ax4.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC SELECT
+# MAGIC     coach_game_number,
+# MAGIC     game_id,
+# MAGIC     event_timestamp,
+# MAGIC     game_date,
+# MAGIC     date_id,
+# MAGIC     days_since_prev_game
+# MAGIC FROM naf_catalog.gold_fact.ssm2_rating_history_fact
+# MAGIC WHERE coach_id = 9524
+# MAGIC ORDER BY days_since_prev_game DESC, coach_game_number
+# MAGIC LIMIT 20;
