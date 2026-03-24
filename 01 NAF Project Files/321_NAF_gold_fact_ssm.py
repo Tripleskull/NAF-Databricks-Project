@@ -867,12 +867,12 @@ SSM2_PRIOR_SIGMA = 50.0
 SSM2_PRIOR_P = SSM2_PRIOR_SIGMA ** 2
 
 # Observation noise (same role as in current SSM)
-SSM2_SIGMA2_OBS = 0.05
+SSM2_SIGMA2_OBS = 0.10      # tuned 2026-03-24 (was 0.05)
 
 # Time-aware process variance:
 #   P_pred = P_prev + q_time * sqrt(capped_days_since_prev_game) + q_game + volatility
-SSM2_Q_TIME = 1.50          # variance added per sqrt(day)
-SSM2_Q_GAME = 0.25          # small baseline variance per played game
+SSM2_Q_TIME = 2.00          # variance added per sqrt(day) — tuned 2026-03-24 (was 1.50)
+SSM2_Q_GAME = 0.025         # baseline per-game noise — tuned 2026-03-24 (was 0.25)
 SSM2_MAX_DAYS = 180.0       # cap very long inactivity gaps
 SSM2_MIN_P = 1e-6
 
@@ -880,7 +880,7 @@ SSM2_MIN_P = 1e-6
 # shock_ewma_post = decay * shock_ewma_prev + (1-decay) * innovation^2
 # volatility_post = clip(v_base + v_scale * shock_ewma_post, v_min, v_max)
 SSM2_V_BASE = 0.25
-SSM2_V_SCALE = 12.0
+SSM2_V_SCALE = 24.0         # tuned 2026-03-24 (was 12.0)
 SSM2_V_DECAY = 0.90
 SSM2_V_MIN = 0.00
 SSM2_V_MAX = 16.0
