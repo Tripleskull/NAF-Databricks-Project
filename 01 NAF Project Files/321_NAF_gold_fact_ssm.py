@@ -2032,3 +2032,267 @@ print("=" * 70)
 # print("To apply: update SSM2_SIGMA2_OBS, SSM2_Q_TIME, SSM2_Q_GAME, "
 #       "SSM2_V_SCALE above and re-run the engine cell.")
 # print(f"{'='*70}")
+
+# COMMAND ----------
+
+# =============================================================================
+# COMPONENT: SSM2 vs Elo Predictive Evaluation
+# =============================================================================
+# PURPOSE      : Compare predictive accuracy of SSM v2, Elo, and a naive
+#                baseline (always predict 0.5) on a held-out test window.
+# TEST SET     : Last 12 months of games (by date_id). Both systems were
+#                trained on all prior games when making each prediction,
+#                which is the realistic use case.
+# METRICS      : Log-loss, Brier score, accuracy, calibration curve.
+# BONUS        : Test whether SSM uncertainty predicts prediction quality
+#                (games with low combined σ should be more predictable).
+# =============================================================================
+
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+from pyspark.sql import functions as F
+
+# ---------------------------------------------------------------------------
+# 1) Define test window: last 12 months of games
+# ---------------------------------------------------------------------------
+EVAL_TEST_MONTHS = 12
+eval_cutoff = spark.sql(f"""
+    SELECT CAST(
+        (YEAR(CURRENT_DATE()) - {EVAL_TEST_MONTHS} / 12) * 10000
+        + (MONTH(CURRENT_DATE()) - {EVAL_TEST_MONTHS} % 12) * 100
+        + 1
+    AS INT) AS cutoff_date_id
+""").first()["cutoff_date_id"]
+
+# Handle month wrap-around properly
+eval_cutoff_row = spark.sql(f"""
+    SELECT CAST(
+        DATE_FORMAT(ADD_MONTHS(CURRENT_DATE(), -{EVAL_TEST_MONTHS}), 'yyyyMMdd')
+    AS INT) AS cutoff_date_id
+""").first()
+eval_cutoff = eval_cutoff_row["cutoff_date_id"]
+print(f"Test window: games with date_id >= {eval_cutoff} (last {EVAL_TEST_MONTHS} months)")
+
+# ---------------------------------------------------------------------------
+# 2) Load predictions from all three systems for the test window
+#    One row per (game_id, coach_id) with columns from each system
+# ---------------------------------------------------------------------------
+eval_df = spark.sql(f"""
+    WITH elo AS (
+        SELECT
+            game_id,
+            coach_id,
+            game_index,
+            date_id,
+            result_numeric,
+            score_expected AS elo_pred
+        FROM naf_catalog.gold_fact.rating_history_fact
+        WHERE scope = 'GLOBAL'
+          AND date_id >= {eval_cutoff}
+    ),
+    ssm2 AS (
+        SELECT
+            game_id,
+            coach_id,
+            score_expected AS ssm2_pred,
+            sigma_before AS ssm2_sigma_before,
+            opponent_sigma_before AS ssm2_opp_sigma_before,
+            coach_game_number
+        FROM naf_catalog.gold_fact.ssm2_rating_history_fact
+        WHERE date_id >= {eval_cutoff}
+    )
+    SELECT
+        e.game_id,
+        e.coach_id,
+        e.game_index,
+        e.date_id,
+        e.result_numeric,
+        e.elo_pred,
+        s.ssm2_pred,
+        s.ssm2_sigma_before,
+        s.ssm2_opp_sigma_before,
+        s.coach_game_number,
+        -- Combined uncertainty: sqrt(σ²_self + σ²_opp)
+        SQRT(
+            POWER(s.ssm2_sigma_before, 2)
+            + POWER(s.ssm2_opp_sigma_before, 2)
+        ) AS combined_sigma
+    FROM elo e
+    JOIN ssm2 s
+        ON e.game_id = s.game_id
+        AND e.coach_id = s.coach_id
+""").toPandas()
+
+print(f"Test set: {len(eval_df)} observations "
+      f"({eval_df['game_id'].nunique()} games, "
+      f"{eval_df['coach_id'].nunique()} coaches)")
+
+# ---------------------------------------------------------------------------
+# 3) Compute metrics
+# ---------------------------------------------------------------------------
+EPS = 1e-10  # clamp predictions to avoid log(0)
+
+y = eval_df["result_numeric"].values
+p_elo = np.clip(eval_df["elo_pred"].values, EPS, 1.0 - EPS)
+p_ssm2 = np.clip(eval_df["ssm2_pred"].values, EPS, 1.0 - EPS)
+p_naive = np.full_like(y, 0.5)
+
+def log_loss(y_true, y_pred):
+    """Log-loss for expected-score predictions (y ∈ {0, 0.5, 1})."""
+    # Treat as regression log-loss: -mean(y*log(p) + (1-y)*log(1-p))
+    return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+
+def brier_score(y_true, y_pred):
+    """Brier score: mean squared error of predictions."""
+    return np.mean((y_pred - y_true) ** 2)
+
+def accuracy(y_true, y_pred):
+    """Accuracy: fraction of games where predicted favourite wins.
+    Draws (result=0.5) are excluded since neither side is a clear winner.
+    """
+    mask = y_true != 0.5
+    if mask.sum() == 0:
+        return float("nan")
+    correct = ((y_pred[mask] > 0.5) & (y_true[mask] == 1.0)) | \
+              ((y_pred[mask] < 0.5) & (y_true[mask] == 0.0))
+    return correct.mean()
+
+metrics = {}
+for name, preds in [("Elo", p_elo), ("SSM v2", p_ssm2), ("Naive (0.5)", p_naive)]:
+    metrics[name] = {
+        "log_loss": log_loss(y, preds),
+        "brier": brier_score(y, preds),
+        "accuracy": accuracy(y, preds),
+    }
+
+print(f"\n{'='*70}")
+print(f"PREDICTIVE EVALUATION — test set: date_id >= {eval_cutoff}")
+print(f"{'='*70}")
+print(f"\n{'Model':<15} {'Log-loss':>10} {'Brier':>10} {'Accuracy':>10}")
+print(f"{'-'*15} {'-'*10} {'-'*10} {'-'*10}")
+for name, m in metrics.items():
+    print(f"{name:<15} {m['log_loss']:10.5f} {m['brier']:10.5f} "
+          f"{m['accuracy']:10.3f}")
+
+# Relative improvement over naive
+for name in ["Elo", "SSM v2"]:
+    ll_imp = (metrics["Naive (0.5)"]["log_loss"] - metrics[name]["log_loss"]) \
+             / metrics["Naive (0.5)"]["log_loss"] * 100
+    br_imp = (metrics["Naive (0.5)"]["brier"] - metrics[name]["brier"]) \
+             / metrics["Naive (0.5)"]["brier"] * 100
+    print(f"\n{name} vs Naive: log-loss {ll_imp:+.2f}%, Brier {br_imp:+.2f}%")
+
+# SSM v2 vs Elo head-to-head
+ll_diff = metrics["Elo"]["log_loss"] - metrics["SSM v2"]["log_loss"]
+br_diff = metrics["Elo"]["brier"] - metrics["SSM v2"]["brier"]
+print(f"\nSSM v2 vs Elo: log-loss {'better' if ll_diff > 0 else 'worse'} "
+      f"by {abs(ll_diff):.5f}, Brier {'better' if br_diff > 0 else 'worse'} "
+      f"by {abs(br_diff):.5f}")
+
+# ---------------------------------------------------------------------------
+# 4) Calibration curve: bin predictions, check actual outcomes
+# ---------------------------------------------------------------------------
+fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+
+for ax, (name, preds) in zip(axes, [("Elo", p_elo), ("SSM v2", p_ssm2)]):
+    bins = np.arange(0.0, 1.05, 0.1)
+    bin_indices = np.digitize(preds, bins) - 1
+    bin_centres = []
+    bin_actuals = []
+    bin_counts = []
+
+    for i in range(len(bins) - 1):
+        mask = bin_indices == i
+        if mask.sum() >= 20:  # need at least 20 obs per bin
+            bin_centres.append((bins[i] + bins[i + 1]) / 2)
+            bin_actuals.append(y[mask].mean())
+            bin_counts.append(mask.sum())
+
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Perfect calibration")
+    ax.bar(bin_centres, bin_actuals, width=0.08, alpha=0.6, color="steelblue",
+           label="Actual outcome rate")
+    ax.scatter(bin_centres, bin_actuals, color="coral", zorder=5, s=40)
+    ax.set_xlabel("Predicted win probability")
+    ax.set_ylabel("Actual outcome (mean)")
+    ax.set_title(f"{name} Calibration")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.legend(loc="lower right", fontsize=8)
+    ax.grid(True, alpha=0.3)
+
+    # Add bin counts as text
+    for xc, yc, n in zip(bin_centres, bin_actuals, bin_counts):
+        ax.text(xc, yc + 0.03, f"n={n}", ha="center", fontsize=6, alpha=0.7)
+
+# Panel 3: does SSM uncertainty predict prediction quality?
+ax3 = axes[2]
+sigma_combined = eval_df["combined_sigma"].values
+# Bin by combined uncertainty
+sigma_bins = np.percentile(sigma_combined, [0, 20, 40, 60, 80, 100])
+sigma_bin_idx = np.digitize(sigma_combined, sigma_bins) - 1
+sigma_bin_idx = np.clip(sigma_bin_idx, 0, len(sigma_bins) - 2)
+
+sigma_labels = []
+ssm2_brier_by_bin = []
+elo_brier_by_bin = []
+
+for i in range(len(sigma_bins) - 1):
+    mask = sigma_bin_idx == i
+    if mask.sum() >= 50:
+        sigma_labels.append(
+            f"σ∈[{sigma_bins[i]:.0f},{sigma_bins[i+1]:.0f})"
+        )
+        ssm2_brier_by_bin.append(brier_score(y[mask], p_ssm2[mask]))
+        elo_brier_by_bin.append(brier_score(y[mask], p_elo[mask]))
+
+x_pos = np.arange(len(sigma_labels))
+width = 0.35
+ax3.bar(x_pos - width/2, elo_brier_by_bin, width, alpha=0.7,
+        color="coral", label="Elo")
+ax3.bar(x_pos + width/2, ssm2_brier_by_bin, width, alpha=0.7,
+        color="steelblue", label="SSM v2")
+ax3.set_xticks(x_pos)
+ax3.set_xticklabels(sigma_labels, fontsize=7, rotation=15)
+ax3.set_ylabel("Brier score (lower = better)")
+ax3.set_title("Prediction quality by uncertainty level")
+ax3.legend(loc="lower right", fontsize=8)
+ax3.grid(True, alpha=0.3, axis="y")
+
+plt.tight_layout()
+plt.show()
+
+# ---------------------------------------------------------------------------
+# 5) Experience tier breakdown
+# ---------------------------------------------------------------------------
+eval_df["tier"] = eval_df["coach_game_number"].apply(
+    lambda g: "01: 1-30" if g <= 30
+    else "02: 31-100" if g <= 100
+    else "03: 101-300" if g <= 300
+    else "04: 301+"
+)
+
+print(f"\n{'='*70}")
+print("METRICS BY EXPERIENCE TIER")
+print(f"{'='*70}")
+print(f"\n{'Tier':<15} {'N':>8}  {'Elo LL':>9} {'SSM2 LL':>9} {'LL Δ':>8}  "
+      f"{'Elo Br':>9} {'SSM2 Br':>9} {'Br Δ':>8}")
+print(f"{'-'*15} {'-'*8}  {'-'*9} {'-'*9} {'-'*8}  {'-'*9} {'-'*9} {'-'*8}")
+
+for tier in sorted(eval_df["tier"].unique()):
+    mask = eval_df["tier"] == tier
+    y_t = eval_df.loc[mask, "result_numeric"].values
+    p_elo_t = np.clip(eval_df.loc[mask, "elo_pred"].values, EPS, 1 - EPS)
+    p_ssm2_t = np.clip(eval_df.loc[mask, "ssm2_pred"].values, EPS, 1 - EPS)
+
+    elo_ll = log_loss(y_t, p_elo_t)
+    ssm2_ll = log_loss(y_t, p_ssm2_t)
+    elo_br = brier_score(y_t, p_elo_t)
+    ssm2_br = brier_score(y_t, p_ssm2_t)
+
+    print(f"{tier:<15} {mask.sum():>8}  {elo_ll:9.5f} {ssm2_ll:9.5f} "
+          f"{elo_ll - ssm2_ll:+8.5f}  {elo_br:9.5f} {ssm2_br:9.5f} "
+          f"{elo_br - ssm2_br:+8.5f}")
+
+print(f"\nPositive Δ = SSM v2 is better (lower loss)")
+print(f"{'='*70}")

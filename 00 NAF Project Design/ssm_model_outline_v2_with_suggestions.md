@@ -129,6 +129,14 @@ Calibration target: 50-game rolling median Elo inside ±2σ ~95%, weighted towar
 Two-pass: coarse grid (4^4=256) then fine grid (3^4=81) around best coarse result.
 Result: `sigma2_obs=0.10`, `q_time=2.0`, `q_game=0.025`, `v_scale=24.0`.
 
+## Predictive evaluation
+Test window: last 12 months of games. Compare SSM v2 vs Elo vs naive (0.5) on:
+- Log-loss (penalises confident wrong predictions heavily)
+- Brier score (mean squared error of predicted probability)
+- Accuracy (did the predicted favourite win, excluding draws)
+- Calibration (predicted 70% → actual 70%?)
+- Uncertainty-stratified Brier (do low-σ games predict better?)
+
 ## Summary
 This v2 model is a:
 - no-reversion random-walk rating model

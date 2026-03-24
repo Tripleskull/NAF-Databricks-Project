@@ -140,6 +140,12 @@ Both contain: mu/sigma before and after, opponent mu/sigma, innovation, Kalman g
 4. **Opponent uncertainty propagation** (H²×P_opp in S) is a deliberate design choice that makes games against poorly-estimated opponents less informative.
 5. **Grid search tuning (v2, 2026-03-24)**: Two-pass grid search (256 coarse + 81 fine) calibrated against 50-game rolling median Elo inside ±2σ. Weighted objective: veteran 60%, established 25%, developing 10%, burn-in 5%. Results: σ²_obs=0.10, q_time=2.0, q_game=0.025, v_scale=24.0. Key insight: nearly all process variance should come from time gaps and volatility, not baseline per-game noise (q_game dropped from 0.25 to 0.025).
 
+### Predictive Evaluation
+
+A head-to-head evaluation compares SSM v2, Elo, and a naive baseline (always predict 0.5) on a held-out test window (last 12 months of games). Metrics: log-loss, Brier score, accuracy, and calibration curves. Both systems were trained on all prior games when making each prediction — this is the realistic use case, not a re-trained split.
+
+Additionally tests whether SSM uncertainty predicts prediction quality: games where both coaches have low σ (well-established) should have lower Brier score than games involving high-σ newcomers.
+
 ### Target Visualisation
 
 Per-coach skill trajectory plot:
