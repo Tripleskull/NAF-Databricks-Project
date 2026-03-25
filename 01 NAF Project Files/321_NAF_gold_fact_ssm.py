@@ -1433,13 +1433,14 @@ plt.show()
 
 # COMMAND ----------
 
+# DBTITLE 1,Coach Plot Export Function
 # =============================================================================
 # COMPONENT: Coach Plot Export Function
 # =============================================================================
 # PURPOSE      : Generate and save SSM v2 diagnostic plots for a list of coaches.
 #                Each coach gets a 4-panel PNG: rating+Elo, σ, volatility, days gap.
 # USAGE        : export_coach_plots([9524, 34738, 35505])
-#                export_coach_plots([9524], output_dir="/dbfs/FileStore/my_plots")
+#                export_coach_plots([9524], output_dir="/Volumes/naf_catalog/gold_summary/exports/my_plots")
 # OUTPUT       : One PNG per coach in the output directory.
 # =============================================================================
 
@@ -1447,7 +1448,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-def export_coach_plots(coach_ids, output_dir="/dbfs/FileStore/ssm_coach_plots"):
+def export_coach_plots(coach_ids, output_dir="/Volumes/naf_catalog/gold_summary/exports/ssm_coach_plots"):
     """Generate and save SSM v2 diagnostic plots for specified coaches.
 
     Args:
@@ -2018,11 +2019,18 @@ print("=" * 70)
 
 #     # Weighted objective: minimise |coverage - 95%|
 #     # Weights: veteran 60%, established 25%, developing 10%, burn-in 5%
+    
+#     # obj = (
+#     #     0.60 * abs(cov["veteran"]     - 95.0)
+#     #     + 0.25 * abs(cov["established"] - 95.0)
+#     #     + 0.10 * abs(cov["developing"]  - 95.0)
+#     #     + 0.05 * abs(cov["burnin"]      - 95.0)
+#     # )
 #     obj = (
-#         0.60 * abs(cov["veteran"]     - 95.0)
+#         0.25 * abs(cov["veteran"]     - 95.0)
 #         + 0.25 * abs(cov["established"] - 95.0)
-#         + 0.10 * abs(cov["developing"]  - 95.0)
-#         + 0.05 * abs(cov["burnin"]      - 95.0)
+#         + 0.25 * abs(cov["developing"]  - 95.0)
+#         + 0.25 * abs(cov["burnin"]      - 95.0)
 #     )
 #     cov["objective"] = obj
 #     return cov
@@ -2204,6 +2212,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from pyspark.sql import functions as F
+import datetime
 
 # ---------------------------------------------------------------------------
 # 1) Define test window: last 12 months of games
@@ -2286,63 +2295,32 @@ print(f"Test set: {len(eval_df)} observations "
 # ---------------------------------------------------------------------------
 # 3) Compute uncertainty-aware predictions (probit approximation)
 # ---------------------------------------------------------------------------
-# The standard logistic prediction is: p = 1 / (1 + 10^(Δμ / S))
-# which is equivalent to sigmoid(-Δμ × ln(10) / S).
-#
-# For uncertainty-aware predictions, we integrate over Gaussian uncertainty
-# in both players' ratings. The probit approximation gives:
-#   p_UA ≈ sigmoid(-Δμ × ln(10) / S / √(1 + (π/8) × (ln(10)/S)² × σ²_combined))
-#
-# This is equivalent to using an effective scale:
-#   S_eff = S × √(1 + (π/8) × (ln(10)/S)² × σ²_combined)
-#
-# When σ_combined is large, S_eff increases, pulling predictions toward 0.5.
-# When σ_combined is small, S_eff ≈ S, preserving the original prediction.
-
-ELO_SCALE = 150.0  # Same as SSM engine
+ELO_SCALE = 150.0
 LN10_OVER_S = math.log(10.0) / ELO_SCALE
 PI_OVER_8 = math.pi / 8.0
-UA_COEFF = PI_OVER_8 * LN10_OVER_S ** 2  # constant: π/8 × (ln10/S)²
+UA_COEFF = PI_OVER_8 * LN10_OVER_S ** 2
 
 def compute_ua_predictions(pred_raw, sigma_self, sigma_opp):
-    """Compute uncertainty-aware predictions using probit approximation.
-
-    Args:
-        pred_raw: Original logistic predictions (from score_expected).
-        sigma_self: Coach's σ_before (standard deviation, not variance).
-        sigma_opp: Opponent's σ_before.
-
-    Returns:
-        Uncertainty-aware predictions, shrunk toward 0.5 by combined σ.
-    """
     sigma2_combined = sigma_self ** 2 + sigma_opp ** 2
     scale_factor = np.sqrt(1.0 + UA_COEFF * sigma2_combined)
-
-    # Convert raw prediction back to rating difference, then rescale.
-    # p = 1 / (1 + 10^(Δ/S))  →  Δ = -S × log10(1/p - 1)
-    # Then p_UA = 1 / (1 + 10^(Δ / S_eff)) = 1 / (1 + 10^(Δ / (S × scale_factor)))
     eps = 1e-10
     p_clipped = np.clip(pred_raw, eps, 1.0 - eps)
-    log_odds = np.log10(p_clipped / (1.0 - p_clipped))  # = -Δ/S in base-10 log
-    # Shrink log-odds by scale factor
+    log_odds = np.log10(p_clipped / (1.0 - p_clipped))
     log_odds_ua = log_odds / scale_factor
     return 1.0 / (1.0 + 10.0 ** (-log_odds_ua))
 
-# SSM v1 uncertainty-aware
 eval_df["ssm1_ua_pred"] = compute_ua_predictions(
     eval_df["ssm1_pred"].values,
     eval_df["ssm1_sigma_before"].values,
     eval_df["ssm1_opp_sigma_before"].values,
 )
 
-# SSM v2 uncertainty-aware
 eval_df["ssm2_ua_pred"] = compute_ua_predictions(
     eval_df["ssm2_pred"].values,
     eval_df["ssm2_sigma_before"].values,
     eval_df["ssm2_opp_sigma_before"].values,
 )
 
-# Combined sigma for binning
 eval_df["ssm2_combined_sigma"] = np.sqrt(
     eval_df["ssm2_sigma_before"].values ** 2
     + eval_df["ssm2_opp_sigma_before"].values ** 2
@@ -2368,16 +2346,13 @@ print(f"SSM v2 σ_combined: mean={eval_df['ssm2_combined_sigma'].mean():.1f}, "
 EPS = 1e-10
 
 def log_loss(y_true, y_pred):
-    """Log-loss for expected-score predictions (y ∈ {0, 0.5, 1})."""
     p = np.clip(y_pred, EPS, 1.0 - EPS)
     return -np.mean(y_true * np.log(p) + (1 - y_true) * np.log(1 - p))
 
 def brier_score(y_true, y_pred):
-    """Brier score: mean squared error of predictions."""
     return np.mean((y_pred - y_true) ** 2)
 
 def accuracy(y_true, y_pred):
-    """Accuracy: fraction where predicted favourite wins (draws excluded)."""
     mask = y_true != 0.5
     if mask.sum() == 0:
         return float("nan")
@@ -2428,7 +2403,6 @@ for name, m in metrics.items():
 
 print(f"\nPositive Δ = model is better than Elo (lower loss)")
 
-# Relative improvement of best UA vs Elo
 for ua_name in ["SSM v1-UA", "SSM v2-UA"]:
     ll_imp = (elo_ll - metrics[ua_name]["log_loss"]) / elo_ll * 100
     br_imp = (elo_br - metrics[ua_name]["brier"]) / elo_br * 100
@@ -2517,7 +2491,7 @@ plt.tight_layout()
 plt.show()
 
 # ---------------------------------------------------------------------------
-# 8) Per-tier breakdown (UNWEIGHTED — all observations count equally)
+# 8) Per-tier breakdown
 # ---------------------------------------------------------------------------
 eval_df["tier"] = eval_df["ssm2_game_number"].apply(
     lambda g: "01: 1-30" if g <= 30
@@ -2559,12 +2533,7 @@ for tier in sorted(eval_df["tier"].unique()):
 
 # ---------------------------------------------------------------------------
 # 9) In-sample / out-of-sample check
-#    Split coaches by whether they had 301+ games BEFORE the test window
-#    (i.e. the population the tuner optimised for).
 # ---------------------------------------------------------------------------
-# A coach was "in the tuned population" if their first game in the test
-# window already has coach_game_number > 301 (meaning they had 301+ games
-# from training data).
 coach_first_game_in_test = (
     eval_df.groupby("coach_id")["ssm2_game_number"].min().reset_index()
 )
@@ -2583,7 +2552,6 @@ print(f"\n{'Population':<35} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2-UA LL'
       f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2-UA Br':>9}")
 print(f"{'-'*35} {'-'*8}  {'-'*9} {'-'*9} {'-'*9}  {'-'*9} {'-'*9} {'-'*9}")
 
-# Re-extract model predictions aligned to eval_df after merge
 y_all = eval_df["result_numeric"].values
 models_aligned = {
     "Elo":       np.clip(eval_df["elo_pred"].values, EPS, 1 - EPS),
@@ -2640,162 +2608,53 @@ Key findings:
 print(f"{'='*78}")
 
 # ---------------------------------------------------------------------------
-# 11) Export results: text report + plots to folder
+# 11) Store results using serverless-compatible approach
 # ---------------------------------------------------------------------------
-import os
-from datetime import datetime
 
-EVAL_OUTPUT_DIR = "/dbfs/FileStore/ssm_evaluation"
-os.makedirs(EVAL_OUTPUT_DIR, exist_ok=True)
+run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-# --- Build text report ---
-report_lines = []
-report_lines.append("=" * 78)
-report_lines.append(f"SSM MODEL COMPARISON REPORT — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-report_lines.append("=" * 78)
-report_lines.append("")
-report_lines.append(f"Test window : date_id >= {eval_cutoff} ({EVAL_TEST_MONTHS} months)")
-report_lines.append(f"Observations: {len(eval_df)} ({eval_df['game_id'].nunique()} games, "
-                     f"{eval_df['coach_id'].nunique()} coaches)")
-report_lines.append(f"UA coeff    : {UA_COEFF:.6f}")
-report_lines.append(f"SSM v1 σ_combined: mean={eval_df['ssm1_combined_sigma'].mean():.1f}, "
-                     f"std={eval_df['ssm1_combined_sigma'].std():.1f}, "
-                     f"range=[{eval_df['ssm1_combined_sigma'].min():.1f}, "
-                     f"{eval_df['ssm1_combined_sigma'].max():.1f}]")
-report_lines.append(f"SSM v2 σ_combined: mean={eval_df['ssm2_combined_sigma'].mean():.1f}, "
-                     f"std={eval_df['ssm2_combined_sigma'].std():.1f}, "
-                     f"range=[{eval_df['ssm2_combined_sigma'].min():.1f}, "
-                     f"{eval_df['ssm2_combined_sigma'].max():.1f}]")
-
-# Overall comparison
-report_lines.append("")
-report_lines.append("=" * 78)
-report_lines.append("OVERALL MODEL COMPARISON")
-report_lines.append("=" * 78)
-report_lines.append("")
-report_lines.append(f"{'Model':<15} {'Log-loss':>10} {'Brier':>10} {'Accuracy':>10}  "
-                     f"{'ΔLL vs Elo':>11} {'ΔBr vs Elo':>11}")
-report_lines.append(f"{'-'*15} {'-'*10} {'-'*10} {'-'*10}  {'-'*11} {'-'*11}")
+# 11.1) Store metrics in Delta table
+metrics_rows = []
 for name, m in metrics.items():
-    ll_d = elo_ll - m["log_loss"]
-    br_d = elo_br - m["brier"]
-    dll = f"{ll_d:+11.5f}" if name != "Elo" else f"{'—':>11}"
-    dbr = f"{br_d:+11.5f}" if name != "Elo" else f"{'—':>11}"
-    report_lines.append(f"{name:<15} {m['log_loss']:10.5f} {m['brier']:10.5f} "
-                        f"{m['accuracy']:10.3f}  {dll} {dbr}")
-report_lines.append("")
-report_lines.append("Positive Δ = model is better than Elo (lower loss)")
-for ua_name in ["SSM v1-UA", "SSM v2-UA"]:
-    ll_imp = (elo_ll - metrics[ua_name]["log_loss"]) / elo_ll * 100
-    br_imp = (elo_br - metrics[ua_name]["brier"]) / elo_br * 100
-    report_lines.append(f"{ua_name} vs Elo: log-loss {ll_imp:+.3f}%, Brier {br_imp:+.3f}%")
+    metrics_rows.append({
+        "run_timestamp": run_timestamp,
+        "model_name": name,
+        "log_loss": float(m["log_loss"]),
+        "brier_score": float(m["brier"]),
+        "accuracy": float(m["accuracy"]),
+        "test_cutoff_date_id": eval_cutoff,
+        "test_months": EVAL_TEST_MONTHS,
+        "n_observations": len(eval_df),
+        "n_games": int(eval_df["game_id"].nunique()),
+        "n_coaches": int(eval_df["coach_id"].nunique()),
+    })
 
-# Per-tier breakdown
-report_lines.append("")
-report_lines.append("=" * 110)
-report_lines.append("METRICS BY EXPERIENCE TIER (unweighted)")
-report_lines.append("=" * 110)
-report_lines.append("")
-report_lines.append(f"{'Tier':<15} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2 LL':>9} {'v2-UA LL':>9}  "
-                     f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2 Br':>9} {'v2-UA Br':>9}")
-report_lines.append(f"{'-'*15} {'-'*8}  {'-'*9} {'-'*9} {'-'*9} {'-'*9}  "
-                     f"{'-'*9} {'-'*9} {'-'*9} {'-'*9}")
-for tier in sorted(eval_df["tier"].unique()):
-    tmask = eval_df["tier"] == tier
-    y_t = eval_df.loc[tmask, "result_numeric"].values
-    n_t = tmask.sum()
-    tm = {}
-    for name in ["Elo", "SSM v1-UA", "SSM v2", "SSM v2-UA"]:
-        p_t = np.clip(models[name][tmask.values], EPS, 1 - EPS)
-        tm[name] = {"ll": log_loss(y_t, p_t), "br": brier_score(y_t, p_t)}
-    report_lines.append(f"{tier:<15} {n_t:>8}  "
-                        f"{tm['Elo']['ll']:9.5f} {tm['SSM v1-UA']['ll']:9.5f} "
-                        f"{tm['SSM v2']['ll']:9.5f} {tm['SSM v2-UA']['ll']:9.5f}  "
-                        f"{tm['Elo']['br']:9.5f} {tm['SSM v1-UA']['br']:9.5f} "
-                        f"{tm['SSM v2']['br']:9.5f} {tm['SSM v2-UA']['br']:9.5f}")
+metrics_spark_df = spark.createDataFrame(metrics_rows)
+metrics_spark_df.write.mode("append").saveAsTable("naf_catalog.gold_summary.ssm_evaluation_metrics")
 
-# In-sample / out-of-sample
-report_lines.append("")
-report_lines.append("=" * 110)
-report_lines.append("IN-SAMPLE vs OUT-OF-SAMPLE (tuner targeted 301+ coaches)")
-report_lines.append("=" * 110)
-report_lines.append("")
-report_lines.append(f"{'Population':<35} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2-UA LL':>9}  "
-                     f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2-UA Br':>9}")
-report_lines.append(f"{'-'*35} {'-'*8}  {'-'*9} {'-'*9} {'-'*9}  {'-'*9} {'-'*9} {'-'*9}")
-for pop in sorted(eval_df["tuning_population"].unique()):
-    pmask = (eval_df["tuning_population"] == pop).values
-    y_p = y_all[pmask]
-    n_p = pmask.sum()
-    pm = {}
-    for name in ["Elo", "SSM v1-UA", "SSM v2-UA"]:
-        pm[name] = {"ll": log_loss(y_p, models_aligned[name][pmask]),
-                    "br": brier_score(y_p, models_aligned[name][pmask])}
-    report_lines.append(f"{pop:<35} {n_p:>8}  "
-                        f"{pm['Elo']['ll']:9.5f} {pm['SSM v1-UA']['ll']:9.5f} "
-                        f"{pm['SSM v2-UA']['ll']:9.5f}  "
-                        f"{pm['Elo']['br']:9.5f} {pm['SSM v1-UA']['br']:9.5f} "
-                        f"{pm['SSM v2-UA']['br']:9.5f}")
+print(f"\n✓ Metrics stored in naf_catalog.gold_summary.ssm_evaluation_metrics")
 
-report_lines.append("")
-report_lines.append("=" * 78)
-report_lines.append("END OF REPORT")
-report_lines.append("=" * 78)
+# 11.2) Create Volume for exports
+spark.sql("CREATE VOLUME IF NOT EXISTS naf_catalog.gold_summary.exports")
 
-# Write text report
-report_path = os.path.join(EVAL_OUTPUT_DIR, f"model_comparison_{run_timestamp}.txt")
-with open(report_path, "w") as f:
-    f.write("\n".join(report_lines))
-print(f"\nReport saved to: {report_path}")
+# 11.3) Export metrics to CSV
+out_dir = f"/Volumes/naf_catalog/gold_summary/exports/ssm_eval_{run_timestamp}"
+metrics_spark_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(out_dir)
 
-# --- Save plots ---
-# Re-create calibration plot for saving
-fig_cal, axes_cal = plt.subplots(1, 4, figsize=(20, 5))
-for ax, (name, preds) in zip(axes_cal, cal_models):
-    bins = np.arange(0.0, 1.05, 0.1)
-    bin_indices = np.digitize(preds, bins) - 1
-    bc, ba, bn = [], [], []
-    for i in range(len(bins) - 1):
-        mask = bin_indices == i
-        if mask.sum() >= 20:
-            bc.append((bins[i] + bins[i + 1]) / 2)
-            ba.append(y[mask].mean())
-            bn.append(mask.sum())
-    ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Perfect calibration")
-    ax.bar(bc, ba, width=0.08, alpha=0.6, color="steelblue", label="Actual outcome rate")
-    ax.scatter(bc, ba, color="coral", zorder=5, s=40)
-    ax.set_xlabel("Predicted win probability")
-    ax.set_ylabel("Actual outcome (mean)")
-    ax.set_title(f"{name} Calibration")
-    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    ax.legend(loc="lower right", fontsize=7)
-    ax.grid(True, alpha=0.3)
-    for xc, yc, n in zip(bc, ba, bn):
-        ax.text(xc, yc + 0.03, f"n={n}", ha="center", fontsize=5, alpha=0.7)
-fig_cal.suptitle("Calibration Comparison", fontsize=14, y=1.02)
-fig_cal.tight_layout()
-cal_path = os.path.join(EVAL_OUTPUT_DIR, f"calibration_{run_timestamp}.png")
-fig_cal.savefig(cal_path, dpi=150, bbox_inches="tight")
-plt.close(fig_cal)
-print(f"Calibration plot saved to: {cal_path}")
+part_files = [f.path for f in dbutils.fs.ls(out_dir) if f.name.startswith("part-") and f.name.endswith(".csv")]
+if part_files:
+    final_csv = f"/Volumes/naf_catalog/gold_summary/exports/ssm_eval_{run_timestamp}.csv"
+    dbutils.fs.cp(part_files[0], final_csv, True)
+    print(f"✓ CSV exported to: {final_csv}")
 
-# Re-create uncertainty-stratified Brier for saving
-fig_br, ax_br = plt.subplots(figsize=(10, 5))
-for j, (name, briers) in enumerate(brier_by_model.items()):
-    ax_br.bar(x_pos + (j - 1) * width, briers, width, alpha=0.7,
-              color=colors[name], label=name)
-ax_br.set_xticks(x_pos)
-ax_br.set_xticklabels(sigma_labels, fontsize=8, rotation=15)
-ax_br.set_ylabel("Brier score (lower = better)")
-ax_br.set_title("Prediction quality by SSM v2 uncertainty level")
-ax_br.legend(loc="lower right", fontsize=9)
-ax_br.grid(True, alpha=0.3, axis="y")
-fig_br.tight_layout()
-brier_path = os.path.join(EVAL_OUTPUT_DIR, f"brier_by_sigma_{run_timestamp}.png")
-fig_br.savefig(brier_path, dpi=150, bbox_inches="tight")
-plt.close(fig_br)
-print(f"Brier-by-σ plot saved to: {brier_path}")
+print(f"\n" + "="*78)
+print(f"EXPORT COMPLETE")
+print(f"="*78)
+print(f"Delta table : naf_catalog.gold_summary.ssm_evaluation_metrics")
+print(f"CSV export  : /Volumes/naf_catalog/gold_summary/exports/ssm_eval_{run_timestamp}.csv")
+print(f"Plots       : Displayed above (download from notebook UI if needed)")
+print(f"="*78)
 
-print(f"\nAll outputs in: {EVAL_OUTPUT_DIR}")
+# COMMAND ----------
+
+export_coach_plots([9524, 34738, 35505])
