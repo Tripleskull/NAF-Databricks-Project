@@ -21,7 +21,42 @@
 # MAGIC
 # MAGIC ## Prerequisites
 # MAGIC
-# MAGIC Must run 321 first (needs `ssm2_feed_rows` and pipeline tables).
+# MAGIC Must run 310 first (config table) and 321 (pipeline tables + `ssm2_feed_rows`).
+
+# COMMAND ----------
+
+# DBTITLE 1,Load Analytical Config
+# =============================================================================
+# COMPONENT: Load analytical parameters from central config
+# =============================================================================
+# PURPOSE      : Read SSM v2 (and shared) parameters from analytical_config
+#                so this notebook is self-contained. Same params as 321.
+# =============================================================================
+
+import math
+from collections import defaultdict
+
+_cfg = spark.table("naf_catalog.gold_dim.analytical_config").first()
+
+# Shared Elo/SSM constants
+SSM2_INITIAL_RATING  = float(_cfg["elo_initial_rating"])    # 150.0
+SSM2_ELO_SCALE       = float(_cfg["elo_scale"])             # 150.0
+SSM2_LN10_OVER_SCALE = math.log(10.0) / SSM2_ELO_SCALE
+
+# SSM v2 production hyperparameters
+SSM2_PRIOR_SIGMA = float(_cfg["ssm2_prior_sigma"])          # 50.0
+SSM2_SIGMA2_OBS  = float(_cfg["ssm2_sigma2_obs"])           # 0.10
+SSM2_Q_TIME      = float(_cfg["ssm2_q_time"])               # 2.00
+SSM2_Q_GAME      = float(_cfg["ssm2_q_game"])               # 0.025
+SSM2_MAX_DAYS    = float(_cfg["ssm2_max_days"])             # 180.0
+SSM2_V_BASE      = float(_cfg["ssm2_v_base"])               # 0.25
+SSM2_V_SCALE     = float(_cfg["ssm2_v_scale"])              # 24.0
+SSM2_V_DECAY     = float(_cfg["ssm2_v_decay"])              # 0.90
+SSM2_V_MIN       = float(_cfg["ssm2_v_min"])                # 0.00
+SSM2_V_MAX       = float(_cfg["ssm2_v_max"])                # 16.0
+
+print(f"Config loaded — SSM v2 production: σ²_obs={SSM2_SIGMA2_OBS}  "
+      f"q_time={SSM2_Q_TIME}  q_game={SSM2_Q_GAME}  v_scale={SSM2_V_SCALE}")
 
 # COMMAND ----------
 
@@ -633,7 +668,7 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
     """Run the full SSM2 engine with given hyperparameters.
 
     Structural parameters (prior, max_days, volatility bounds) are read
-    from SSM2_* globals inherited from 321 (sourced from analytical_config).
+    from SSM2_* globals loaded from analytical_config in the first cell.
     Only the four tunable hyperparameters are passed as arguments.
 
     Args:
@@ -650,7 +685,7 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
     if feed_rows is None:
         feed_rows = ssm2_feed_rows
 
-    # Structural parameters from config (via 321 globals)
+    # Structural parameters from analytical_config
     PRIOR_P = SSM2_PRIOR_SIGMA ** 2
     INITIAL = SSM2_INITIAL_RATING
     SCALE = SSM2_ELO_SCALE
@@ -947,7 +982,7 @@ print(f"  Merged: {eval_df['ssm2_nt_pred'].notna().sum()} / {len(eval_df)} rows"
 # ---------------------------------------------------------------------------
 # 3) Compute uncertainty-aware predictions (probit approximation)
 # ---------------------------------------------------------------------------
-# ELO_SCALE and SSM2_* globals inherited from 321 at runtime
+# ELO_SCALE from analytical_config (loaded in first cell)
 ELO_SCALE = SSM2_ELO_SCALE
 LN10_OVER_S = math.log(10.0) / ELO_SCALE
 PI_OVER_8 = math.pi / 8.0
