@@ -1433,6 +1433,146 @@ plt.show()
 
 # COMMAND ----------
 
+# =============================================================================
+# COMPONENT: Coach Plot Export Function
+# =============================================================================
+# PURPOSE      : Generate and save SSM v2 diagnostic plots for a list of coaches.
+#                Each coach gets a 4-panel PNG: rating+Elo, σ, volatility, days gap.
+# USAGE        : export_coach_plots([9524, 34738, 35505])
+#                export_coach_plots([9524], output_dir="/dbfs/FileStore/my_plots")
+# OUTPUT       : One PNG per coach in the output directory.
+# =============================================================================
+
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+
+def export_coach_plots(coach_ids, output_dir="/dbfs/FileStore/ssm_coach_plots"):
+    """Generate and save SSM v2 diagnostic plots for specified coaches.
+
+    Args:
+        coach_ids: List of coach_id integers to plot.
+        output_dir: Directory to save PNGs (created if needed).
+
+    Returns:
+        List of saved file paths.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    saved = []
+
+    ROLLING_WINDOW = 50
+
+    for cid in coach_ids:
+        # Load SSM v2 trajectory
+        cdf = spark.sql(f"""
+            SELECT coach_game_number, mu_after, sigma_after,
+                   volatility_after, days_since_prev_game
+            FROM naf_catalog.gold_fact.ssm2_rating_history_fact
+            WHERE coach_id = {cid}
+            ORDER BY coach_game_number
+        """).toPandas()
+
+        if len(cdf) == 0:
+            print(f"  Coach {cid}: no SSM v2 data — skipped")
+            continue
+
+        # Load Elo trajectory
+        edf = spark.sql(f"""
+            SELECT
+                ROW_NUMBER() OVER (ORDER BY game_index, game_id) AS coach_game_number,
+                rating_after AS elo_rating
+            FROM naf_catalog.gold_fact.rating_history_fact
+            WHERE coach_id = {cid} AND scope = 'GLOBAL'
+            ORDER BY game_index, game_id
+        """).toPandas()
+
+        if len(edf) > 0:
+            edf["elo_rolling_median"] = (
+                edf["elo_rating"]
+                .rolling(window=ROLLING_WINDOW, min_periods=1)
+                .median()
+            )
+
+        # Load coach name
+        name_row = spark.sql(f"""
+            SELECT coach_name FROM naf_catalog.gold_dim.coach_dim
+            WHERE coach_id = {cid}
+        """).first()
+        coach_name = name_row["coach_name"] if name_row else str(cid)
+
+        # Extract arrays
+        gn = cdf["coach_game_number"].values
+        mu = cdf["mu_after"].values
+        sig = cdf["sigma_after"].values
+        vol = cdf["volatility_after"].values
+        days = cdf["days_since_prev_game"].values
+
+        # Plot
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(
+            4, 1, figsize=(14, 11), sharex=True,
+            gridspec_kw={"height_ratios": [3, 1, 1, 1]}
+        )
+
+        # Panel 1: rating + uncertainty
+        ax1.fill_between(gn, mu - 2 * sig, mu + 2 * sig,
+                         alpha=0.20, color="steelblue", label="SSM2 ± 2σ")
+        ax1.plot(gn, mu, color="steelblue", linewidth=1.2, label="SSM2 μ")
+
+        if len(edf) == len(cdf):
+            ax1.plot(gn, edf["elo_rating"].values, color="coral",
+                     linewidth=0.6, alpha=0.4, linestyle="--", label="Elo (raw)")
+            ax1.plot(gn, edf["elo_rolling_median"].values, color="coral",
+                     linewidth=1.2, alpha=0.9,
+                     label=f"Elo (rolling {ROLLING_WINDOW}-game median)")
+
+        ax1.axhline(y=150, color="gray", linestyle=":", linewidth=0.7,
+                     alpha=0.6, label="Initial (150)")
+        ax1.set_ylabel("Rating")
+        ax1.set_title(f"SSM2 Rating Diagnostics — {coach_name} "
+                      f"(coach {cid}, {len(cdf)} games)")
+        hp_text = (
+            f"σ²_obs={SSM2_SIGMA2_OBS}  q_time={SSM2_Q_TIME}  "
+            f"q_game={SSM2_Q_GAME}  v_scale={SSM2_V_SCALE}"
+        )
+        ax1.plot([], [], ' ', label=hp_text)
+        ax1.legend(loc="lower right", fontsize=7)
+        ax1.grid(True, alpha=0.3)
+
+        # Panel 2: σ
+        ax2.plot(gn, sig, color="steelblue", linewidth=1.0)
+        ax2.set_ylabel("σ")
+        ax2.set_ylim(bottom=0)
+        ax2.grid(True, alpha=0.3)
+
+        # Panel 3: volatility
+        ax3.plot(gn, vol, color="darkorange", linewidth=1.0)
+        ax3.set_ylabel("Volatility")
+        ax3.set_ylim(bottom=0)
+        ax3.grid(True, alpha=0.3)
+
+        # Panel 4: days gap
+        ax4.plot(gn, days, color="seagreen", linewidth=1.0)
+        ax4.set_ylabel("Days gap")
+        ax4.set_xlabel("Game number")
+        ax4.set_ylim(bottom=0)
+        ax4.grid(True, alpha=0.3)
+
+        fig.tight_layout()
+
+        fpath = os.path.join(output_dir, f"coach_{cid}_{coach_name.replace(' ', '_')}.png")
+        fig.savefig(fpath, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        saved.append(fpath)
+        print(f"  Coach {cid} ({coach_name}): saved to {fpath}")
+
+    print(f"\n{len(saved)} plots saved to {output_dir}")
+    return saved
+
+# --- Example usage (uncomment to run) ---
+# export_coach_plots([9524, 34738, 35505])
+
+# COMMAND ----------
+
 # DBTITLE 1,SSM2 Calibration Coverage
 # =============================================================================
 # SSM2 Calibration Coverage: does rolling median Elo fall inside SSM2 ± 2σ
@@ -2498,3 +2638,164 @@ Key findings:
      → Compare SSM v2 vs SSM v2-UA calibration plots.
 """)
 print(f"{'='*78}")
+
+# ---------------------------------------------------------------------------
+# 11) Export results: text report + plots to folder
+# ---------------------------------------------------------------------------
+import os
+from datetime import datetime
+
+EVAL_OUTPUT_DIR = "/dbfs/FileStore/ssm_evaluation"
+os.makedirs(EVAL_OUTPUT_DIR, exist_ok=True)
+
+run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# --- Build text report ---
+report_lines = []
+report_lines.append("=" * 78)
+report_lines.append(f"SSM MODEL COMPARISON REPORT — {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+report_lines.append("=" * 78)
+report_lines.append("")
+report_lines.append(f"Test window : date_id >= {eval_cutoff} ({EVAL_TEST_MONTHS} months)")
+report_lines.append(f"Observations: {len(eval_df)} ({eval_df['game_id'].nunique()} games, "
+                     f"{eval_df['coach_id'].nunique()} coaches)")
+report_lines.append(f"UA coeff    : {UA_COEFF:.6f}")
+report_lines.append(f"SSM v1 σ_combined: mean={eval_df['ssm1_combined_sigma'].mean():.1f}, "
+                     f"std={eval_df['ssm1_combined_sigma'].std():.1f}, "
+                     f"range=[{eval_df['ssm1_combined_sigma'].min():.1f}, "
+                     f"{eval_df['ssm1_combined_sigma'].max():.1f}]")
+report_lines.append(f"SSM v2 σ_combined: mean={eval_df['ssm2_combined_sigma'].mean():.1f}, "
+                     f"std={eval_df['ssm2_combined_sigma'].std():.1f}, "
+                     f"range=[{eval_df['ssm2_combined_sigma'].min():.1f}, "
+                     f"{eval_df['ssm2_combined_sigma'].max():.1f}]")
+
+# Overall comparison
+report_lines.append("")
+report_lines.append("=" * 78)
+report_lines.append("OVERALL MODEL COMPARISON")
+report_lines.append("=" * 78)
+report_lines.append("")
+report_lines.append(f"{'Model':<15} {'Log-loss':>10} {'Brier':>10} {'Accuracy':>10}  "
+                     f"{'ΔLL vs Elo':>11} {'ΔBr vs Elo':>11}")
+report_lines.append(f"{'-'*15} {'-'*10} {'-'*10} {'-'*10}  {'-'*11} {'-'*11}")
+for name, m in metrics.items():
+    ll_d = elo_ll - m["log_loss"]
+    br_d = elo_br - m["brier"]
+    dll = f"{ll_d:+11.5f}" if name != "Elo" else f"{'—':>11}"
+    dbr = f"{br_d:+11.5f}" if name != "Elo" else f"{'—':>11}"
+    report_lines.append(f"{name:<15} {m['log_loss']:10.5f} {m['brier']:10.5f} "
+                        f"{m['accuracy']:10.3f}  {dll} {dbr}")
+report_lines.append("")
+report_lines.append("Positive Δ = model is better than Elo (lower loss)")
+for ua_name in ["SSM v1-UA", "SSM v2-UA"]:
+    ll_imp = (elo_ll - metrics[ua_name]["log_loss"]) / elo_ll * 100
+    br_imp = (elo_br - metrics[ua_name]["brier"]) / elo_br * 100
+    report_lines.append(f"{ua_name} vs Elo: log-loss {ll_imp:+.3f}%, Brier {br_imp:+.3f}%")
+
+# Per-tier breakdown
+report_lines.append("")
+report_lines.append("=" * 110)
+report_lines.append("METRICS BY EXPERIENCE TIER (unweighted)")
+report_lines.append("=" * 110)
+report_lines.append("")
+report_lines.append(f"{'Tier':<15} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2 LL':>9} {'v2-UA LL':>9}  "
+                     f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2 Br':>9} {'v2-UA Br':>9}")
+report_lines.append(f"{'-'*15} {'-'*8}  {'-'*9} {'-'*9} {'-'*9} {'-'*9}  "
+                     f"{'-'*9} {'-'*9} {'-'*9} {'-'*9}")
+for tier in sorted(eval_df["tier"].unique()):
+    tmask = eval_df["tier"] == tier
+    y_t = eval_df.loc[tmask, "result_numeric"].values
+    n_t = tmask.sum()
+    tm = {}
+    for name in ["Elo", "SSM v1-UA", "SSM v2", "SSM v2-UA"]:
+        p_t = np.clip(models[name][tmask.values], EPS, 1 - EPS)
+        tm[name] = {"ll": log_loss(y_t, p_t), "br": brier_score(y_t, p_t)}
+    report_lines.append(f"{tier:<15} {n_t:>8}  "
+                        f"{tm['Elo']['ll']:9.5f} {tm['SSM v1-UA']['ll']:9.5f} "
+                        f"{tm['SSM v2']['ll']:9.5f} {tm['SSM v2-UA']['ll']:9.5f}  "
+                        f"{tm['Elo']['br']:9.5f} {tm['SSM v1-UA']['br']:9.5f} "
+                        f"{tm['SSM v2']['br']:9.5f} {tm['SSM v2-UA']['br']:9.5f}")
+
+# In-sample / out-of-sample
+report_lines.append("")
+report_lines.append("=" * 110)
+report_lines.append("IN-SAMPLE vs OUT-OF-SAMPLE (tuner targeted 301+ coaches)")
+report_lines.append("=" * 110)
+report_lines.append("")
+report_lines.append(f"{'Population':<35} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2-UA LL':>9}  "
+                     f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2-UA Br':>9}")
+report_lines.append(f"{'-'*35} {'-'*8}  {'-'*9} {'-'*9} {'-'*9}  {'-'*9} {'-'*9} {'-'*9}")
+for pop in sorted(eval_df["tuning_population"].unique()):
+    pmask = (eval_df["tuning_population"] == pop).values
+    y_p = y_all[pmask]
+    n_p = pmask.sum()
+    pm = {}
+    for name in ["Elo", "SSM v1-UA", "SSM v2-UA"]:
+        pm[name] = {"ll": log_loss(y_p, models_aligned[name][pmask]),
+                    "br": brier_score(y_p, models_aligned[name][pmask])}
+    report_lines.append(f"{pop:<35} {n_p:>8}  "
+                        f"{pm['Elo']['ll']:9.5f} {pm['SSM v1-UA']['ll']:9.5f} "
+                        f"{pm['SSM v2-UA']['ll']:9.5f}  "
+                        f"{pm['Elo']['br']:9.5f} {pm['SSM v1-UA']['br']:9.5f} "
+                        f"{pm['SSM v2-UA']['br']:9.5f}")
+
+report_lines.append("")
+report_lines.append("=" * 78)
+report_lines.append("END OF REPORT")
+report_lines.append("=" * 78)
+
+# Write text report
+report_path = os.path.join(EVAL_OUTPUT_DIR, f"model_comparison_{run_timestamp}.txt")
+with open(report_path, "w") as f:
+    f.write("\n".join(report_lines))
+print(f"\nReport saved to: {report_path}")
+
+# --- Save plots ---
+# Re-create calibration plot for saving
+fig_cal, axes_cal = plt.subplots(1, 4, figsize=(20, 5))
+for ax, (name, preds) in zip(axes_cal, cal_models):
+    bins = np.arange(0.0, 1.05, 0.1)
+    bin_indices = np.digitize(preds, bins) - 1
+    bc, ba, bn = [], [], []
+    for i in range(len(bins) - 1):
+        mask = bin_indices == i
+        if mask.sum() >= 20:
+            bc.append((bins[i] + bins[i + 1]) / 2)
+            ba.append(y[mask].mean())
+            bn.append(mask.sum())
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.5, label="Perfect calibration")
+    ax.bar(bc, ba, width=0.08, alpha=0.6, color="steelblue", label="Actual outcome rate")
+    ax.scatter(bc, ba, color="coral", zorder=5, s=40)
+    ax.set_xlabel("Predicted win probability")
+    ax.set_ylabel("Actual outcome (mean)")
+    ax.set_title(f"{name} Calibration")
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.legend(loc="lower right", fontsize=7)
+    ax.grid(True, alpha=0.3)
+    for xc, yc, n in zip(bc, ba, bn):
+        ax.text(xc, yc + 0.03, f"n={n}", ha="center", fontsize=5, alpha=0.7)
+fig_cal.suptitle("Calibration Comparison", fontsize=14, y=1.02)
+fig_cal.tight_layout()
+cal_path = os.path.join(EVAL_OUTPUT_DIR, f"calibration_{run_timestamp}.png")
+fig_cal.savefig(cal_path, dpi=150, bbox_inches="tight")
+plt.close(fig_cal)
+print(f"Calibration plot saved to: {cal_path}")
+
+# Re-create uncertainty-stratified Brier for saving
+fig_br, ax_br = plt.subplots(figsize=(10, 5))
+for j, (name, briers) in enumerate(brier_by_model.items()):
+    ax_br.bar(x_pos + (j - 1) * width, briers, width, alpha=0.7,
+              color=colors[name], label=name)
+ax_br.set_xticks(x_pos)
+ax_br.set_xticklabels(sigma_labels, fontsize=8, rotation=15)
+ax_br.set_ylabel("Brier score (lower = better)")
+ax_br.set_title("Prediction quality by SSM v2 uncertainty level")
+ax_br.legend(loc="lower right", fontsize=9)
+ax_br.grid(True, alpha=0.3, axis="y")
+fig_br.tight_layout()
+brier_path = os.path.join(EVAL_OUTPUT_DIR, f"brier_by_sigma_{run_timestamp}.png")
+fig_br.savefig(brier_path, dpi=150, bbox_inches="tight")
+plt.close(fig_br)
+print(f"Brier-by-σ plot saved to: {brier_path}")
+
+print(f"\nAll outputs in: {EVAL_OUTPUT_DIR}")
