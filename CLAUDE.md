@@ -107,6 +107,9 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `310_NAF_gold_dim.py` - Dimension tables
 - `320_NAF_gold_fact.py` - Fact tables + ELO engine
 - `321_NAF_gold_fact_ssm.py` - SSM rating engine (v1: random walk EKF, v2: time-aware + adaptive volatility)
+- `322_NAF_gold_fact_ssm_eval.py` - SSM evaluation & tuning (research, not production)
+- `323_NAF_gold_fact_race_rating.py` - Race-aware rating engine (global + race deviations, joint EKF)
+- `324_NAF_gold_fact_race_rating_eval.py` - Race rating evaluation (research, not production)
 - `330_NAF_gold_summary_core.py` - Core summary objects (nation_coach_glo_metrics, world_glo_metric_quantiles)
 - `331_NAF_gold_summary_coach.py` - Coach summaries
 - `332_NAF_gold_summary_nation.py` - Nation summaries

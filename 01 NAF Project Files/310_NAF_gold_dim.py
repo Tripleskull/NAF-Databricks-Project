@@ -304,6 +304,13 @@
 # MAGIC   CAST(0.00    AS DOUBLE)  AS ssm2_v_min,              -- volatility floor
 # MAGIC   CAST(16.0    AS DOUBLE)  AS ssm2_v_max,              -- volatility ceiling
 # MAGIC
+# MAGIC   -- Race rating model (323) — Stage 1: global + independent race deviations
+# MAGIC   CAST(50.0    AS DOUBLE)  AS rr_prior_sigma_g,        -- global skill prior SD
+# MAGIC   CAST(30.0    AS DOUBLE)  AS rr_prior_sigma_d,        -- race-deviation prior SD
+# MAGIC   CAST(0.10    AS DOUBLE)  AS rr_sigma2_obs,           -- observation noise (logistic scale)
+# MAGIC   CAST(0.50    AS DOUBLE)  AS rr_q_global,             -- per-game process noise for global
+# MAGIC   CAST(0.25    AS DOUBLE)  AS rr_q_race,               -- per-game process noise for race deviation
+# MAGIC
 # MAGIC   CURRENT_TIMESTAMP()      AS load_timestamp
 # MAGIC ;
 

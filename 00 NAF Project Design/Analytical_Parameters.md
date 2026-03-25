@@ -239,6 +239,11 @@ Used by `nation_elite_rivalry_summary` (332). Only games where both participants
 | SSM v2 v_decay | 0.90 | `ssm2_v_decay` | §10.2 |
 | SSM v2 v_min | 0.00 | `ssm2_v_min` | §10.2 |
 | SSM v2 v_max | 16.0 | `ssm2_v_max` | §10.2 |
+| Race rating prior σ_g | 50.0 | `rr_prior_sigma_g` | §11.1 |
+| Race rating prior σ_d | 30.0 | `rr_prior_sigma_d` | §11.1 |
+| Race rating σ² obs | 0.10 | `rr_sigma2_obs` | §11.1 |
+| Race rating q_global | 0.50 | `rr_q_global` | §11.1 |
+| Race rating q_race | 0.25 | `rr_q_race` | §11.1 |
 
 ---
 
@@ -361,6 +366,60 @@ Output: `naf_catalog.gold_fact.ssm2_rating_history_fact`
 
 ---
 
+## 11. Race-Aware Rating Model (323)
+
+### 11.1 Parameters
+
+| Parameter | Value | Config column | Purpose |
+|---|---|---|---|
+| Global prior sigma | 50.0 | `rr_prior_sigma_g` | Prior SD for global skill component |
+| Race-deviation prior sigma | 30.0 | `rr_prior_sigma_d` | Prior SD for race-specific deviations |
+| Observation noise (σ²_obs) | 0.10 | `rr_sigma2_obs` | Observation noise on logistic scale |
+| Global process noise (q_global) | 0.50 | `rr_q_global` | Per-game process noise for global skill |
+| Race process noise (q_race) | 0.25 | `rr_q_race` | Per-game process noise for race deviations |
+
+### 11.2 State model
+
+Coach state is decomposed into global skill and per-race deviations:
+```
+θ_{i,r,t} = g_{i,t} + d_{i,r,t}
+```
+
+Stage 1 (current): independent race deviations. No cross-race covariance.
+Each game updates `g` and the played race's `d` jointly via a 2D EKF step.
+
+### 11.3 Prediction step
+
+```
+g_pred  = g_prev                     (no mean reversion)
+d_pred  = d_prev                     (no mean reversion)
+P_g_pred = P_g_prev + q_global
+P_d_pred = P_d_prev + q_race
+```
+
+### 11.4 Update step (joint EKF)
+
+```
+h = ln(10)/S × p × (1-p)
+S_innov = h² × (P_g + P_d) + σ²_obs
+K_g = h × P_g / S_innov
+K_d = h × P_d / S_innov
+```
+
+Information is split between g and d proportionally to their variances. When d is uncertain (few games with that race), most of the update goes to d.
+
+### 11.5 Identifiability
+
+Race deviations are centred at zero by prior. `g` captures overall coach strength; `d` captures how the coach differs from their global level with each race.
+
+### 11.6 Evaluation
+
+Evaluated in 324 with chronological Brier score against 0.5 baseline, global Elo, race Elo, and sliced by race-experience depth (first game, sparse, moderate, established).
+
+Output: `naf_catalog.gold_fact.race_rating_history_fact`
+
+---
+
 ## 7. Change Policy
 
 Any change to a parameter in this document is a model change that affects downstream analytics. Protocol:
@@ -368,4 +427,4 @@ Any change to a parameter in this document is a model change that affects downst
 1. Update this document.
 2. Update the corresponding value in the `analytical_config` table definition in `310_NAF_gold_dim.py`.
 3. Re-run 310 to rebuild the config table.
-4. Re-run all dependent notebooks (320 → 321 → 331/332 → presentation).
+4. Re-run all dependent notebooks (320 → 321 → 323 → 331/332 → presentation).
