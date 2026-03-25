@@ -58,6 +58,24 @@ SSM2_V_MAX       = float(_cfg["ssm2_v_max"])                # 16.0
 print(f"Config loaded — SSM v2 production: σ²_obs={SSM2_SIGMA2_OBS}  "
       f"q_time={SSM2_Q_TIME}  q_game={SSM2_Q_GAME}  v_scale={SSM2_V_SCALE}")
 
+# ---------------------------------------------------------------------------
+# Load game feed (same source as 321, needed by run_ssm2_variant)
+# ---------------------------------------------------------------------------
+from pyspark.sql import functions as F
+
+ssm2_feed_df = (
+    spark.table("naf_catalog.gold_fact.game_feed_for_ratings_fact")
+    .withColumn("game_index", F.col("game_index").cast("int"))
+    .orderBy(F.col("game_index").asc(), F.col("game_id").asc())
+    .select(
+        "game_id", "game_index", "event_timestamp", "game_date", "date_id",
+        "tournament_id", "variant_id",
+        "home_coach_id", "away_coach_id", "result_home", "result_away",
+    )
+)
+ssm2_feed_rows = ssm2_feed_df.collect()
+print(f"Game feed loaded: {len(ssm2_feed_rows)} games")
+
 # COMMAND ----------
 
 
