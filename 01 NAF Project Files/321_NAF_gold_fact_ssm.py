@@ -2372,7 +2372,7 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
 # =============================================================================
 # COMPONENT: Structured Model Comparison — SSM v1, SSM v2, Elo
 # =============================================================================
-# PURPOSE      : Compare 8 predictive models on a held-out test window:
+# PURPOSE      : Compare 10 predictive models on a held-out test window:
 #                1. Elo              — baseline, logistic(Δrating)
 #                2. SSM v1           — logistic(Δμ), ignores σ
 #                3. SSM v1-UA        — uncertainty-aware: logistic scaled by σ
@@ -2380,7 +2380,9 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
 #                5. SSM v2-UA        — weighted-tuned, uncertainty-aware
 #                6. SSM v2-UW        — unweighted-tuned, logistic(Δμ), ignores σ
 #                7. SSM v2-UW-UA     — unweighted-tuned, uncertainty-aware
-#                8. Naive            — always predict 0.5
+#                8. Elo-UA           — Elo predictions + SSM v2-UW σ estimates
+#                9. Ensemble         — average of Elo and SSM v2-UW-UA
+#               10. Naive            — always predict 0.5
 #
 # TEST SET     : Last 12 months of games (by date_id). All systems were
 #                trained on all prior games when making each prediction.
@@ -2555,6 +2557,18 @@ eval_df["ssm2_uw_combined_sigma"] = np.sqrt(
     + eval_df["ssm2_uw_opp_sigma_before"].values ** 2
 )
 
+# Elo-UA: Elo predictions adjusted by SSM v2-UW uncertainty estimates
+eval_df["elo_ua_pred"] = compute_ua_predictions(
+    eval_df["elo_pred"].values,
+    eval_df["ssm2_uw_sigma_before"].values,
+    eval_df["ssm2_uw_opp_sigma_before"].values,
+)
+
+# Ensemble: simple average of Elo and SSM v2-UW-UA
+eval_df["ensemble_pred"] = (
+    eval_df["elo_pred"].values + eval_df["ssm2_uw_ua_pred"].values
+) / 2.0
+
 print(f"\nUA predictions computed. Scale coefficient (π/8 × (ln10/S)²) = {UA_COEFF:.6f}")
 print(f"SSM v1 σ_combined: mean={eval_df['ssm1_combined_sigma'].mean():.1f}, "
       f"std={eval_df['ssm1_combined_sigma'].std():.1f}, "
@@ -2598,6 +2612,8 @@ models = {
     "SSM v2-UA":     np.clip(eval_df["ssm2_ua_pred"].values, EPS, 1 - EPS),
     "SSM v2-UW":     np.clip(eval_df["ssm2_uw_pred"].values, EPS, 1 - EPS),
     "SSM v2-UW-UA":  np.clip(eval_df["ssm2_uw_ua_pred"].values, EPS, 1 - EPS),
+    "Elo-UA":        np.clip(eval_df["elo_ua_pred"].values, EPS, 1 - EPS),
+    "Ensemble":      np.clip(eval_df["ensemble_pred"].values, EPS, 1 - EPS),
     "Naive":         np.full_like(y, 0.5),
 }
 
@@ -2630,25 +2646,30 @@ for name, m in metrics.items():
 
 print(f"\nPositive Δ = model is better than Elo (lower loss)")
 
-for ua_name in ["SSM v1-UA", "SSM v2-UA", "SSM v2-UW-UA"]:
-    ll_imp = (elo_ll - metrics[ua_name]["log_loss"]) / elo_ll * 100
-    br_imp = (elo_br - metrics[ua_name]["brier"]) / elo_br * 100
-    print(f"{ua_name} vs Elo: log-loss {ll_imp:+.3f}%, Brier {br_imp:+.3f}%")
+for cmp_name in ["SSM v1-UA", "SSM v2-UA", "SSM v2-UW-UA", "Elo-UA", "Ensemble"]:
+    ll_imp = (elo_ll - metrics[cmp_name]["log_loss"]) / elo_ll * 100
+    br_imp = (elo_br - metrics[cmp_name]["brier"]) / elo_br * 100
+    print(f"{cmp_name} vs Elo: log-loss {ll_imp:+.3f}%, Brier {br_imp:+.3f}%")
 
 # ---------------------------------------------------------------------------
-# 6) Calibration plots — 4 panels
+# 6) Calibration plots
 # ---------------------------------------------------------------------------
-fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-axes = axes.flatten()
-
 cal_models = [
     ("Elo", models["Elo"]),
+    ("Elo-UA", models["Elo-UA"]),
     ("SSM v1-UA", models["SSM v1-UA"]),
     ("SSM v2", models["SSM v2"]),
     ("SSM v2-UA", models["SSM v2-UA"]),
     ("SSM v2-UW", models["SSM v2-UW"]),
     ("SSM v2-UW-UA", models["SSM v2-UW-UA"]),
+    ("Ensemble", models["Ensemble"]),
 ]
+
+n_cal = len(cal_models)
+n_cols = 4
+n_rows = (n_cal + n_cols - 1) // n_cols
+fig, axes = plt.subplots(n_rows, n_cols, figsize=(20, 5 * n_rows))
+axes = axes.flatten()
 
 for ax, (name, preds) in zip(axes, cal_models):
     bins = np.arange(0.0, 1.05, 0.1)
@@ -2695,7 +2716,7 @@ sigma_bin_idx = np.clip(sigma_bin_idx, 0, len(sigma_bins) - 2)
 
 sigma_labels = []
 brier_by_model = {name: [] for name in [
-    "Elo", "SSM v2", "SSM v2-UA", "SSM v2-UW", "SSM v2-UW-UA"
+    "Elo", "Elo-UA", "SSM v2-UA", "SSM v2-UW-UA", "Ensemble"
 ]}
 
 for i in range(len(sigma_bins) - 1):
@@ -2709,8 +2730,8 @@ x_pos = np.arange(len(sigma_labels))
 n_models = len(brier_by_model)
 width = 0.8 / n_models
 colors = {
-    "Elo": "coral", "SSM v2": "steelblue", "SSM v2-UA": "seagreen",
-    "SSM v2-UW": "mediumpurple", "SSM v2-UW-UA": "goldenrod",
+    "Elo": "coral", "Elo-UA": "salmon", "SSM v2-UA": "seagreen",
+    "SSM v2-UW-UA": "goldenrod", "Ensemble": "mediumpurple",
 }
 
 for j, (name, briers) in enumerate(brier_by_model.items()):
@@ -2728,6 +2749,110 @@ plt.tight_layout()
 plt.show()
 
 # ---------------------------------------------------------------------------
+# 7b) σ constancy diagnostic — is uncertainty genuinely varying?
+# ---------------------------------------------------------------------------
+# Individual σ (not combined) by experience tier
+eval_df["_diag_tier"] = eval_df["ssm2_game_number"].apply(
+    lambda g: "01: 1-30" if g <= 30
+    else "02: 31-100" if g <= 100
+    else "03: 101-300" if g <= 300
+    else "04: 301+"
+)
+
+print(f"\n{'='*100}")
+print("σ CONSTANCY DIAGNOSTIC — SSM v2-UW (unweighted-tuned)")
+print(f"{'='*100}")
+
+# Individual σ_before stats by tier
+print(f"\n--- Individual σ_before by experience tier ---")
+print(f"{'Tier':<15} {'N':>8}  {'Mean':>8} {'Std':>8} {'P10':>8} {'P25':>8} "
+      f"{'P50':>8} {'P75':>8} {'P90':>8} {'Min':>8} {'Max':>8}")
+print(f"{'-'*15} {'-'*8}  {'-'*8} {'-'*8} {'-'*8} {'-'*8} "
+      f"{'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
+
+for tier in sorted(eval_df["_diag_tier"].unique()):
+    tmask = eval_df["_diag_tier"] == tier
+    s = eval_df.loc[tmask, "ssm2_uw_sigma_before"].values
+    pcts = np.percentile(s, [10, 25, 50, 75, 90])
+    print(f"{tier:<15} {tmask.sum():>8}  {s.mean():8.2f} {s.std():8.2f} "
+          f"{pcts[0]:8.2f} {pcts[1]:8.2f} {pcts[2]:8.2f} "
+          f"{pcts[3]:8.2f} {pcts[4]:8.2f} {s.min():8.2f} {s.max():8.2f}")
+
+# σ for veterans specifically — how tight is the distribution?
+vet_mask = eval_df["ssm2_game_number"] > 300
+vet_sigma = eval_df.loc[vet_mask, "ssm2_uw_sigma_before"].values
+print(f"\nVeterans (301+ games): n={vet_mask.sum()}, "
+      f"σ mean={vet_sigma.mean():.2f}, std={vet_sigma.std():.2f}, "
+      f"CV={vet_sigma.std()/vet_sigma.mean()*100:.1f}%")
+
+# UA shrinkage factor distribution — how much does UA actually change predictions?
+sigma2_comb_uw = (eval_df["ssm2_uw_sigma_before"].values ** 2
+                  + eval_df["ssm2_uw_opp_sigma_before"].values ** 2)
+scale_factors = np.sqrt(1.0 + UA_COEFF * sigma2_comb_uw)
+
+print(f"\n--- UA scale factor distribution (higher = more shrinkage toward 0.5) ---")
+print(f"{'Tier':<15} {'Mean':>8} {'Std':>8} {'P10':>8} {'P50':>8} {'P90':>8}")
+print(f"{'-'*15} {'-'*8} {'-'*8} {'-'*8} {'-'*8} {'-'*8}")
+
+for tier in sorted(eval_df["_diag_tier"].unique()):
+    tmask = eval_df["_diag_tier"] == tier
+    sf = scale_factors[tmask.values]
+    pcts = np.percentile(sf, [10, 50, 90])
+    print(f"{tier:<15} {sf.mean():8.4f} {sf.std():8.4f} "
+          f"{pcts[0]:8.4f} {pcts[1]:8.4f} {pcts[2]:8.4f}")
+
+print(f"\nOverall: scale factor mean={scale_factors.mean():.4f}, "
+      f"std={scale_factors.std():.4f}, "
+      f"range=[{scale_factors.min():.4f}, {scale_factors.max():.4f}]")
+
+# UA Brier improvement by σ quintile — where is UA actually helping?
+print(f"\n--- UA Brier improvement by σ_combined quintile ---")
+print(f"  (Positive = UA is better than raw)")
+print(f"{'σ quintile':<25} {'N':>8}  {'Brier raw':>10} {'Brier UA':>10} {'Δ':>10}")
+print(f"{'-'*25} {'-'*8}  {'-'*10} {'-'*10} {'-'*10}")
+
+sigma_comb_vals = eval_df["ssm2_uw_combined_sigma"].values
+for lo_pct, hi_pct in [(0, 20), (20, 40), (40, 60), (60, 80), (80, 100)]:
+    lo = np.percentile(sigma_comb_vals, lo_pct)
+    hi = np.percentile(sigma_comb_vals, hi_pct)
+    if hi_pct == 100:
+        mask = (sigma_comb_vals >= lo)
+    else:
+        mask = (sigma_comb_vals >= lo) & (sigma_comb_vals < hi)
+    if mask.sum() < 50:
+        continue
+    br_raw = brier_score(y[mask], models["SSM v2-UW"][mask])
+    br_ua = brier_score(y[mask], models["SSM v2-UW-UA"][mask])
+    label = f"Q{lo_pct//20+1}: σ∈[{lo:.1f},{hi:.1f})"
+    print(f"{label:<25} {mask.sum():>8}  {br_raw:10.5f} {br_ua:10.5f} "
+          f"{br_raw - br_ua:+10.5f}")
+
+# Histogram of individual σ_before
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+ax1.hist(eval_df["ssm2_uw_sigma_before"].values, bins=50, alpha=0.7,
+         color="steelblue", edgecolor="white")
+ax1.set_xlabel("σ_before (individual coach)")
+ax1.set_ylabel("Count")
+ax1.set_title("Distribution of SSM v2-UW σ_before in test set")
+ax1.axvline(x=eval_df["ssm2_uw_sigma_before"].median(), color="coral",
+            linestyle="--", label=f"Median={eval_df['ssm2_uw_sigma_before'].median():.1f}")
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# Scale factor by σ_combined
+ax2.scatter(sigma_comb_vals, scale_factors, alpha=0.05, s=2, color="steelblue")
+ax2.set_xlabel("σ_combined (self + opponent)")
+ax2.set_ylabel("UA scale factor")
+ax2.set_title("UA shrinkage factor vs combined uncertainty")
+ax2.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+eval_df.drop(columns=["_diag_tier"], inplace=True)
+
+# ---------------------------------------------------------------------------
 # 8) Per-tier breakdown
 # ---------------------------------------------------------------------------
 eval_df["tier"] = eval_df["ssm2_game_number"].apply(
@@ -2737,8 +2862,8 @@ eval_df["tier"] = eval_df["ssm2_game_number"].apply(
     else "04: 301+"
 )
 
-tier_model_names = ["Elo", "SSM v1-UA", "SSM v2", "SSM v2-UA",
-                    "SSM v2-UW", "SSM v2-UW-UA"]
+tier_model_names = ["Elo", "Elo-UA", "SSM v1-UA", "SSM v2-UA",
+                    "SSM v2-UW-UA", "Ensemble"]
 
 print(f"\n{'='*140}")
 print("METRICS BY EXPERIENCE TIER (unweighted evaluation)")
@@ -2794,7 +2919,8 @@ eval_df["tuning_population"] = eval_df["first_test_game_number"].apply(
     else "Out-of-sample (≤301 before test)"
 )
 
-oos_model_names = ["Elo", "SSM v1-UA", "SSM v2-UA", "SSM v2-UW-UA"]
+oos_model_names = ["Elo", "Elo-UA", "SSM v1-UA", "SSM v2-UA",
+                   "SSM v2-UW-UA", "Ensemble"]
 
 print(f"\n{'='*120}")
 print("IN-SAMPLE vs OUT-OF-SAMPLE (tuner targeted 301+ coaches)")
@@ -2803,9 +2929,11 @@ print(f"{'='*120}")
 y_all = eval_df["result_numeric"].values
 models_aligned = {
     "Elo":          np.clip(eval_df["elo_pred"].values, EPS, 1 - EPS),
+    "Elo-UA":       np.clip(eval_df["elo_ua_pred"].values, EPS, 1 - EPS),
     "SSM v1-UA":    np.clip(eval_df["ssm1_ua_pred"].values, EPS, 1 - EPS),
     "SSM v2-UA":    np.clip(eval_df["ssm2_ua_pred"].values, EPS, 1 - EPS),
     "SSM v2-UW-UA": np.clip(eval_df["ssm2_uw_ua_pred"].values, EPS, 1 - EPS),
+    "Ensemble":     np.clip(eval_df["ensemble_pred"].values, EPS, 1 - EPS),
 }
 
 # Log-loss
