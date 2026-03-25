@@ -1449,7 +1449,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def export_coach_plots(coach_ids, output_dir="/Volumes/naf_catalog/gold_summary/exports/ssm_coach_plots"):
-    """Generate and save SSM v2 diagnostic plots for specified coaches.
+    """Generate and save SSM v2-UA diagnostic plots for specified coaches.
+
+    Plots the SSM v2 (weighted-tuned) model trajectories, which is the
+    best-performing model when combined with uncertainty-aware (UA)
+    predictions. The UA adjustment affects prediction probabilities but
+    not the underlying μ, σ, or volatility shown here.
 
     Args:
         coach_ids: List of coach_id integers to plot.
@@ -1529,11 +1534,12 @@ def export_coach_plots(coach_ids, output_dir="/Volumes/naf_catalog/gold_summary/
         ax1.axhline(y=150, color="gray", linestyle=":", linewidth=0.7,
                      alpha=0.6, label="Initial (150)")
         ax1.set_ylabel("Rating")
-        ax1.set_title(f"SSM2 Rating Diagnostics — {coach_name} "
+        ax1.set_title(f"SSM v2-UA Rating Diagnostics — {coach_name} "
                       f"(coach {cid}, {len(cdf)} games)")
         hp_text = (
-            f"σ²_obs={SSM2_SIGMA2_OBS}  q_time={SSM2_Q_TIME}  "
-            f"q_game={SSM2_Q_GAME}  v_scale={SSM2_V_SCALE}"
+            f"SSM v2 (weighted): σ²_obs={SSM2_SIGMA2_OBS}  "
+            f"q_time={SSM2_Q_TIME}  q_game={SSM2_Q_GAME}  "
+            f"v_scale={SSM2_V_SCALE}  |  Predictions use UA probit"
         )
         ax1.plot([], [], ' ', label=hp_text)
         ax1.legend(loc="lower right", fontsize=7)
@@ -1950,16 +1956,31 @@ print("=" * 70)
 #     return results
 
 # # ---------------------------------------------------------------------------
-# # 5) Calibration scorer — computes weighted coverage against rolling median
+# # 5) Calibration scorer — computes coverage against rolling median Elo.
+# #    Takes optional tier_weights dict. Default: equal weights (unweighted).
+# #    Example weighted: {"veteran": 0.60, "established": 0.25,
+# #                       "developing": 0.10, "burnin": 0.05}
 # # ---------------------------------------------------------------------------
-# def compute_coverage(engine_results):
+# def compute_coverage(engine_results, tier_weights=None):
 #     """Compute coverage: fraction of games where rolling median Elo is
 #     inside SSM2 mu ± 2*sigma.
-
+#
+#     Args:
+#         engine_results: dict[coach_id] -> list of (game_number, mu_after, P_after)
+#         tier_weights: Optional dict with keys 'veteran', 'established',
+#                       'developing', 'burnin' mapping to floats summing to 1.0.
+#                       If None, uses equal weights (0.25 each).
+#
 #     Returns:
 #         dict with keys: 'overall', 'mature', 'veteran', 'established',
 #                         'developing', 'burnin', 'objective'
 #     """
+#     if tier_weights is None:
+#         tier_weights = {
+#             "veteran": 0.25, "established": 0.25,
+#             "developing": 0.25, "burnin": 0.25,
+#         }
+#
 #     tier_hits = {
 #         "burnin": [0, 0],       # [inside, total]  games 1-30
 #         "developing": [0, 0],   # games 31-100
@@ -2017,22 +2038,13 @@ print("=" * 70)
 #     all_total  = sum(v[1] for v in tier_hits.values())
 #     cov["overall"] = (all_inside / all_total * 100) if all_total > 0 else 0.0
 
-#     # Weighted objective: minimise |coverage - 95%|
-#     # Weights: veteran 60%, established 25%, developing 10%, burn-in 5%
-    
-#     # obj = (
-#     #     0.60 * abs(cov["veteran"]     - 95.0)
-#     #     + 0.25 * abs(cov["established"] - 95.0)
-#     #     + 0.10 * abs(cov["developing"]  - 95.0)
-#     #     + 0.05 * abs(cov["burnin"]      - 95.0)
-#     # )
-#     obj = (
-#         0.25 * abs(cov["veteran"]     - 95.0)
-#         + 0.25 * abs(cov["established"] - 95.0)
-#         + 0.25 * abs(cov["developing"]  - 95.0)
-#         + 0.25 * abs(cov["burnin"]      - 95.0)
+#     # Objective: minimise weighted |coverage - 95%| per tier
+#     obj = sum(
+#         tier_weights[tier] * abs(cov[tier] - 95.0)
+#         for tier in tier_weights
 #     )
 #     cov["objective"] = obj
+#     cov["weights_used"] = tier_weights
 #     return cov
 
 # # ---------------------------------------------------------------------------
@@ -2076,13 +2088,21 @@ print("=" * 70)
 
 # # ---------------------------------------------------------------------------
 # # 7) Run grid search
+# #    Pass tier_weights to use weighted tuning, or None for equal weights.
+# #    Examples:
+# #      run_grid(COARSE_GRID, "COARSE", tier_weights=None)          # unweighted
+# #      run_grid(COARSE_GRID, "COARSE", tier_weights={              # veteran-heavy
+# #          "veteran": 0.60, "established": 0.25,
+# #          "developing": 0.10, "burnin": 0.05})
 # # ---------------------------------------------------------------------------
-# def run_grid(grid, label="Grid"):
+# def run_grid(grid, label="Grid", tier_weights=None):
 #     """Run all combinations in the grid. Returns list of (params, coverage)."""
 #     keys = list(grid.keys())
 #     combos = list(itertools.product(*[grid[k] for k in keys]))
+#     wt_desc = "unweighted (equal)" if tier_weights is None else str(tier_weights)
 #     print(f"\n{'='*70}")
 #     print(f"{label}: {len(combos)} parameter combinations")
+#     print(f"Weights: {wt_desc}")
 #     print(f"{'='*70}")
 
 #     all_results = []
@@ -2098,7 +2118,7 @@ print("=" * 70)
 #             q_game=params["q_game"],
 #             v_scale=params["v_scale"],
 #         )
-#         cov = compute_coverage(engine_out)
+#         cov = compute_coverage(engine_out, tier_weights=tier_weights)
 #         cov["params"] = params
 #         all_results.append(cov)
 
@@ -2162,8 +2182,8 @@ print("=" * 70)
 #       f"v_max={TUNE_V_MAX}")
 # print(f"\nCalibration target: {TUNE_MEDIAN_WINDOW}-game rolling median Elo "
 #       f"inside ±2σ")
-# print(f"Objective: weighted |coverage - 95%| "
-#       f"(vet 60%, est 25%, dev 10%, burn 5%)")
+# print(f"Objective: |coverage - 95%| per tier, "
+#       f"weights={fine_best.get('weights_used', 'see compute_coverage')}")
 
 # # --- Top 10 from fine grid ---
 # fine_sorted = sorted(fine_results, key=lambda x: x["objective"])
@@ -2185,15 +2205,176 @@ print("=" * 70)
 # COMMAND ----------
 
 # =============================================================================
+# COMPONENT: Re-usable SSM2 Engine Function
+# =============================================================================
+# PURPOSE      : Run the SSM2 engine with arbitrary hyperparameters.
+#                Used by the evaluation cell to generate predictions for
+#                parameter variants (e.g. unweighted tuning) without needing
+#                a separate pipeline table.
+# PREREQS      : Requires ssm2_feed_rows from the SSM2 engine cell above.
+# =============================================================================
+
+import math
+import datetime as dt
+from collections import defaultdict
+
+def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
+                     feed_rows=None, eval_cutoff_date_id=None):
+    """Run the full SSM2 engine with given hyperparameters.
+
+    Uses the same fixed structural parameters as the main engine:
+    prior_sigma=50, max_days=180, v_decay=0.90, v_base=0.25, v_min=0, v_max=16.
+
+    Args:
+        sigma2_obs, q_time, q_game, v_scale: Tunable hyperparameters.
+        feed_rows: Game feed rows (defaults to ssm2_feed_rows from engine cell).
+        eval_cutoff_date_id: If set, only return results for games with
+                             date_id >= this value (saves memory).
+
+    Returns:
+        dict[coach_id] -> list of dicts with keys:
+            game_id, coach_game_number, date_id, score_expected,
+            sigma_before, opponent_sigma_before, result_numeric
+    """
+    if feed_rows is None:
+        feed_rows = ssm2_feed_rows
+
+    # Fixed structural parameters
+    PRIOR_P = 50.0 ** 2
+    INITIAL = SSM2_INITIAL_RATING
+    SCALE = SSM2_ELO_SCALE
+    LN10S = SSM2_LN10_OVER_SCALE
+    MAX_DAYS = 180.0
+    V_DECAY = 0.90
+    V_BASE = 0.25
+    V_MIN = 0.0
+    V_MAX = 16.0
+    MIN_P = 1e-6
+
+    # State: [mu, P, volatility, shock_ewma, last_dt]
+    state = {}
+    game_counts = {}
+    results = defaultdict(list)
+
+    def _default():
+        return [INITIAL, PRIOR_P, V_BASE, 0.0, None]
+
+    def _dt(row):
+        ets = row["event_timestamp"]
+        gd = row["game_date"]
+        did = int(row["date_id"])
+        if ets is not None:
+            return ets.replace(tzinfo=None) if getattr(ets, "tzinfo", None) else ets
+        if gd is not None:
+            return dt.datetime.combine(gd, dt.time(0, 0))
+        return dt.datetime.strptime(str(did), "%Y%m%d")
+
+    for row in feed_rows:
+        home_id = int(row["home_coach_id"])
+        away_id = int(row["away_coach_id"])
+        res_h = float(row["result_home"])
+        res_a = float(row["result_away"])
+        cur_dt = _dt(row)
+        date_id = int(row["date_id"])
+        game_id = int(row["game_id"])
+
+        sh = state.get(home_id)
+        if sh is None:
+            sh = _default()
+            state[home_id] = sh
+        sa = state.get(away_id)
+        if sa is None:
+            sa = _default()
+            state[away_id] = sa
+
+        # Predict home
+        days_h = max((cur_dt - sh[4]).total_seconds() / 86400.0, 0.0) if sh[4] else 0.0
+        ts_h = math.sqrt(min(days_h, MAX_DAYS))
+        P_h_pred = sh[1] + q_time * ts_h + q_game + sh[2]
+        mu_h_pred = sh[0]
+
+        # Predict away
+        days_a = max((cur_dt - sa[4]).total_seconds() / 86400.0, 0.0) if sa[4] else 0.0
+        ts_a = math.sqrt(min(days_a, MAX_DAYS))
+        P_a_pred = sa[1] + q_time * ts_a + q_game + sa[2]
+        mu_a_pred = sa[0]
+
+        # Observe home
+        p_exp_h = 1.0 / (1.0 + 10.0 ** ((mu_a_pred - mu_h_pred) / SCALE))
+        H_h = p_exp_h * (1.0 - p_exp_h) * LN10S
+        S_h = H_h * H_h * P_h_pred + H_h * H_h * P_a_pred + sigma2_obs
+        innov_h = res_h - p_exp_h
+        if S_h < 1e-12:
+            mu_h_post, P_h_post = mu_h_pred, max(P_h_pred, MIN_P)
+        else:
+            K_h = H_h * P_h_pred / S_h
+            mu_h_post = mu_h_pred + K_h * innov_h
+            P_h_post = max((1.0 - K_h * H_h) * P_h_pred, MIN_P)
+
+        # Observe away
+        p_exp_a = 1.0 / (1.0 + 10.0 ** ((mu_h_pred - mu_a_pred) / SCALE))
+        H_a = p_exp_a * (1.0 - p_exp_a) * LN10S
+        S_a = H_a * H_a * P_a_pred + H_a * H_a * P_h_pred + sigma2_obs
+        innov_a = res_a - p_exp_a
+        if S_a < 1e-12:
+            mu_a_post, P_a_post = mu_a_pred, max(P_a_pred, MIN_P)
+        else:
+            K_a = H_a * P_a_pred / S_a
+            mu_a_post = mu_a_pred + K_a * innov_a
+            P_a_post = max((1.0 - K_a * H_a) * P_a_pred, MIN_P)
+
+        # Volatility
+        shock_h = V_DECAY * sh[3] + (1.0 - V_DECAY) * (innov_h ** 2)
+        vol_h = max(V_MIN, min(V_BASE + v_scale * shock_h, V_MAX))
+        shock_a = V_DECAY * sa[3] + (1.0 - V_DECAY) * (innov_a ** 2)
+        vol_a = max(V_MIN, min(V_BASE + v_scale * shock_a, V_MAX))
+
+        # Game counts
+        gn_h = game_counts.get(home_id, 0) + 1
+        game_counts[home_id] = gn_h
+        gn_a = game_counts.get(away_id, 0) + 1
+        game_counts[away_id] = gn_a
+
+        # Record results (only for test window if cutoff specified)
+        if eval_cutoff_date_id is None or date_id >= eval_cutoff_date_id:
+            results[home_id].append({
+                "game_id": game_id, "coach_game_number": gn_h,
+                "date_id": date_id, "score_expected": p_exp_h,
+                "sigma_before": math.sqrt(P_h_pred),
+                "opponent_sigma_before": math.sqrt(P_a_pred),
+                "result_numeric": res_h,
+            })
+            results[away_id].append({
+                "game_id": game_id, "coach_game_number": gn_a,
+                "date_id": date_id, "score_expected": p_exp_a,
+                "sigma_before": math.sqrt(P_a_pred),
+                "opponent_sigma_before": math.sqrt(P_h_pred),
+                "result_numeric": res_a,
+            })
+
+        # Persist state
+        sh[0], sh[1], sh[2], sh[3], sh[4] = mu_h_post, P_h_post, vol_h, shock_h, cur_dt
+        sa[0], sa[1], sa[2], sa[3], sa[4] = mu_a_post, P_a_post, vol_a, shock_a, cur_dt
+
+    total_rows = sum(len(v) for v in results.values())
+    print(f"  Engine variant: {total_rows} rows for {len(results)} coaches "
+          f"(σ²_obs={sigma2_obs}, q_time={q_time}, q_game={q_game}, v_scale={v_scale})")
+    return results
+
+# COMMAND ----------
+
+# =============================================================================
 # COMPONENT: Structured Model Comparison — SSM v1, SSM v2, Elo
 # =============================================================================
-# PURPOSE      : Compare 6 predictive models on a held-out test window:
+# PURPOSE      : Compare 8 predictive models on a held-out test window:
 #                1. Elo              — baseline, logistic(Δrating)
 #                2. SSM v1           — logistic(Δμ), ignores σ
 #                3. SSM v1-UA        — uncertainty-aware: logistic scaled by σ
-#                4. SSM v2           — logistic(Δμ), ignores σ
-#                5. SSM v2-UA        — uncertainty-aware: logistic scaled by σ
-#                6. Naive            — always predict 0.5
+#                4. SSM v2           — weighted-tuned, logistic(Δμ), ignores σ
+#                5. SSM v2-UA        — weighted-tuned, uncertainty-aware
+#                6. SSM v2-UW        — unweighted-tuned, logistic(Δμ), ignores σ
+#                7. SSM v2-UW-UA     — unweighted-tuned, uncertainty-aware
+#                8. Naive            — always predict 0.5
 #
 # TEST SET     : Last 12 months of games (by date_id). All systems were
 #                trained on all prior games when making each prediction.
@@ -2293,6 +2474,34 @@ print(f"Test set: {len(eval_df)} observations "
       f"{eval_df['coach_id'].nunique()} coaches)")
 
 # ---------------------------------------------------------------------------
+# 2b) Run unweighted SSM v2 variant (separately tuned with equal weights)
+# ---------------------------------------------------------------------------
+import pandas as pd
+
+print("\nRunning SSM v2-UW (unweighted-tuned params: "
+      "σ²_obs=0.125, q_time=2.0, q_game=0.025, v_scale=16.0)...")
+ssm2_uw_results = run_ssm2_variant(
+    sigma2_obs=0.125, q_time=2.0, q_game=0.025, v_scale=16.0,
+    eval_cutoff_date_id=eval_cutoff,
+)
+
+uw_rows = []
+for cid, games in ssm2_uw_results.items():
+    for g in games:
+        uw_rows.append({
+            "game_id": g["game_id"],
+            "coach_id": cid,
+            "ssm2_uw_pred": g["score_expected"],
+            "ssm2_uw_sigma_before": g["sigma_before"],
+            "ssm2_uw_opp_sigma_before": g["opponent_sigma_before"],
+        })
+
+uw_df = pd.DataFrame(uw_rows)
+eval_df = eval_df.merge(uw_df, on=["game_id", "coach_id"], how="left")
+n_matched = eval_df["ssm2_uw_pred"].notna().sum()
+print(f"  Merged: {n_matched} / {len(eval_df)} rows matched")
+
+# ---------------------------------------------------------------------------
 # 3) Compute uncertainty-aware predictions (probit approximation)
 # ---------------------------------------------------------------------------
 ELO_SCALE = 150.0
@@ -2321,6 +2530,12 @@ eval_df["ssm2_ua_pred"] = compute_ua_predictions(
     eval_df["ssm2_opp_sigma_before"].values,
 )
 
+eval_df["ssm2_uw_ua_pred"] = compute_ua_predictions(
+    eval_df["ssm2_uw_pred"].values,
+    eval_df["ssm2_uw_sigma_before"].values,
+    eval_df["ssm2_uw_opp_sigma_before"].values,
+)
+
 eval_df["ssm2_combined_sigma"] = np.sqrt(
     eval_df["ssm2_sigma_before"].values ** 2
     + eval_df["ssm2_opp_sigma_before"].values ** 2
@@ -2328,6 +2543,10 @@ eval_df["ssm2_combined_sigma"] = np.sqrt(
 eval_df["ssm1_combined_sigma"] = np.sqrt(
     eval_df["ssm1_sigma_before"].values ** 2
     + eval_df["ssm1_opp_sigma_before"].values ** 2
+)
+eval_df["ssm2_uw_combined_sigma"] = np.sqrt(
+    eval_df["ssm2_uw_sigma_before"].values ** 2
+    + eval_df["ssm2_uw_opp_sigma_before"].values ** 2
 )
 
 print(f"\nUA predictions computed. Scale coefficient (π/8 × (ln10/S)²) = {UA_COEFF:.6f}")
@@ -2366,12 +2585,14 @@ def accuracy(y_true, y_pred):
 y = eval_df["result_numeric"].values
 
 models = {
-    "Elo":        np.clip(eval_df["elo_pred"].values, EPS, 1 - EPS),
-    "SSM v1":     np.clip(eval_df["ssm1_pred"].values, EPS, 1 - EPS),
-    "SSM v1-UA":  np.clip(eval_df["ssm1_ua_pred"].values, EPS, 1 - EPS),
-    "SSM v2":     np.clip(eval_df["ssm2_pred"].values, EPS, 1 - EPS),
-    "SSM v2-UA":  np.clip(eval_df["ssm2_ua_pred"].values, EPS, 1 - EPS),
-    "Naive":      np.full_like(y, 0.5),
+    "Elo":           np.clip(eval_df["elo_pred"].values, EPS, 1 - EPS),
+    "SSM v1":        np.clip(eval_df["ssm1_pred"].values, EPS, 1 - EPS),
+    "SSM v1-UA":     np.clip(eval_df["ssm1_ua_pred"].values, EPS, 1 - EPS),
+    "SSM v2":        np.clip(eval_df["ssm2_pred"].values, EPS, 1 - EPS),
+    "SSM v2-UA":     np.clip(eval_df["ssm2_ua_pred"].values, EPS, 1 - EPS),
+    "SSM v2-UW":     np.clip(eval_df["ssm2_uw_pred"].values, EPS, 1 - EPS),
+    "SSM v2-UW-UA":  np.clip(eval_df["ssm2_uw_ua_pred"].values, EPS, 1 - EPS),
+    "Naive":         np.full_like(y, 0.5),
 }
 
 metrics = {}
@@ -2403,7 +2624,7 @@ for name, m in metrics.items():
 
 print(f"\nPositive Δ = model is better than Elo (lower loss)")
 
-for ua_name in ["SSM v1-UA", "SSM v2-UA"]:
+for ua_name in ["SSM v1-UA", "SSM v2-UA", "SSM v2-UW-UA"]:
     ll_imp = (elo_ll - metrics[ua_name]["log_loss"]) / elo_ll * 100
     br_imp = (elo_br - metrics[ua_name]["brier"]) / elo_br * 100
     print(f"{ua_name} vs Elo: log-loss {ll_imp:+.3f}%, Brier {br_imp:+.3f}%")
@@ -2411,13 +2632,16 @@ for ua_name in ["SSM v1-UA", "SSM v2-UA"]:
 # ---------------------------------------------------------------------------
 # 6) Calibration plots — 4 panels
 # ---------------------------------------------------------------------------
-fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+axes = axes.flatten()
 
 cal_models = [
     ("Elo", models["Elo"]),
     ("SSM v1-UA", models["SSM v1-UA"]),
     ("SSM v2", models["SSM v2"]),
     ("SSM v2-UA", models["SSM v2-UA"]),
+    ("SSM v2-UW", models["SSM v2-UW"]),
+    ("SSM v2-UW-UA", models["SSM v2-UW-UA"]),
 ]
 
 for ax, (name, preds) in zip(axes, cal_models):
@@ -2464,7 +2688,9 @@ sigma_bin_idx = np.digitize(sigma_combined, sigma_bins) - 1
 sigma_bin_idx = np.clip(sigma_bin_idx, 0, len(sigma_bins) - 2)
 
 sigma_labels = []
-brier_by_model = {name: [] for name in ["Elo", "SSM v2", "SSM v2-UA"]}
+brier_by_model = {name: [] for name in [
+    "Elo", "SSM v2", "SSM v2-UA", "SSM v2-UW", "SSM v2-UW-UA"
+]}
 
 for i in range(len(sigma_bins) - 1):
     mask = sigma_bin_idx == i
@@ -2474,11 +2700,16 @@ for i in range(len(sigma_bins) - 1):
             brier_by_model[name].append(brier_score(y[mask], models[name][mask]))
 
 x_pos = np.arange(len(sigma_labels))
-width = 0.25
-colors = {"Elo": "coral", "SSM v2": "steelblue", "SSM v2-UA": "seagreen"}
+n_models = len(brier_by_model)
+width = 0.8 / n_models
+colors = {
+    "Elo": "coral", "SSM v2": "steelblue", "SSM v2-UA": "seagreen",
+    "SSM v2-UW": "mediumpurple", "SSM v2-UW-UA": "goldenrod",
+}
 
 for j, (name, briers) in enumerate(brier_by_model.items()):
-    ax.bar(x_pos + (j - 1) * width, briers, width, alpha=0.7,
+    offset = (j - (n_models - 1) / 2) * width
+    ax.bar(x_pos + offset, briers, width, alpha=0.7,
            color=colors[name], label=name)
 
 ax.set_xticks(x_pos)
@@ -2500,36 +2731,48 @@ eval_df["tier"] = eval_df["ssm2_game_number"].apply(
     else "04: 301+"
 )
 
-print(f"\n{'='*110}")
-print("METRICS BY EXPERIENCE TIER (unweighted)")
-print(f"{'='*110}")
-print(f"\n{'Tier':<15} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2 LL':>9} {'v2-UA LL':>9}  "
-      f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2 Br':>9} {'v2-UA Br':>9}")
-print(f"{'-'*15} {'-'*8}  {'-'*9} {'-'*9} {'-'*9} {'-'*9}  "
-      f"{'-'*9} {'-'*9} {'-'*9} {'-'*9}")
+tier_model_names = ["Elo", "SSM v1-UA", "SSM v2", "SSM v2-UA",
+                    "SSM v2-UW", "SSM v2-UW-UA"]
+
+print(f"\n{'='*140}")
+print("METRICS BY EXPERIENCE TIER (unweighted evaluation)")
+print(f"{'='*140}")
+
+# Log-loss table
+print(f"\n--- Log-loss by tier ---")
+header = f"{'Tier':<15} {'N':>8}"
+for mn in tier_model_names:
+    header += f"  {mn:>12}"
+print(header)
+print(f"{'-'*15} {'-'*8}" + f"  {'-'*12}" * len(tier_model_names))
 
 for tier in sorted(eval_df["tier"].unique()):
     tmask = eval_df["tier"] == tier
     y_t = eval_df.loc[tmask, "result_numeric"].values
     n_t = tmask.sum()
-
-    tier_metrics = {}
-    for name in ["Elo", "SSM v1-UA", "SSM v2", "SSM v2-UA"]:
+    row = f"{tier:<15} {n_t:>8}"
+    for name in tier_model_names:
         p_t = np.clip(models[name][tmask.values], EPS, 1 - EPS)
-        tier_metrics[name] = {
-            "ll": log_loss(y_t, p_t),
-            "br": brier_score(y_t, p_t),
-        }
+        row += f"  {log_loss(y_t, p_t):12.5f}"
+    print(row)
 
-    print(f"{tier:<15} {n_t:>8}  "
-          f"{tier_metrics['Elo']['ll']:9.5f} "
-          f"{tier_metrics['SSM v1-UA']['ll']:9.5f} "
-          f"{tier_metrics['SSM v2']['ll']:9.5f} "
-          f"{tier_metrics['SSM v2-UA']['ll']:9.5f}  "
-          f"{tier_metrics['Elo']['br']:9.5f} "
-          f"{tier_metrics['SSM v1-UA']['br']:9.5f} "
-          f"{tier_metrics['SSM v2']['br']:9.5f} "
-          f"{tier_metrics['SSM v2-UA']['br']:9.5f}")
+# Brier table
+print(f"\n--- Brier score by tier ---")
+header = f"{'Tier':<15} {'N':>8}"
+for mn in tier_model_names:
+    header += f"  {mn:>12}"
+print(header)
+print(f"{'-'*15} {'-'*8}" + f"  {'-'*12}" * len(tier_model_names))
+
+for tier in sorted(eval_df["tier"].unique()):
+    tmask = eval_df["tier"] == tier
+    y_t = eval_df.loc[tmask, "result_numeric"].values
+    n_t = tmask.sum()
+    row = f"{tier:<15} {n_t:>8}"
+    for name in tier_model_names:
+        p_t = np.clip(models[name][tmask.values], EPS, 1 - EPS)
+        row += f"  {brier_score(y_t, p_t):12.5f}"
+    print(row)
 
 # ---------------------------------------------------------------------------
 # 9) In-sample / out-of-sample check
@@ -2545,39 +2788,51 @@ eval_df["tuning_population"] = eval_df["first_test_game_number"].apply(
     else "Out-of-sample (≤301 before test)"
 )
 
-print(f"\n{'='*110}")
+oos_model_names = ["Elo", "SSM v1-UA", "SSM v2-UA", "SSM v2-UW-UA"]
+
+print(f"\n{'='*120}")
 print("IN-SAMPLE vs OUT-OF-SAMPLE (tuner targeted 301+ coaches)")
-print(f"{'='*110}")
-print(f"\n{'Population':<35} {'N':>8}  {'Elo LL':>9} {'v1-UA LL':>9} {'v2-UA LL':>9}  "
-      f"{'Elo Br':>9} {'v1-UA Br':>9} {'v2-UA Br':>9}")
-print(f"{'-'*35} {'-'*8}  {'-'*9} {'-'*9} {'-'*9}  {'-'*9} {'-'*9} {'-'*9}")
+print(f"{'='*120}")
 
 y_all = eval_df["result_numeric"].values
 models_aligned = {
-    "Elo":       np.clip(eval_df["elo_pred"].values, EPS, 1 - EPS),
-    "SSM v1-UA": np.clip(eval_df["ssm1_ua_pred"].values, EPS, 1 - EPS),
-    "SSM v2-UA": np.clip(eval_df["ssm2_ua_pred"].values, EPS, 1 - EPS),
+    "Elo":          np.clip(eval_df["elo_pred"].values, EPS, 1 - EPS),
+    "SSM v1-UA":    np.clip(eval_df["ssm1_ua_pred"].values, EPS, 1 - EPS),
+    "SSM v2-UA":    np.clip(eval_df["ssm2_ua_pred"].values, EPS, 1 - EPS),
+    "SSM v2-UW-UA": np.clip(eval_df["ssm2_uw_ua_pred"].values, EPS, 1 - EPS),
 }
+
+# Log-loss
+header = f"\n{'Population':<35} {'N':>8}"
+for mn in oos_model_names:
+    header += f"  {mn + ' LL':>14}"
+print(header)
+print(f"{'-'*35} {'-'*8}" + f"  {'-'*14}" * len(oos_model_names))
 
 for pop in sorted(eval_df["tuning_population"].unique()):
     pmask = (eval_df["tuning_population"] == pop).values
     y_p = y_all[pmask]
     n_p = pmask.sum()
+    row = f"{pop:<35} {n_p:>8}"
+    for name in oos_model_names:
+        row += f"  {log_loss(y_p, models_aligned[name][pmask]):14.5f}"
+    print(row)
 
-    pop_metrics = {}
-    for name in ["Elo", "SSM v1-UA", "SSM v2-UA"]:
-        pop_metrics[name] = {
-            "ll": log_loss(y_p, models_aligned[name][pmask]),
-            "br": brier_score(y_p, models_aligned[name][pmask]),
-        }
+# Brier
+header = f"\n{'Population':<35} {'N':>8}"
+for mn in oos_model_names:
+    header += f"  {mn + ' Br':>14}"
+print(header)
+print(f"{'-'*35} {'-'*8}" + f"  {'-'*14}" * len(oos_model_names))
 
-    print(f"{pop:<35} {n_p:>8}  "
-          f"{pop_metrics['Elo']['ll']:9.5f} "
-          f"{pop_metrics['SSM v1-UA']['ll']:9.5f} "
-          f"{pop_metrics['SSM v2-UA']['ll']:9.5f}  "
-          f"{pop_metrics['Elo']['br']:9.5f} "
-          f"{pop_metrics['SSM v1-UA']['br']:9.5f} "
-          f"{pop_metrics['SSM v2-UA']['br']:9.5f}")
+for pop in sorted(eval_df["tuning_population"].unique()):
+    pmask = (eval_df["tuning_population"] == pop).values
+    y_p = y_all[pmask]
+    n_p = pmask.sum()
+    row = f"{pop:<35} {n_p:>8}"
+    for name in oos_model_names:
+        row += f"  {brier_score(y_p, models_aligned[name][pmask]):14.5f}"
+    print(row)
 
 # ---------------------------------------------------------------------------
 # 10) Structured summary
@@ -2594,6 +2849,9 @@ UA method   : Probit approximation — logistic scaled by
               Shrinks predictions toward 0.5 when uncertainty is high.
               Coefficient = {UA_COEFF:.6f}
 
+SSM v2 params (weighted):   σ²_obs=0.10,   q_time=2.0, q_game=0.025, v_scale=24.0
+SSM v2-UW params (unwtd):  σ²_obs=0.125,  q_time=2.0, q_game=0.025, v_scale=16.0
+
 Key findings:
   1. Do the UA variants improve over their base models?
      → Check ΔLL and ΔBr in the main table above.
@@ -2604,6 +2862,8 @@ Key findings:
      → Check in-sample vs out-of-sample table above.
   4. Does uncertainty-awareness fix the calibration overconfidence?
      → Compare SSM v2 vs SSM v2-UA calibration plots.
+  5. Does unweighted tuning improve calibration vs weighted tuning?
+     → Compare SSM v2-UA vs SSM v2-UW-UA calibration and tier breakdown.
 """)
 print(f"{'='*78}")
 
@@ -2658,3 +2918,4 @@ print(f"="*78)
 # COMMAND ----------
 
 export_coach_plots([9524, 34738, 35505])
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
