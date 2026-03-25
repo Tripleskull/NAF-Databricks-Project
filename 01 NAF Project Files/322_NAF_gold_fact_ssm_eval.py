@@ -1520,7 +1520,7 @@ Key findings:
 print(f"{'='*78}")
 
 # ---------------------------------------------------------------------------
-# 11) Store results using serverless-compatible approach
+# 11) Store results — Delta table, CSV, text report, plots
 # ---------------------------------------------------------------------------
 
 run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1543,30 +1543,122 @@ for name, m in metrics.items():
 
 metrics_spark_df = spark.createDataFrame(metrics_rows)
 metrics_spark_df.write.mode("append").saveAsTable("naf_catalog.gold_summary.ssm_evaluation_metrics")
-
 print(f"\n✓ Metrics stored in naf_catalog.gold_summary.ssm_evaluation_metrics")
 
-# 11.2) Create Volume for exports
+# 11.2) Create Volume and run output directory
 spark.sql("CREATE VOLUME IF NOT EXISTS naf_catalog.gold_summary.exports")
-
-# 11.3) Export metrics to CSV — stored under model_tests/
 model_tests_dir = "/Volumes/naf_catalog/gold_summary/exports/model_tests"
-out_dir = f"{model_tests_dir}/ssm_eval_{run_timestamp}"
-metrics_spark_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(out_dir)
+run_dir = f"{model_tests_dir}/ssm_eval_{run_timestamp}"
+os.makedirs(run_dir, exist_ok=True)
 
-part_files = [f.path for f in dbutils.fs.ls(out_dir) if f.name.startswith("part-") and f.name.endswith(".csv")]
+# 11.3) Export metrics CSV
+metrics_spark_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(f"{run_dir}/_csv_tmp")
+part_files = [f.path for f in dbutils.fs.ls(f"{run_dir}/_csv_tmp")
+              if f.name.startswith("part-") and f.name.endswith(".csv")]
 if part_files:
-    final_csv = f"{model_tests_dir}/ssm_eval_{run_timestamp}.csv"
-    dbutils.fs.cp(part_files[0], final_csv, True)
-    print(f"✓ CSV exported to: {final_csv}")
+    dbutils.fs.cp(part_files[0], f"{run_dir}/metrics.csv", True)
+dbutils.fs.rm(f"{run_dir}/_csv_tmp", recurse=True)
+print(f"✓ CSV: {run_dir}/metrics.csv")
 
-print(f"\n" + "="*78)
-print(f"EXPORT COMPLETE")
-print(f"="*78)
-print(f"Delta table : naf_catalog.gold_summary.ssm_evaluation_metrics")
-print(f"CSV export  : {model_tests_dir}/ssm_eval_{run_timestamp}.csv")
-print(f"Plots       : Displayed above (download from notebook UI if needed)")
-print(f"="*78)
+# 11.4) Export text report with full evaluation results
+report_lines = []
+report_lines.append(f"SSM MODEL EVALUATION REPORT")
+report_lines.append(f"Run: {run_timestamp}")
+report_lines.append(f"Validation: {val_cutoff} to {test_cutoff} ({EVAL_VAL_MONTHS} months)")
+report_lines.append(f"Test:       date_id >= {test_cutoff} ({EVAL_TEST_MONTHS} months)")
+report_lines.append(f"Observations: {len(eval_df)} ({eval_df['game_id'].nunique()} games, "
+                    f"{eval_df['coach_id'].nunique()} coaches)")
+report_lines.append(f"UA coefficient: {UA_COEFF:.6f}")
+report_lines.append("")
+
+# Overall comparison
+report_lines.append(f"{'='*78}")
+report_lines.append(f"OVERALL COMPARISON (test set)")
+report_lines.append(f"{'='*78}")
+report_lines.append(f"{'Model':<15} {'Log-loss':>10} {'Brier':>10} {'Accuracy':>10}  "
+                    f"{'dLL vs Elo':>11} {'dBr vs Elo':>11}")
+for name, m in metrics.items():
+    ll_d = elo_ll - m["log_loss"]
+    br_d = elo_br - m["brier"]
+    dll = f"{ll_d:+11.5f}" if name != "Elo" else f"{'---':>11}"
+    dbr = f"{br_d:+11.5f}" if name != "Elo" else f"{'---':>11}"
+    report_lines.append(f"{name:<15} {m['log_loss']:10.5f} {m['brier']:10.5f} "
+                        f"{m['accuracy']:10.3f}  {dll} {dbr}")
+report_lines.append("")
+
+# Ablation
+report_lines.append(f"ABLATION: time-awareness (q_time)")
+report_lines.append(f"  SSM v2-UW-UA Brier = {metrics['SSM v2-UW-UA']['brier']:.5f}")
+report_lines.append(f"  SSM v2-NT-UA Brier = {metrics['SSM v2-NT-UA']['brier']:.5f}  (q_time=0)")
+uw_b = metrics["SSM v2-UW-UA"]["brier"]
+nt_b = metrics["SSM v2-NT-UA"]["brier"]
+report_lines.append(f"  Delta = {nt_b - uw_b:+.5f}  "
+                    f"({'time helps' if uw_b < nt_b else 'time does not help'})")
+report_lines.append("")
+
+# Bootstrap CIs
+report_lines.append(f"BOOTSTRAP CONFIDENCE INTERVALS ({N_BOOTSTRAP} game-level resamples)")
+for (model_a, model_b), br in boot_results.items():
+    sig = "*" if (br["ci_lo"] > 0 or br["ci_hi"] < 0) else ""
+    report_lines.append(f"  {model_a} vs {model_b}:")
+    report_lines.append(f"    dBrier = {br['obs']:+.5f}  "
+                        f"95% CI [{br['ci_lo']:+.5f}, {br['ci_hi']:+.5f}] {sig}")
+    report_lines.append(f"    P({model_a} better) = {br['p_pos']:.1%}")
+report_lines.append("  * = significant at alpha=0.05")
+report_lines.append("")
+
+# Parameters
+report_lines.append(f"PARAMETERS")
+report_lines.append(f"  SSM v2 (weighted):   s2_obs=0.10   q_time=2.0  q_game=0.025  v_scale=24.0")
+report_lines.append(f"  SSM v2-UW (unwtd):   s2_obs=0.125  q_time=2.0  q_game=0.025  v_scale=16.0")
+report_lines.append(f"  SSM v2-NT (ablation): s2_obs=0.125  q_time=0.0  q_game=0.025  v_scale=16.0")
+
+report_text = "\n".join(report_lines)
+
+report_path = f"{run_dir}/evaluation_report.txt"
+with open(report_path, "w") as f:
+    f.write(report_text)
+print(f"✓ Report: {report_path}")
+
+# 11.5) Save plots as PNGs
+# Re-generate calibration plot for saving
+fig_cal, axes_cal = plt.subplots(n_rows, n_cols, figsize=(20, 5 * n_rows))
+axes_cal = axes_cal.flatten()
+for ax, (name, preds) in zip(axes_cal, cal_models):
+    bins = np.arange(0.0, 1.05, 0.1)
+    bin_indices = np.digitize(preds, bins) - 1
+    bc, ba, bn = [], [], []
+    for i in range(len(bins) - 1):
+        mask = bin_indices == i
+        if mask.sum() >= 20:
+            bc.append((bins[i] + bins[i + 1]) / 2)
+            ba.append(y[mask].mean())
+            bn.append(mask.sum())
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.5)
+    ax.bar(bc, ba, width=0.08, alpha=0.6, color="steelblue")
+    ax.scatter(bc, ba, color="coral", zorder=5, s=40)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    ax.set_title(f"{name}")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.grid(True, alpha=0.3)
+for j in range(len(cal_models), len(axes_cal)):
+    axes_cal[j].set_visible(False)
+fig_cal.suptitle("Calibration Comparison", fontsize=14, y=1.02)
+fig_cal.tight_layout()
+fig_cal.savefig(f"{run_dir}/calibration_plots.png", dpi=150, bbox_inches="tight")
+plt.close(fig_cal)
+print(f"✓ Plot: {run_dir}/calibration_plots.png")
+
+print(f"\n{'='*78}")
+print(f"EXPORT COMPLETE — {run_dir}")
+print(f"{'='*78}")
+print(f"  Delta table : naf_catalog.gold_summary.ssm_evaluation_metrics")
+print(f"  metrics.csv           — overall model comparison")
+print(f"  evaluation_report.txt — full results with ablation + bootstrap CIs")
+print(f"  calibration_plots.png — calibration comparison chart")
+print(f"{'='*78}")
 
 
 # COMMAND ----------
