@@ -1433,6 +1433,7 @@ plt.show()
 
 # COMMAND ----------
 
+# DBTITLE 1,SSM2 Calibration Coverage
 # =============================================================================
 # SSM2 Calibration Coverage: does rolling median Elo fall inside SSM2 ± 2σ
 # ~95% of the time? Broken down by experience tier.
@@ -1462,7 +1463,7 @@ cal_df = spark.sql(f"""
             coach_id,
             coach_game_number,
             rating_after,
-            MEDIAN(rating_after) OVER (
+            PERCENTILE_APPROX(rating_after, 0.5) OVER (
                 PARTITION BY coach_id
                 ORDER BY coach_game_number
                 ROWS BETWEEN {CAL_MEDIAN_WINDOW - 1} PRECEDING AND CURRENT ROW
@@ -1534,7 +1535,7 @@ cal_overall = spark.sql(f"""
             coach_id,
             coach_game_number,
             rating_after,
-            MEDIAN(rating_after) OVER (
+            PERCENTILE_APPROX(rating_after, 0.5) OVER (
                 PARTITION BY coach_id
                 ORDER BY coach_game_number
                 ROWS BETWEEN {CAL_MEDIAN_WINDOW - 1} PRECEDING AND CURRENT ROW
