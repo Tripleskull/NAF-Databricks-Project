@@ -286,6 +286,24 @@
 # MAGIC   -- uses deterministic focus weights computed in 332 (no config needed).
 # MAGIC   -- Kept for reference: previous weights were 0.30/0.25/0.15/0.15/0.15.
 # MAGIC
+# MAGIC   -- SSM v1 (random-walk EKF, 321)
+# MAGIC   CAST(50.0    AS DOUBLE)  AS ssm1_prior_sigma,        -- prior SD for new coaches
+# MAGIC   CAST(1.000   AS DOUBLE)  AS ssm1_phi,                -- AR(1) mean-reversion coeff (1.0 = none)
+# MAGIC   CAST(2.0     AS DOUBLE)  AS ssm1_sigma2_process,     -- per-game process noise variance
+# MAGIC   CAST(0.02    AS DOUBLE)  AS ssm1_sigma2_obs,         -- observation noise (logistic scale)
+# MAGIC
+# MAGIC   -- SSM v2 production (time-aware + adaptive volatility, 321)
+# MAGIC   CAST(50.0    AS DOUBLE)  AS ssm2_prior_sigma,        -- prior SD for new coaches
+# MAGIC   CAST(0.10    AS DOUBLE)  AS ssm2_sigma2_obs,         -- observation noise (logistic scale)
+# MAGIC   CAST(2.00    AS DOUBLE)  AS ssm2_q_time,             -- variance per sqrt(day) of inactivity
+# MAGIC   CAST(0.025   AS DOUBLE)  AS ssm2_q_game,             -- baseline per-game process noise
+# MAGIC   CAST(180.0   AS DOUBLE)  AS ssm2_max_days,           -- cap for days-since-last-game
+# MAGIC   CAST(0.25    AS DOUBLE)  AS ssm2_v_base,             -- volatility baseline
+# MAGIC   CAST(24.0    AS DOUBLE)  AS ssm2_v_scale,            -- volatility scale factor
+# MAGIC   CAST(0.90    AS DOUBLE)  AS ssm2_v_decay,            -- EWMA decay for shock tracker
+# MAGIC   CAST(0.00    AS DOUBLE)  AS ssm2_v_min,              -- volatility floor
+# MAGIC   CAST(16.0    AS DOUBLE)  AS ssm2_v_max,              -- volatility ceiling
+# MAGIC
 # MAGIC   CURRENT_TIMESTAMP()      AS load_timestamp
 # MAGIC ;
 

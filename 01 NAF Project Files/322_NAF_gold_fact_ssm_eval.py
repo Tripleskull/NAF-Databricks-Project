@@ -632,8 +632,9 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
                      feed_rows=None, eval_cutoff_date_id=None):
     """Run the full SSM2 engine with given hyperparameters.
 
-    Uses the same fixed structural parameters as the main engine:
-    prior_sigma=50, max_days=180, v_decay=0.90, v_base=0.25, v_min=0, v_max=16.
+    Structural parameters (prior, max_days, volatility bounds) are read
+    from SSM2_* globals inherited from 321 (sourced from analytical_config).
+    Only the four tunable hyperparameters are passed as arguments.
 
     Args:
         sigma2_obs, q_time, q_game, v_scale: Tunable hyperparameters.
@@ -649,16 +650,16 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
     if feed_rows is None:
         feed_rows = ssm2_feed_rows
 
-    # Fixed structural parameters
-    PRIOR_P = 50.0 ** 2
+    # Structural parameters from config (via 321 globals)
+    PRIOR_P = SSM2_PRIOR_SIGMA ** 2
     INITIAL = SSM2_INITIAL_RATING
     SCALE = SSM2_ELO_SCALE
     LN10S = SSM2_LN10_OVER_SCALE
-    MAX_DAYS = 180.0
-    V_DECAY = 0.90
-    V_BASE = 0.25
-    V_MIN = 0.0
-    V_MAX = 16.0
+    MAX_DAYS = SSM2_MAX_DAYS
+    V_DECAY = SSM2_V_DECAY
+    V_BASE = SSM2_V_BASE
+    V_MIN = SSM2_V_MIN
+    V_MAX = SSM2_V_MAX
     MIN_P = 1e-6
 
     # State: [mu, P, volatility, shock_ewma, last_dt]
@@ -946,7 +947,8 @@ print(f"  Merged: {eval_df['ssm2_nt_pred'].notna().sum()} / {len(eval_df)} rows"
 # ---------------------------------------------------------------------------
 # 3) Compute uncertainty-aware predictions (probit approximation)
 # ---------------------------------------------------------------------------
-ELO_SCALE = 150.0
+# ELO_SCALE and SSM2_* globals inherited from 321 at runtime
+ELO_SCALE = SSM2_ELO_SCALE
 LN10_OVER_S = math.log(10.0) / ELO_SCALE
 PI_OVER_8 = math.pi / 8.0
 UA_COEFF = PI_OVER_8 * LN10_OVER_S ** 2

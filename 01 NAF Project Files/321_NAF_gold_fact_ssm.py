@@ -153,35 +153,25 @@ INITIAL_RATING = float(_cfg["elo_initial_rating"])   # 150.0
 ELO_SCALE      = float(_cfg["elo_scale"])            # 150.0
 
 # ---------------------------------------------------------------------------
-# 2) SSM hyperparameters
+# 2) SSM v1 hyperparameters — from analytical_config
 # ---------------------------------------------------------------------------
 # AR(1) mean-reversion target (same as Elo initial rating)
 MU_GLOBAL = INITIAL_RATING  # 150.0
 
-# Mean-reversion coefficient: very slow, ~0.5% pull per game
-PHI = 1.000 # 0.995
+# Mean-reversion coefficient: 1.0 = no reversion
+PHI = float(_cfg["ssm1_phi"])                        # 1.000
 
-# Prior uncertainty for new coaches: SD = 50 Elo points → P₀ = 2500
-PRIOR_SIGMA = 50.0
+# Prior uncertainty for new coaches: SD → P₀ = σ²
+PRIOR_SIGMA = float(_cfg["ssm1_prior_sigma"])        # 50.0
 PRIOR_P = PRIOR_SIGMA ** 2
 
 # Process noise variance: how much true skill can change per game.
-# Tuned so that sqrt(P_predict - P_prior) ≈ 1 Elo point after one game
-# of "no observation" (i.e., uncertainty grows ~1 pt per game of inactivity).
 # P_predict = φ² × P + σ²_process
-# For a well-estimated coach (P ≈ 25, i.e. σ ≈ 5):
-#   sqrt(φ² × 25 + σ²_process) ≈ sqrt(25 + σ²_process) ≈ 6
-#   → σ²_process ≈ 11
-# For a new coach (P = 2500): σ²_process is negligible.
-SIGMA2_PROCESS = 2.0
+SIGMA2_PROCESS = float(_cfg["ssm1_sigma2_process"])  # 2.0
 
-# Observation noise baseline: represents inherent game-level randomness
-# (dice, matchup variance, etc.) independent of skill. On the logistic
-# derivative scale, this controls how much a single game can move the
-# estimate. Higher = more conservative updates.
-# Tuned to produce Kalman gains of ~0.05-0.15 for well-estimated coaches
-# (comparable to Elo K-factors of 8-24 on a 150-scale).
-SIGMA2_OBS = 0.02
+# Observation noise baseline: inherent game-level randomness on the
+# logistic derivative scale.
+SIGMA2_OBS = float(_cfg["ssm1_sigma2_obs"])          # 0.02
 
 # Logistic scaling: ln(10) / ELO_SCALE — used in the EKF linearisation
 LN10_OVER_SCALE = math.log(10.0) / ELO_SCALE
@@ -880,35 +870,35 @@ from pyspark.sql import functions as F, types as T
 # 1) Core config from existing singleton
 # ---------------------------------------------------------------------------
 _ssm2_cfg = spark.table("naf_catalog.gold_dim.analytical_config").first()
-SSM2_INITIAL_RATING = float(_ssm2_cfg["elo_initial_rating"])
-SSM2_ELO_SCALE      = float(_ssm2_cfg["elo_scale"])
+SSM2_INITIAL_RATING  = float(_ssm2_cfg["elo_initial_rating"])
+SSM2_ELO_SCALE       = float(_ssm2_cfg["elo_scale"])
 SSM2_LN10_OVER_SCALE = math.log(10.0) / SSM2_ELO_SCALE
 
 # ---------------------------------------------------------------------------
-# 2) SSM2 hyperparameters (local for now; can later move into analytical_config)
+# 2) SSM2 hyperparameters — from analytical_config
 # ---------------------------------------------------------------------------
 # Prior
-SSM2_PRIOR_SIGMA = 50.0
+SSM2_PRIOR_SIGMA = float(_ssm2_cfg["ssm2_prior_sigma"])    # 50.0
 SSM2_PRIOR_P = SSM2_PRIOR_SIGMA ** 2
 
-# Observation noise (same role as in current SSM)
-SSM2_SIGMA2_OBS = 0.10      # tuned 2026-03-24 (was 0.05)
+# Observation noise
+SSM2_SIGMA2_OBS = float(_ssm2_cfg["ssm2_sigma2_obs"])      # 0.10
 
 # Time-aware process variance:
-#   P_pred = P_prev + q_time * sqrt(capped_days_since_prev_game) + q_game + volatility
-SSM2_Q_TIME = 2.00          # variance added per sqrt(day) — tuned 2026-03-24 (was 1.50)
-SSM2_Q_GAME = 0.025         # baseline per-game noise — tuned 2026-03-24 (was 0.25)
-SSM2_MAX_DAYS = 180.0       # cap very long inactivity gaps
+#   P_pred = P_prev + q_time * sqrt(capped_days) + q_game + volatility
+SSM2_Q_TIME = float(_ssm2_cfg["ssm2_q_time"])              # 2.00
+SSM2_Q_GAME = float(_ssm2_cfg["ssm2_q_game"])              # 0.025
+SSM2_MAX_DAYS = float(_ssm2_cfg["ssm2_max_days"])          # 180.0
 SSM2_MIN_P = 1e-6
 
 # Volatility dynamics
 # shock_ewma_post = decay * shock_ewma_prev + (1-decay) * innovation^2
 # volatility_post = clip(v_base + v_scale * shock_ewma_post, v_min, v_max)
-SSM2_V_BASE = 0.25
-SSM2_V_SCALE = 24.0         # tuned 2026-03-24 (was 12.0)
-SSM2_V_DECAY = 0.90
-SSM2_V_MIN = 0.00
-SSM2_V_MAX = 16.0
+SSM2_V_BASE  = float(_ssm2_cfg["ssm2_v_base"])             # 0.25
+SSM2_V_SCALE = float(_ssm2_cfg["ssm2_v_scale"])            # 24.0
+SSM2_V_DECAY = float(_ssm2_cfg["ssm2_v_decay"])            # 0.90
+SSM2_V_MIN   = float(_ssm2_cfg["ssm2_v_min"])              # 0.00
+SSM2_V_MAX   = float(_ssm2_cfg["ssm2_v_max"])              # 16.0
 
 # ---------------------------------------------------------------------------
 # 3) Load feed in deterministic order

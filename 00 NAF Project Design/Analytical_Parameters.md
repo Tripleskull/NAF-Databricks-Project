@@ -225,6 +225,20 @@ Used by `nation_elite_rivalry_summary` (332). Only games where both participants
 | Elite GLO median threshold | 200 | `elite_glo_median_threshold` | §5.4 |
 | Form window games | 50 | `form_window_games` | §8.1 |
 | Form min games for pctl | 50 | `form_min_games_for_pctl` | §8.1 |
+| SSM v1 prior sigma | 50.0 | `ssm1_prior_sigma` | §9.1 |
+| SSM v1 phi | 1.000 | `ssm1_phi` | §9.1 |
+| SSM v1 σ² process | 2.0 | `ssm1_sigma2_process` | §9.1 |
+| SSM v1 σ² obs | 0.02 | `ssm1_sigma2_obs` | §9.1 |
+| SSM v2 σ² obs | 0.10 | `ssm2_sigma2_obs` | §10.1 |
+| SSM v2 q_time | 2.00 | `ssm2_q_time` | §10.1 |
+| SSM v2 q_game | 0.025 | `ssm2_q_game` | §10.1 |
+| SSM v2 v_scale | 24.0 | `ssm2_v_scale` | §10.1 |
+| SSM v2 prior sigma | 50.0 | `ssm2_prior_sigma` | §10.2 |
+| SSM v2 max days | 180.0 | `ssm2_max_days` | §10.2 |
+| SSM v2 v_base | 0.25 | `ssm2_v_base` | §10.2 |
+| SSM v2 v_decay | 0.90 | `ssm2_v_decay` | §10.2 |
+| SSM v2 v_min | 0.00 | `ssm2_v_min` | §10.2 |
+| SSM v2 v_max | 16.0 | `ssm2_v_max` | §10.2 |
 
 ---
 
@@ -273,6 +287,80 @@ Coaches below the threshold get `form_pctl = NULL` and `form_label = NULL`.
 
 ---
 
+## 9. SSM v1 Rating Engine (Random-Walk EKF)
+
+### 9.1 Parameters
+
+| Parameter | Value | Config column | Purpose |
+|---|---|---|---|
+| Prior sigma | 50.0 | `ssm1_prior_sigma` | Prior SD for new coaches (P₀ = σ²) |
+| Phi (AR coefficient) | 1.000 | `ssm1_phi` | Mean-reversion coefficient (1.0 = no reversion) |
+| Process noise (σ²) | 2.0 | `ssm1_sigma2_process` | Per-game process noise variance |
+| Observation noise (σ²) | 0.02 | `ssm1_sigma2_obs` | Observation noise on logistic scale |
+
+### 9.2 State model
+
+```
+mu_predict = phi × mu_prev + (1 - phi) × MU_GLOBAL
+P_predict  = phi² × P_prev + sigma2_process
+```
+
+### 9.3 Observation model
+
+Uses the same logistic link as Elo: `P(win) = 1 / (1 + 10^((θ_opp − θ_self) / elo_scale))`.
+
+Linearised via the extended Kalman filter (EKF). The Jacobian `H = ln(10)/elo_scale × p × (1 − p)` feeds into the standard Kalman update.
+
+Output: `naf_catalog.gold_fact.ssm_rating_history_fact`
+
+---
+
+## 10. SSM v2 Rating Engine (Time-Aware + Adaptive Volatility)
+
+### 10.1 Tunable hyperparameters
+
+| Parameter | Value | Config column | Purpose |
+|---|---|---|---|
+| Observation noise (σ²_obs) | 0.10 | `ssm2_sigma2_obs` | Observation noise on logistic scale |
+| Time process noise (q_time) | 2.00 | `ssm2_q_time` | Variance added per √day of inactivity |
+| Game process noise (q_game) | 0.025 | `ssm2_q_game` | Baseline per-game process noise |
+| Volatility scale (v_scale) | 24.0 | `ssm2_v_scale` | Scale factor for adaptive volatility |
+
+### 10.2 Structural parameters
+
+| Parameter | Value | Config column | Purpose |
+|---|---|---|---|
+| Prior sigma | 50.0 | `ssm2_prior_sigma` | Prior SD for new coaches |
+| Max days | 180.0 | `ssm2_max_days` | Cap for days-since-last-game in √day scaling |
+| Volatility baseline | 0.25 | `ssm2_v_base` | Base volatility added to process variance |
+| Volatility decay (EWMA) | 0.90 | `ssm2_v_decay` | Exponential decay for shock tracker |
+| Volatility floor | 0.00 | `ssm2_v_min` | Minimum adaptive volatility |
+| Volatility ceiling | 16.0 | `ssm2_v_max` | Maximum adaptive volatility |
+
+### 10.3 State model
+
+No mean reversion. Process variance is time-aware with adaptive volatility:
+```
+P_pred = P_prev + q_time × √(min(Δt, max_days)) + q_game + volatility
+volatility = clip(v_base + v_scale × shock_ewma, v_min, v_max)
+```
+
+### 10.4 Observation model
+
+Same logistic link and EKF linearisation as SSM v1 (§9.3).
+
+### 10.5 Uncertainty-aware predictions (probit approximation)
+
+Used in evaluation (322) and potentially in future dashboards:
+```
+S_eff = S × √(1 + UA_COEFF × (σ²_self + σ²_opp))
+UA_COEFF = π/8 × (ln10 / elo_scale)²
+```
+
+Output: `naf_catalog.gold_fact.ssm2_rating_history_fact`
+
+---
+
 ## 7. Change Policy
 
 Any change to a parameter in this document is a model change that affects downstream analytics. Protocol:
@@ -280,4 +368,4 @@ Any change to a parameter in this document is a model change that affects downst
 1. Update this document.
 2. Update the corresponding value in the `analytical_config` table definition in `310_NAF_gold_dim.py`.
 3. Re-run 310 to rebuild the config table.
-4. Re-run all dependent notebooks (320 → 331/332 → presentation).
+4. Re-run all dependent notebooks (320 → 321 → 331/332 → presentation).
