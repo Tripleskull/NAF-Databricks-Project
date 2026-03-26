@@ -468,3 +468,94 @@ latest_g = spark.sql("""
 
 print(f"  Latest g distribution: mean={latest_g['mean_g']}  "
       f"sd={latest_g['sd_g']}  range=[{latest_g['min_g']}, {latest_g['max_g']}]")
+
+# COMMAND ----------
+
+# ---------------------------------------------------------------------------
+# Coach Race Rating Plot — paste into 323 or run standalone
+# ---------------------------------------------------------------------------
+import matplotlib.pyplot as plt
+import numpy as np
+
+COACH_ID = 9524  # change to any coach_id
+
+plot_df = spark.sql(f"""
+    SELECT rr.game_index, rr.date_id, rr.race_id, rd.race_name,
+           rr.g_before, rr.g_after, rr.g_sigma_before,
+           rr.d_before, rr.d_after, rr.d_sigma_before,
+           rr.theta_before, rr.theta_after,
+           rr.score_expected, rr.result_numeric,
+           e.rating_after AS elo_global
+    FROM naf_catalog.gold_fact.race_rating_history_fact rr
+    LEFT JOIN naf_catalog.gold_dim.race_dim rd ON rd.race_id = rr.race_id
+    LEFT JOIN naf_catalog.gold_fact.rating_history_fact e
+        ON e.game_id = rr.game_id AND e.coach_id = rr.coach_id
+        AND e.scope = 'GLOBAL'
+    WHERE rr.coach_id = {COACH_ID}
+    ORDER BY rr.game_index
+""").toPandas()
+
+if len(plot_df) == 0:
+    print(f"No data for coach {COACH_ID}")
+else:
+    races_played = plot_df["race_name"].unique()
+    n_races = len(races_played)
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 10))
+
+    # --- Panel 1: Global skill (g) vs Elo ---
+    ax = axes[0, 0]
+    ax.plot(plot_df["game_index"], plot_df["g_after"], label="g (global skill)", linewidth=1.5)
+    ax.fill_between(
+        plot_df["game_index"],
+        plot_df["g_after"] - 2 * plot_df["g_sigma_before"],
+        plot_df["g_after"] + 2 * plot_df["g_sigma_before"],
+        alpha=0.15,
+    )
+    if "elo_global" in plot_df.columns and plot_df["elo_global"].notna().any():
+        ax.plot(plot_df["game_index"], plot_df["elo_global"],
+                label="Elo (global)", linewidth=1, alpha=0.6, linestyle="--")
+    ax.set_ylabel("Rating")
+    ax.set_title(f"Coach {COACH_ID} — Global Skill (g)")
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+
+    # --- Panel 2: Race deviations (d) over time ---
+    ax = axes[0, 1]
+    for race_name in races_played:
+        rmask = plot_df["race_name"] == race_name
+        rdf = plot_df[rmask]
+        ax.plot(rdf["game_index"], rdf["d_after"], label=race_name, linewidth=1.2)
+    ax.axhline(0, color="k", linestyle="--", alpha=0.3)
+    ax.set_ylabel("Race Deviation (d)")
+    ax.set_title(f"Race Deviations ({n_races} races)")
+    ax.legend(fontsize=7, ncol=2)
+    ax.grid(True, alpha=0.3)
+
+    # --- Panel 3: Combined θ per race ---
+    ax = axes[1, 0]
+    for race_name in races_played:
+        rmask = plot_df["race_name"] == race_name
+        rdf = plot_df[rmask]
+        ax.plot(rdf["game_index"], rdf["theta_after"], label=race_name, linewidth=1.2)
+    ax.set_xlabel("Game index")
+    ax.set_ylabel("θ = g + d")
+    ax.set_title("Combined Race Ratings (θ)")
+    ax.legend(fontsize=7, ncol=2)
+    ax.grid(True, alpha=0.3)
+
+    # --- Panel 4: Race deviation uncertainty (σ_d) ---
+    ax = axes[1, 1]
+    for race_name in races_played:
+        rmask = plot_df["race_name"] == race_name
+        rdf = plot_df[rmask]
+        ax.plot(rdf["game_index"], rdf["d_sigma_before"], label=race_name, linewidth=1.2)
+    ax.set_xlabel("Game index")
+    ax.set_ylabel("σ_d (uncertainty)")
+    ax.set_title("Race Deviation Uncertainty")
+    ax.legend(fontsize=7, ncol=2)
+    ax.grid(True, alpha=0.3)
+
+    fig.suptitle(f"Race Rating Diagnostics — Coach {COACH_ID}", fontsize=14)
+    fig.tight_layout()
+    plt.show()
