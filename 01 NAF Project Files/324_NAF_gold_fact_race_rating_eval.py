@@ -444,3 +444,449 @@ print(f"✓ Plot: {run_dir}/calibration_plots.png")
 print(f"\n{'='*78}")
 print(f"EXPORT COMPLETE — {run_dir}")
 print(f"{'='*78}")
+
+# COMMAND ----------
+
+# DBTITLE 1,Race Rating Tuner (validation-window, stage 1)
+# DBTITLE 1,Race Rating Tuner (validation-window, stage 1)
+# =============================================================================
+# PURPOSE
+#   Tune the stage-1 race-aware EKF on the validation window [val_cutoff, test_cutoff)
+#   using chronological replay of the full game feed.
+#
+# MODEL PARAMS
+#   rr_prior_sigma_g
+#   rr_prior_sigma_d
+#   rr_sigma2_obs
+#   rr_q_global
+#   rr_q_race
+#
+# OBJECTIVE
+#   Overall validation Brier score
+#
+# NOTES
+#   - Uses the same validation window already defined in 324:
+#       val_cutoff <= date_id < test_cutoff
+#   - Replays ALL games in order, but only scores games in the validation window.
+#   - This is an in-memory research tuner; it does NOT overwrite production tables.
+# =============================================================================
+
+import math
+import time
+import itertools
+import numpy as np
+import pandas as pd
+from pyspark.sql import functions as F
+
+# ---------------------------------------------------------------------------
+# 0) Shared setup
+# ---------------------------------------------------------------------------
+_cfg = spark.table("naf_catalog.gold_dim.analytical_config").first()
+
+RR_INITIAL_RATING = float(_cfg["elo_initial_rating"])
+RR_ELO_SCALE      = float(_cfg["elo_scale"])
+RR_LN10_OVER_SCALE = math.log(10.0) / RR_ELO_SCALE
+
+# Load feed once
+rr_feed_df = (
+    spark.table("naf_catalog.gold_fact.game_feed_for_ratings_fact")
+    .withColumn("game_index", F.col("game_index").cast("int"))
+    .orderBy(F.col("game_index").asc(), F.col("game_id").asc())
+    .select(
+        "game_id", "game_index", "event_timestamp", "game_date", "date_id",
+        "tournament_id", "variant_id",
+        "home_coach_id", "away_coach_id",
+        "home_race_id", "away_race_id",
+        "result_home", "result_away",
+    )
+)
+
+rr_feed_rows = rr_feed_df.collect()
+print(f"Race tuning feed loaded: {len(rr_feed_rows)} games")
+print(f"Validation window: [{val_cutoff}, {test_cutoff})")
+
+def rr_win_prob(theta_self, theta_opp):
+    return 1.0 / (1.0 + 10.0 ** ((theta_opp - theta_self) / RR_ELO_SCALE))
+
+def rr_brier(y_true, y_pred):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    return float(np.mean((y_pred - y_true) ** 2)) if len(y_true) else np.nan
+
+def rr_log_loss(y_true, y_pred, eps=1e-12):
+    y_true = np.asarray(y_true, dtype=float)
+    p = np.clip(np.asarray(y_pred, dtype=float), eps, 1.0 - eps)
+    return float(-np.mean(y_true * np.log(p) + (1.0 - y_true) * np.log(1.0 - p))) if len(y_true) else np.nan
+
+def rr_exp_slice(prior_race_games):
+    if prior_race_games == 0:
+        return "first_game"
+    if 1 <= prior_race_games <= 5:
+        return "sparse_1_5"
+    if 6 <= prior_race_games <= 25:
+        return "moderate_6_25"
+    return "established_25plus"
+
+# ---------------------------------------------------------------------------
+# 1) Reusable race-engine runner
+# ---------------------------------------------------------------------------
+def run_rr_variant(
+    prior_sigma_g,
+    prior_sigma_d,
+    sigma2_obs,
+    q_global,
+    q_race,
+    eval_cutoff_date_id=None,
+):
+    """
+    Run stage-1 race-aware EKF in memory for a parameter variant.
+
+    Replays the full game history in order, but only returns rows with
+    date_id >= eval_cutoff_date_id if that cutoff is provided.
+
+    Returns
+    -------
+    pandas.DataFrame with one row per (game_id, coach_id), including:
+      game_id, coach_id, date_id, game_index,
+      race_id, coach_game_number, prior_race_games, race_experience,
+      rr_pred, result_numeric
+    """
+    prior_p_g = float(prior_sigma_g) ** 2
+    prior_p_d = float(prior_sigma_d) ** 2
+
+    g_state = {}          # coach_id -> [g, P_g]
+    d_state = {}          # (coach_id, race_id) -> [d, P_d]
+    coach_game_counts = {}    # coach_id -> total games seen so far
+    coach_race_counts = {}    # (coach_id, race_id) -> games with that race seen so far
+
+    def get_g(coach_id):
+        if coach_id not in g_state:
+            g_state[coach_id] = [RR_INITIAL_RATING, prior_p_g]
+        return g_state[coach_id]
+
+    def get_d(coach_id, race_id):
+        key = (coach_id, race_id)
+        if key not in d_state:
+            d_state[key] = [0.0, prior_p_d]
+        return d_state[key]
+
+    out_rows = []
+
+    for row in rr_feed_rows:
+        game_id    = int(row["game_id"])
+        game_index = int(row["game_index"])
+        date_id    = int(row["date_id"])
+
+        c_h = int(row["home_coach_id"])
+        c_a = int(row["away_coach_id"])
+        r_h = int(row["home_race_id"])
+        r_a = int(row["away_race_id"])
+
+        res_h = float(row["result_home"])
+        res_a = float(row["result_away"])
+
+        # --- counts BEFORE this game ---
+        prior_games_h = coach_game_counts.get(c_h, 0)
+        prior_games_a = coach_game_counts.get(c_a, 0)
+
+        prior_race_games_h = coach_race_counts.get((c_h, r_h), 0)
+        prior_race_games_a = coach_race_counts.get((c_a, r_a), 0)
+
+        coach_game_number_h = prior_games_h + 1
+        coach_game_number_a = prior_games_a + 1
+
+        race_exp_h = rr_exp_slice(prior_race_games_h)
+        race_exp_a = rr_exp_slice(prior_race_games_a)
+
+        # --- get states ---
+        g_h, Pg_h = get_g(c_h)
+        g_a, Pg_a = get_g(c_a)
+
+        d_h, Pd_h = get_d(c_h, r_h)
+        d_a, Pd_a = get_d(c_a, r_a)
+
+        # --- prediction step ---
+        Pg_h_pred = Pg_h + q_global
+        Pg_a_pred = Pg_a + q_global
+        Pd_h_pred = Pd_h + q_race
+        Pd_a_pred = Pd_a + q_race
+
+        theta_h = g_h + d_h
+        theta_a = g_a + d_a
+
+        p_h = rr_win_prob(theta_h, theta_a)
+        p_a = 1.0 - p_h
+
+        h_val = RR_LN10_OVER_SCALE * p_h * (1.0 - p_h)
+
+        innov_h = res_h - p_h
+        innov_a = res_a - p_a
+
+        # --- home update ---
+        S_h  = h_val * h_val * (Pg_h_pred + Pd_h_pred) + sigma2_obs
+        Kg_h = h_val * Pg_h_pred / S_h
+        Kd_h = h_val * Pd_h_pred / S_h
+
+        g_h_post  = g_h + Kg_h * innov_h
+        d_h_post  = d_h + Kd_h * innov_h
+        Pg_h_post = max(1e-6, (1.0 - Kg_h * h_val) * Pg_h_pred)
+        Pd_h_post = max(1e-6, (1.0 - Kd_h * h_val) * Pd_h_pred)
+
+        # --- away update ---
+        S_a  = h_val * h_val * (Pg_a_pred + Pd_a_pred) + sigma2_obs
+        Kg_a = h_val * Pg_a_pred / S_a
+        Kd_a = h_val * Pd_a_pred / S_a
+
+        g_a_post  = g_a + Kg_a * innov_a
+        d_a_post  = d_a + Kd_a * innov_a
+        Pg_a_post = max(1e-6, (1.0 - Kg_a * h_val) * Pg_a_pred)
+        Pd_a_post = max(1e-6, (1.0 - Kd_a * h_val) * Pd_a_pred)
+
+        # --- emit rows only from cutoff onward ---
+        if eval_cutoff_date_id is None or date_id >= eval_cutoff_date_id:
+            out_rows.append((
+                game_id, c_h, date_id, game_index, r_h,
+                coach_game_number_h, prior_race_games_h, race_exp_h,
+                p_h, res_h
+            ))
+            out_rows.append((
+                game_id, c_a, date_id, game_index, r_a,
+                coach_game_number_a, prior_race_games_a, race_exp_a,
+                p_a, res_a
+            ))
+
+        # --- persist states ---
+        g_state[c_h] = [g_h_post, Pg_h_post]
+        g_state[c_a] = [g_a_post, Pg_a_post]
+        d_state[(c_h, r_h)] = [d_h_post, Pd_h_post]
+        d_state[(c_a, r_a)] = [d_a_post, Pd_a_post]
+
+        coach_game_counts[c_h] = coach_game_number_h
+        coach_game_counts[c_a] = coach_game_number_a
+        coach_race_counts[(c_h, r_h)] = prior_race_games_h + 1
+        coach_race_counts[(c_a, r_a)] = prior_race_games_a + 1
+
+    return pd.DataFrame(
+        out_rows,
+        columns=[
+            "game_id", "coach_id", "date_id", "game_index", "race_id",
+            "coach_game_number", "prior_race_games", "race_experience",
+            "rr_pred", "result_numeric"
+        ],
+    )
+
+# ---------------------------------------------------------------------------
+# 2) Validation scorer
+# ---------------------------------------------------------------------------
+def compute_rr_objective(
+    engine_out,
+    val_start,
+    val_end,
+):
+    """
+    Score a race-model variant on the validation window.
+
+    Objective:
+      overall validation Brier only
+    """
+    df = engine_out[
+        (engine_out["date_id"] >= val_start) &
+        (engine_out["date_id"] <  val_end)
+    ].copy()
+
+    if len(df) == 0:
+        return {
+            "objective": np.inf,
+            "brier_overall": np.nan,
+            "logloss_overall": np.nan,
+            "n_obs": 0,
+            "brier_by_slice": {},
+        }
+
+    y = df["result_numeric"].to_numpy(dtype=float)
+    p = df["rr_pred"].to_numpy(dtype=float)
+
+    brier_overall = rr_brier(y, p)
+    logloss_overall = rr_log_loss(y, p)
+
+    brier_by_slice = {}
+    for sl in ["first_game", "sparse_1_5", "moderate_6_25", "established_25plus"]:
+        m = df["race_experience"] == sl
+        if m.sum() > 0:
+            brier_by_slice[sl] = {
+                "brier": rr_brier(df.loc[m, "result_numeric"], df.loc[m, "rr_pred"]),
+                "n": int(m.sum()),
+            }
+
+    return {
+        "objective": float(brier_overall),
+        "brier_overall": brier_overall,
+        "logloss_overall": logloss_overall,
+        "n_obs": int(len(df)),
+        "brier_by_slice": brier_by_slice,
+    }
+
+# ---------------------------------------------------------------------------
+# 3) Grid definitions
+# ---------------------------------------------------------------------------
+RR_COARSE_GRID = {
+    "prior_sigma_g": [40.0, 50.0, 60.0],
+    "prior_sigma_d": [15.0, 30.0, 45.0],
+    "sigma2_obs":    [0.03, 0.10, 0.20],
+    "q_global":      [0.00, 0.25, 0.50, 1.00],
+    "q_race":        [0.05, 0.25, 0.50, 1.00],
+}
+
+def make_rr_fine_grid(best_params):
+    """
+    3-point neighbourhood around each best coarse parameter.
+    """
+    def _neighbourhood(val, candidates):
+        candidates = sorted(candidates)
+        idx = min(range(len(candidates)), key=lambda i: abs(candidates[i] - val))
+        if idx == 0:
+            step = (candidates[1] - candidates[0]) / 2
+        elif idx == len(candidates) - 1:
+            step = (candidates[-1] - candidates[-2]) / 2
+        else:
+            step = min(candidates[idx] - candidates[idx - 1],
+                       candidates[idx + 1] - candidates[idx]) / 2
+        lo = max(val - step, min(candidates) * 0.5 if min(candidates) > 0 else 0.0)
+        hi = val + step
+        return sorted(set([round(lo, 6), round(val, 6), round(hi, 6)]))
+
+    return {
+        "prior_sigma_g": _neighbourhood(best_params["prior_sigma_g"], RR_COARSE_GRID["prior_sigma_g"]),
+        "prior_sigma_d": _neighbourhood(best_params["prior_sigma_d"], RR_COARSE_GRID["prior_sigma_d"]),
+        "sigma2_obs":    _neighbourhood(best_params["sigma2_obs"],    RR_COARSE_GRID["sigma2_obs"]),
+        "q_global":      _neighbourhood(best_params["q_global"],      RR_COARSE_GRID["q_global"]),
+        "q_race":        _neighbourhood(best_params["q_race"],        RR_COARSE_GRID["q_race"]),
+    }
+
+# ---------------------------------------------------------------------------
+# 4) Grid search runner
+# ---------------------------------------------------------------------------
+def run_rr_grid(grid, val_start, val_end, label="Race Grid"):
+    keys = list(grid.keys())
+    combos = list(itertools.product(*[grid[k] for k in keys]))
+
+    print(f"\n{'='*86}")
+    print(f"{label}: {len(combos)} parameter combinations")
+    print(f"Objective: overall validation Brier")
+    print(f"Validation window: date_id ∈ [{val_start}, {val_end})")
+    print(f"{'='*86}")
+
+    all_results = []
+    t0 = time.time()
+
+    for i, vals in enumerate(combos):
+        params = dict(zip(keys, vals))
+        t_start = time.time()
+
+        engine_out = run_rr_variant(
+            prior_sigma_g=params["prior_sigma_g"],
+            prior_sigma_d=params["prior_sigma_d"],
+            sigma2_obs=params["sigma2_obs"],
+            q_global=params["q_global"],
+            q_race=params["q_race"],
+            eval_cutoff_date_id=val_start,
+        )
+
+        scores = compute_rr_objective(engine_out, val_start, val_end)
+        scores["params"] = params
+        all_results.append(scores)
+
+        elapsed = time.time() - t_start
+        total_elapsed = time.time() - t0
+        avg_per = total_elapsed / (i + 1)
+        remaining = avg_per * (len(combos) - i - 1)
+
+        if (i + 1) % 5 == 0 or (i + 1) == len(combos):
+            sl = scores.get("brier_by_slice", {})
+            fg = sl.get("first_game", {}).get("brier", np.nan)
+            sp = sl.get("sparse_1_5", {}).get("brier", np.nan)
+
+            print(
+                f"  [{i+1:>3}/{len(combos)}] "
+                f"obj={scores['objective']:.5f}  "
+                f"all={scores['brier_overall']:.5f}  "
+                f"fg={fg:.5f}  sp={sp:.5f}  "
+                f"σg={params['prior_sigma_g']:.1f} "
+                f"σd={params['prior_sigma_d']:.1f} "
+                f"σ²={params['sigma2_obs']:.3f} "
+                f"qg={params['q_global']:.3f} "
+                f"qr={params['q_race']:.3f}  "
+                f"({elapsed:.0f}s, ~{remaining/60:.0f}m left)"
+            )
+
+    res_df = pd.DataFrame([
+        {
+            **r["params"],
+            "objective": r["objective"],
+            "brier_overall": r["brier_overall"],
+            "logloss_overall": r["logloss_overall"],
+            "n_obs": r["n_obs"],
+            "brier_first_game": r["brier_by_slice"].get("first_game", {}).get("brier", np.nan),
+            "brier_sparse_1_5": r["brier_by_slice"].get("sparse_1_5", {}).get("brier", np.nan),
+            "brier_moderate_6_25": r["brier_by_slice"].get("moderate_6_25", {}).get("brier", np.nan),
+            "brier_established_25plus": r["brier_by_slice"].get("established_25plus", {}).get("brier", np.nan),
+            "n_first_game": r["brier_by_slice"].get("first_game", {}).get("n", 0),
+            "n_sparse_1_5": r["brier_by_slice"].get("sparse_1_5", {}).get("n", 0),
+            "n_moderate_6_25": r["brier_by_slice"].get("moderate_6_25", {}).get("n", 0),
+            "n_established_25plus": r["brier_by_slice"].get("established_25plus", {}).get("n", 0),
+        }
+        for r in all_results
+    ]).sort_values(["objective", "brier_overall"], ascending=[True, True]).reset_index(drop=True)
+
+    return res_df, all_results
+
+# # ---------------------------------------------------------------------------
+# # 5) Run tuning (uncomment to execute)
+# # ---------------------------------------------------------------------------
+# TUNE_VAL_START = val_cutoff
+# TUNE_VAL_END   = test_cutoff
+
+# # --- coarse pass ---
+# rr_coarse_df, rr_coarse_raw = run_rr_grid(
+#     RR_COARSE_GRID,
+#     TUNE_VAL_START,
+#     TUNE_VAL_END,
+#     label="RACE COARSE GRID"
+# )
+# display(rr_coarse_df.head(20))
+
+# best_coarse = rr_coarse_df.iloc[0].to_dict()
+# print("\nBest coarse params:")
+# print({k: best_coarse[k] for k in ["prior_sigma_g", "prior_sigma_d", "sigma2_obs", "q_global", "q_race"]})
+
+# # --- fine pass ---
+# RR_FINE_GRID = make_rr_fine_grid(best_coarse)
+# print("\nFine grid:")
+# for k, v in RR_FINE_GRID.items():
+#     print(f"  {k}: {v}")
+
+# rr_fine_df, rr_fine_raw = run_rr_grid(
+#     RR_FINE_GRID,
+#     TUNE_VAL_START,
+#     TUNE_VAL_END,
+#     label="RACE FINE GRID"
+# )
+# display(rr_fine_df.head(20))
+
+# best_fine = rr_fine_df.iloc[0]
+# print(f"\n{'='*86}")
+# print("FINAL BEST RACE PARAMETERS (validation objective)")
+# print(f"{'='*86}")
+# print(f"prior_sigma_g  = {best_fine['prior_sigma_g']:.4f}")
+# print(f"prior_sigma_d  = {best_fine['prior_sigma_d']:.4f}")
+# print(f"sigma2_obs     = {best_fine['sigma2_obs']:.4f}")
+# print(f"q_global       = {best_fine['q_global']:.4f}")
+# print(f"q_race         = {best_fine['q_race']:.4f}")
+# print("")
+# print(f"objective      = {best_fine['objective']:.5f}")
+# print(f"brier_overall  = {best_fine['brier_overall']:.5f}")
+# print(f"logloss_overall= {best_fine['logloss_overall']:.5f}")
+# print(f"brier_first    = {best_fine['brier_first_game']:.5f}")
+# print(f"brier_sparse   = {best_fine['brier_sparse_1_5']:.5f}")
+# print(f"brier_moderate = {best_fine['brier_moderate_6_25']:.5f}")
+# print(f"brier_estab    = {best_fine['brier_established_25plus']:.5f}")
