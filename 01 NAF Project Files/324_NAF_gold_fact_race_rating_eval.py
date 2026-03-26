@@ -362,15 +362,79 @@ report_lines.append(f"Run: {run_timestamp}")
 report_lines.append(f"Test: date_id >= {eval_cutoff} ({EVAL_TEST_MONTHS} months)")
 report_lines.append(f"Observations: {len(eval_df)}")
 report_lines.append("")
-report_lines.append(f"{'Model':<18} {'Brier':>10} {'Log-loss':>10} {'dBr vs Elo':>11}")
+
+# --- Overall comparison ---
+report_lines.append(f"{'='*78}")
+report_lines.append(f"OVERALL COMPARISON")
+report_lines.append(f"{'='*78}")
+report_lines.append(f"{'Model':<18} {'Brier':>10} {'Log-loss':>10} {'Accuracy':>10}  "
+                    f"{'dBr vs Elo':>11}")
 for name, m in metrics.items():
     br_d = elo_br - m["brier"]
     dbr = f"{br_d:+11.5f}" if name != "Global Elo" else f"{'---':>11}"
-    report_lines.append(f"{name:<18} {m['brier']:10.5f} {m['log_loss']:10.5f} {dbr}")
+    report_lines.append(f"{name:<18} {m['brier']:10.5f} {m['log_loss']:10.5f} "
+                        f"{m['accuracy']:10.3f}  {dbr}")
+report_lines.append("")
+
+# --- Sliced evaluation ---
+report_lines.append(f"{'='*78}")
+report_lines.append(f"BRIER SCORE BY RACE EXPERIENCE")
+report_lines.append(f"{'='*78}")
+slice_hdr = f"{'Slice':<22} {'n':>7}"
+for name in models:
+    slice_hdr += f"  {name:>14}"
+report_lines.append(slice_hdr)
+
+for sl in ["first_game", "sparse_1_5", "moderate_6_25", "established_25plus"]:
+    mask = eval_df["race_experience"] == sl
+    n_sl = mask.sum()
+    if n_sl == 0:
+        continue
+    y_sl = y[mask]
+    line = f"{sl:<22} {n_sl:>7}"
+    for name, preds in models.items():
+        p_sl = preds[mask]
+        valid = ~np.isnan(p_sl)
+        if valid.sum() > 0:
+            br = brier_score(y_sl[valid], p_sl[valid])
+            line += f"  {br:>14.5f}"
+        else:
+            line += f"  {'N/A':>14}"
+    report_lines.append(line)
+report_lines.append("")
+
+# --- Key comparisons ---
+report_lines.append(f"KEY COMPARISONS (Race Rating vs Race Elo)")
+for sl in ["first_game", "sparse_1_5", "moderate_6_25", "established_25plus"]:
+    mask = eval_df["race_experience"] == sl
+    if mask.sum() == 0:
+        continue
+    y_sl = y[mask]
+    rr = eval_df["rr_pred"].values[mask]
+    re = eval_df["elo_race_pred"].values[mask]
+    eg = eval_df["elo_global_pred"].values[mask]
+    valid = ~(np.isnan(rr) | np.isnan(re) | np.isnan(eg))
+    if valid.sum() > 0:
+        d_re = brier_score(y_sl[valid], re[valid]) - brier_score(y_sl[valid], rr[valid])
+        d_eg = brier_score(y_sl[valid], eg[valid]) - brier_score(y_sl[valid], rr[valid])
+        report_lines.append(
+            f"  {sl:<22}  vs Race Elo: {d_re:+.5f}  "
+            f"vs Global Elo: {d_eg:+.5f}")
+report_lines.append("")
+
+# --- Parameters ---
+report_lines.append(f"PARAMETERS")
+report_lines.append(f"  prior_sigma_g = {float(_cfg['rr_prior_sigma_g'])}")
+report_lines.append(f"  prior_sigma_d = {float(_cfg['rr_prior_sigma_d'])}")
+report_lines.append(f"  sigma2_obs    = {float(_cfg['rr_sigma2_obs'])}")
+report_lines.append(f"  q_global      = {float(_cfg['rr_q_global'])}")
+report_lines.append(f"  q_race        = {float(_cfg['rr_q_race'])}")
+
+report_text = "\n".join(report_lines)
 
 report_path = f"{run_dir}/evaluation_report.txt"
 with open(report_path, "w") as f:
-    f.write("\n".join(report_lines))
+    f.write(report_text)
 print(f"✓ Report: {report_path}")
 
 # Calibration plot
