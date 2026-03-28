@@ -6,6 +6,25 @@ To work with the project, clone the repository, open the notebooks in Databricks
 
 More detailed setup and execution guidance may be added in separate documentation.
 
+## External Data and Reference Sources
+
+This project relies on external reference data for country and region standardisation.
+
+- **NAF data export (primary data source)**  
+  https://member.thenaf.net/glicko/nafstat-tmp-name.zip  
+  Daily updated dataset used as the foundation for all analysis.
+
+- **FIFA / IOC country codes**  
+  https://www.rsssf.org/miscellaneous/fifa-codes.html  
+  Maintained by the Rec.Sport.Soccer Statistics Foundation (RSSSF).  
+  © Iain Jeffree and RSSSF. Used with acknowledgement.
+
+- **ISO country codes dataset**  
+  https://gist.github.com/radcliff/f09c0f88344a7fcef373  
+  Used for ISO-based country code mappings and standardisation.
+
+These sources are not maintained by this repository and may change over time. Ownership and rights to the underlying data remain with the respective authors and organisations.
+
 # NAF Databricks Project
 
 A data engineering and analytics project for analysing NAF (Blood Bowl) data using a structured, production-style pipeline in Databricks. The project focuses on transforming raw match and tournament data into reliable analytical datasets and dashboards for players, coaches and the broader community.
