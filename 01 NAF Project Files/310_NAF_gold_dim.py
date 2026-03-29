@@ -238,7 +238,8 @@
 # MAGIC -- GRAIN        : Singleton (1 row). No PK — single-row config table.
 # MAGIC -- PURPOSE      : Central store for all tuneable analytical parameters.
 # MAGIC --                Consumed by: tournament_parameters (below), 320 (Elo engine),
-# MAGIC --                331 (coach summary), 332 (nation summary).
+# MAGIC --                331 (coach summary), 332 (nation summary),
+# MAGIC --                323 (race rating stage 1 + stage 2), 324 (race eval).
 # MAGIC --                See Analytical_Parameters.md for documentation.
 # MAGIC -- =====================================================================
 # MAGIC
@@ -267,8 +268,7 @@
 # MAGIC   CAST(50      AS INT)     AS min_games_nation_glo,
 # MAGIC   CAST(5       AS INT)     AS min_games_nation_race,
 # MAGIC
-# MAGIC   -- Nation rivalry scoring weights (currently unused — rivalry tables use
-# MAGIC   -- simple rank-average formula; kept for future refinement)
+# MAGIC   -- Nation rivalry scoring weights (currently unused)
 # MAGIC   CAST(100.0   AS DOUBLE)  AS rivalry_games_cap,
 # MAGIC   CAST(1.0/6.0 AS DOUBLE)  AS rivalry_w_games,
 # MAGIC   CAST(2.0/3.0 AS DOUBLE)  AS rivalry_w_closeness,
@@ -281,35 +281,44 @@
 # MAGIC   CAST(50      AS INT)     AS form_window_games,
 # MAGIC   CAST(50      AS INT)     AS form_min_games_for_pctl,
 # MAGIC
-# MAGIC   -- Team selector (Phase 6)
-# MAGIC   -- Old 5-weight scheme removed. New 3-component selector (GLO/Race/Opponent)
-# MAGIC   -- uses deterministic focus weights computed in 332 (no config needed).
-# MAGIC   -- Kept for reference: previous weights were 0.30/0.25/0.15/0.15/0.15.
-# MAGIC
 # MAGIC   -- SSM v1 (random-walk EKF, 321)
-# MAGIC   CAST(50.0    AS DOUBLE)  AS ssm1_prior_sigma,        -- prior SD for new coaches
-# MAGIC   CAST(1.000   AS DOUBLE)  AS ssm1_phi,                -- AR(1) mean-reversion coeff (1.0 = none)
-# MAGIC   CAST(2.0     AS DOUBLE)  AS ssm1_sigma2_process,     -- per-game process noise variance
-# MAGIC   CAST(0.02    AS DOUBLE)  AS ssm1_sigma2_obs,         -- observation noise (logistic scale)
+# MAGIC   CAST(50.0    AS DOUBLE)  AS ssm1_prior_sigma,
+# MAGIC   CAST(1.000   AS DOUBLE)  AS ssm1_phi,
+# MAGIC   CAST(2.0     AS DOUBLE)  AS ssm1_sigma2_process,
+# MAGIC   CAST(0.02    AS DOUBLE)  AS ssm1_sigma2_obs,
 # MAGIC
 # MAGIC   -- SSM v2 production (time-aware + adaptive volatility, 321)
-# MAGIC   CAST(50.0    AS DOUBLE)  AS ssm2_prior_sigma,        -- prior SD for new coaches
-# MAGIC   CAST(0.10    AS DOUBLE)  AS ssm2_sigma2_obs,         -- observation noise (logistic scale)
-# MAGIC   CAST(2.00    AS DOUBLE)  AS ssm2_q_time,             -- variance per sqrt(day) of inactivity
-# MAGIC   CAST(0.025   AS DOUBLE)  AS ssm2_q_game,             -- baseline per-game process noise
-# MAGIC   CAST(180.0   AS DOUBLE)  AS ssm2_max_days,           -- cap for days-since-last-game
-# MAGIC   CAST(0.25    AS DOUBLE)  AS ssm2_v_base,             -- volatility baseline
-# MAGIC   CAST(24.0    AS DOUBLE)  AS ssm2_v_scale,            -- volatility scale factor
-# MAGIC   CAST(0.90    AS DOUBLE)  AS ssm2_v_decay,            -- EWMA decay for shock tracker
-# MAGIC   CAST(0.00    AS DOUBLE)  AS ssm2_v_min,              -- volatility floor
-# MAGIC   CAST(16.0    AS DOUBLE)  AS ssm2_v_max,              -- volatility ceiling
+# MAGIC   CAST(50.0    AS DOUBLE)  AS ssm2_prior_sigma,
+# MAGIC   CAST(0.10    AS DOUBLE)  AS ssm2_sigma2_obs,
+# MAGIC   CAST(2.00    AS DOUBLE)  AS ssm2_q_time,
+# MAGIC   CAST(0.025   AS DOUBLE)  AS ssm2_q_game,
+# MAGIC   CAST(180.0   AS DOUBLE)  AS ssm2_max_days,
+# MAGIC   CAST(0.25    AS DOUBLE)  AS ssm2_v_base,
+# MAGIC   CAST(24.0    AS DOUBLE)  AS ssm2_v_scale,
+# MAGIC   CAST(0.90    AS DOUBLE)  AS ssm2_v_decay,
+# MAGIC   CAST(0.00    AS DOUBLE)  AS ssm2_v_min,
+# MAGIC   CAST(16.0    AS DOUBLE)  AS ssm2_v_max,
 # MAGIC
 # MAGIC   -- Race rating model (323) — Stage 1: global + independent race deviations
-# MAGIC   CAST(35.0    AS DOUBLE)  AS rr_prior_sigma_g,        -- global skill prior SD
-# MAGIC   CAST(15.0    AS DOUBLE)  AS rr_prior_sigma_d,        -- race-deviation prior SD
-# MAGIC   CAST(0.10    AS DOUBLE)  AS rr_sigma2_obs,           -- observation noise (logistic scale)
-# MAGIC   CAST(1.25    AS DOUBLE)  AS rr_q_global,             -- per-game process noise for global
-# MAGIC   CAST(0.025   AS DOUBLE)  AS rr_q_race,               -- per-game process noise for race deviation
+# MAGIC   CAST(35.0    AS DOUBLE)  AS rr_prior_sigma_g,
+# MAGIC   CAST(15.0    AS DOUBLE)  AS rr_prior_sigma_d,
+# MAGIC   CAST(0.10    AS DOUBLE)  AS rr_sigma2_obs,
+# MAGIC   CAST(1.25    AS DOUBLE)  AS rr_q_global,
+# MAGIC   CAST(0.025   AS DOUBLE)  AS rr_q_race,
+# MAGIC
+# MAGIC   -- Race rating model (323) — Stage 2: global + correlated race deviations
+# MAGIC   -- These are initial placeholders and should be tuned separately from stage 1.
+# MAGIC   CAST(35.0    AS DOUBLE)  AS rr2_prior_sigma_g,
+# MAGIC   CAST(15.0    AS DOUBLE)  AS rr2_prior_sigma_d,
+# MAGIC   CAST(0.10    AS DOUBLE)  AS rr2_sigma2_obs,
+# MAGIC   CAST(1.25    AS DOUBLE)  AS rr2_q_global,
+# MAGIC   CAST(0.025   AS DOUBLE)  AS rr2_q_race,
+# MAGIC
+# MAGIC   -- Stage 2 covariance estimation controls
+# MAGIC   CAST(0.25    AS DOUBLE)  AS rr2_cov_shrinkage_lambda,
+# MAGIC   CAST(6       AS INT)     AS rr2_cov_min_games_per_race,
+# MAGIC   CAST(20      AS INT)     AS rr2_cov_min_overlap_coaches,
+# MAGIC   CAST(0.0001  AS DOUBLE)  AS rr2_cov_eigen_floor,
 # MAGIC
 # MAGIC   CURRENT_TIMESTAMP()      AS load_timestamp
 # MAGIC ;

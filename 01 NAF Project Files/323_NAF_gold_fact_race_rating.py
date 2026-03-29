@@ -34,8 +34,10 @@
 # COMMAND ----------
 
 # DBTITLE 1,Load Analytical Config
+# COMMAND ----------
+# DBTITLE 1,Load Analytical Config (Stage 1 + Stage 2)
 # =============================================================================
-# COMPONENT: Load analytical parameters and game feed
+# COMPONENT: Load analytical parameters and shared constants
 # =============================================================================
 
 import math
@@ -44,21 +46,68 @@ from pyspark.sql import functions as F, types as T
 
 _cfg = spark.table("naf_catalog.gold_dim.analytical_config").first()
 
+# ---------------------------------------------------------------------------
 # Shared constants
-INITIAL_RATING = float(_cfg["elo_initial_rating"])    # 150.0
-ELO_SCALE      = float(_cfg["elo_scale"])             # 150.0
+# ---------------------------------------------------------------------------
+INITIAL_RATING = float(_cfg["elo_initial_rating"])     # 150.0
+ELO_SCALE      = float(_cfg["elo_scale"])              # 150.0
 LN10_OVER_SCALE = math.log(10.0) / ELO_SCALE
 
-# Race-rating hyperparameters (from analytical_config)
-RR_PRIOR_SIGMA_G = float(_cfg["rr_prior_sigma_g"])    # global prior SD
-RR_PRIOR_SIGMA_D = float(_cfg["rr_prior_sigma_d"])    # race-deviation prior SD
-RR_SIGMA2_OBS    = float(_cfg["rr_sigma2_obs"])       # observation noise
-RR_Q_GLOBAL      = float(_cfg["rr_q_global"])         # per-game process noise for g
-RR_Q_RACE        = float(_cfg["rr_q_race"])           # per-game process noise for d
+# ---------------------------------------------------------------------------
+# Stage 1: independent race deviations
+# ---------------------------------------------------------------------------
+RR_PRIOR_SIGMA_G = float(_cfg["rr_prior_sigma_g"])     # global prior SD
+RR_PRIOR_SIGMA_D = float(_cfg["rr_prior_sigma_d"])     # race-deviation prior SD
+RR_SIGMA2_OBS    = float(_cfg["rr_sigma2_obs"])        # observation noise
+RR_Q_GLOBAL      = float(_cfg["rr_q_global"])          # per-game process noise for g
+RR_Q_RACE        = float(_cfg["rr_q_race"])            # per-game process noise for d
 
-print(f"Config loaded — Race rating: prior_σ_g={RR_PRIOR_SIGMA_G}  "
-      f"prior_σ_d={RR_PRIOR_SIGMA_D}  σ²_obs={RR_SIGMA2_OBS}  "
-      f"q_global={RR_Q_GLOBAL}  q_race={RR_Q_RACE}")
+# ---------------------------------------------------------------------------
+# Stage 2: correlated race deviations
+# ---------------------------------------------------------------------------
+RR2_PRIOR_SIGMA_G = float(_cfg["rr2_prior_sigma_g"])   # global prior SD
+RR2_PRIOR_SIGMA_D = float(_cfg["rr2_prior_sigma_d"])   # race-deviation prior SD
+RR2_SIGMA2_OBS    = float(_cfg["rr2_sigma2_obs"])      # observation noise
+RR2_Q_GLOBAL      = float(_cfg["rr2_q_global"])        # per-game process noise for g
+RR2_Q_RACE        = float(_cfg["rr2_q_race"])          # per-game process noise for race vector
+
+# Covariance-estimation / covariance-use controls
+RR2_COV_SHRINKAGE_LAMBDA   = float(_cfg["rr2_cov_shrinkage_lambda"])
+RR2_COV_MIN_GAMES_PER_RACE = int(_cfg["rr2_cov_min_games_per_race"])
+RR2_COV_MIN_OVERLAP_COACHES = int(_cfg["rr2_cov_min_overlap_coaches"])
+RR2_COV_EIGEN_FLOOR        = float(_cfg["rr2_cov_eigen_floor"])
+
+# ---------------------------------------------------------------------------
+# Output targets
+# ---------------------------------------------------------------------------
+RR_STAGE1_TARGET = "naf_catalog.gold_fact.race_rating_history_fact"
+RR_STAGE2_TARGET = "naf_catalog.gold_fact.race_rating_corr_history_fact"
+RR_STAGE2_COV_TABLE = "naf_catalog.gold_fact.race_correlation_matrix_fact"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+print(
+    "Config loaded — Race rating Stage 1: "
+    f"prior_σ_g={RR_PRIOR_SIGMA_G}  "
+    f"prior_σ_d={RR_PRIOR_SIGMA_D}  "
+    f"σ²_obs={RR_SIGMA2_OBS}  "
+    f"q_global={RR_Q_GLOBAL}  "
+    f"q_race={RR_Q_RACE}"
+)
+
+print(
+    "Config loaded — Race rating Stage 2: "
+    f"prior_σ_g={RR2_PRIOR_SIGMA_G}  "
+    f"prior_σ_d={RR2_PRIOR_SIGMA_D}  "
+    f"σ²_obs={RR2_SIGMA2_OBS}  "
+    f"q_global={RR2_Q_GLOBAL}  "
+    f"q_race={RR2_Q_RACE}  "
+    f"λ_shrink={RR2_COV_SHRINKAGE_LAMBDA}  "
+    f"min_games={RR2_COV_MIN_GAMES_PER_RACE}  "
+    f"min_overlap={RR2_COV_MIN_OVERLAP_COACHES}  "
+    f"eigen_floor={RR2_COV_EIGEN_FLOOR}"
+)
 
 # COMMAND ----------
 
