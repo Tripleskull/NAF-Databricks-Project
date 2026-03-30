@@ -78,8 +78,8 @@ print(f"Game feed loaded: {len(ssm2_feed_rows)} games")
 
 # COMMAND ----------
 
-
 # DBTITLE 1,Coach Plot Export Function
+
 # =============================================================================
 # COMPONENT: Coach Plot Export Function
 # =============================================================================
@@ -233,8 +233,8 @@ def export_coach_plots(coach_ids, run_name,
 
 # COMMAND ----------
 
-
 # DBTITLE 1,SSM2 Calibration Coverage
+
 # =============================================================================
 # SSM2 Calibration Coverage: does rolling median Elo fall inside SSM2 ± 2σ
 # ~95% of the time? Broken down by experience tier.
@@ -1718,8 +1718,8 @@ print(f"{'='*78}")
 
 # COMMAND ----------
 
-
 # DBTITLE 1,Export Coach Plots
+
 #DenmarkEB2026:
 DenmarkEB2026 = [11501, 11499, 29078, 17846, 24222, 29046, 34738, 9524]
 
