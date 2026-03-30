@@ -133,10 +133,9 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `Analytical_Parameters.md` - All tuneable parameters + config column mapping + change protocol
 - `Pipeline_Object_Index.md` - Logical ordering and dependency map for all summary/presentation objects
 - `Expansion_Plan.md` - 9-phase roadmap (nation dashboard, team selector, global status report)
-- `Skill_Estimation_Plan.md` - SSM design options analysis (Option 4 selected and implemented)
-- `ssm_model_outline_v2_with_suggestions.md` - SSM v2 design spec (time-aware + adaptive volatility)
-- `Nation_plan.md` - Deprecated; see Nation_Dashboard_Plan.md
+- `Nation_Dashboard_Plan.md` - Nation dashboard overhaul plan (widget-by-widget)
 - `style_guides.md` - SQL/PySpark formatting rules
+- `archive/` - Implemented design specs kept for reference (SSM design options, SSM v2 outline, race rating plan)
 
 ### Other Documentation
 - `CLAUDE.md` - This file (project instructions)
