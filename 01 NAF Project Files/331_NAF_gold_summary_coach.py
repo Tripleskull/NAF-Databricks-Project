@@ -16,13 +16,13 @@
 # MAGIC - **`glo` = `global_elo`**: Abbreviated form used in column names (e.g., `avg_opponent_glo_peak`).
 # MAGIC   Full prefix `global_elo_` used in the Global Elo summary table itself.
 # MAGIC
-# MAGIC ## Design decisions (331-specific)
+# MAGIC ## Design decisions (summary layer)
 # MAGIC - **`form_label` / `bin_label` in summary**: Intentionally kept here (not deferred to presentation)
 # MAGIC   because the label thresholds are analytical rules, not UI formatting.
 # MAGIC - **`coach_form_summary` reads from `gold_fact`**: Intentional — form score requires
 # MAGIC   `score_expected` which only exists in `rating_history_fact`, not in any summary spine.
 # MAGIC - **25-game specialist threshold**: Fixed rule (not config-driven). Documented in
-# MAGIC   `Analytical_Parameters.md`. Used in `coach_race_relative_strength` and `coach_race_nation_rank`.
+# MAGIC   `Analytical_Parameters.md`. Used in `coach_race_relative_strength` and `coach_race_nation_rank` (both in 332).
 # MAGIC - **Opponent GLO bins**: Fixed 4-bin scheme (0-150 / 150-200 / 200-250 / 250+) in
 # MAGIC   `coach_opponent_median_glo_bin_summary`. Legacy configurable bin framework removed.
 # MAGIC
