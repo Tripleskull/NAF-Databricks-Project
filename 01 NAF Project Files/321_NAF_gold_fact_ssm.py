@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # 321 — State-Space Model (SSM) Rating Engine
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT
+# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Production
 # MAGIC **Pipeline position:** Runs after 320 (Elo engine)
 # MAGIC
 # MAGIC ## Purpose
@@ -67,11 +67,13 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_fact
 # MAGIC %sql
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_fact;
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_fact.ssm_rating_history_fact
 # MAGIC %sql -- TABLE: naf_catalog.gold_fact.ssm_rating_history_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : SSM (State-Space Model) rating history per game, GLOBAL scope.
@@ -132,6 +134,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,SSM Rating Engine (Extended Kalman Filter)
 # COMPONENT: SSM Rating Engine (Extended Kalman Filter)
 # =============================================================================
 # PURPOSE      : Compute SSM ratings for all coaches, GLOBAL scope.
@@ -432,6 +435,7 @@ print(f"SSM engine: wrote {hist_df.count()} rows to {target}")
 
 # COMMAND ----------
 
+# DBTITLE 1,Quick sanity check: sample output for a few coaches
 # MAGIC %sql
 # MAGIC -- Quick sanity check: sample output for a few coaches
 # MAGIC SELECT
@@ -451,6 +455,7 @@ print(f"SSM engine: wrote {hist_df.count()} rows to {target}")
 
 # COMMAND ----------
 
+# DBTITLE 1,Sanity check: first 20 games for top coach
 # MAGIC %sql
 # MAGIC -- Sanity check: first 20 games for a specific coach (highest game count)
 # MAGIC WITH top_coach AS (
@@ -846,6 +851,7 @@ plt.show()
 
 # COMMAND ----------
 
+# DBTITLE 1,SSM2 Rating Engine (time-aware + volatility-aware, no mean reversion)
 # COMPONENT: SSM2 Rating Engine (time-aware + volatility-aware, no mean reversion)
 # =============================================================================
 # PURPOSE      : Compute GLOBAL SSM ratings with:
@@ -1240,6 +1246,7 @@ print(f"SSM2 engine: wrote {ssm2_hist_df.count()} rows to {ssm2_target}")
 
 # COMMAND ----------
 
+# DBTITLE 1,SSM2 diagnostic plot
 import matplotlib.pyplot as plt
 import numpy as np
 

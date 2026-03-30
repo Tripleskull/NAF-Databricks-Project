@@ -37,8 +37,10 @@
 # MAGIC - Project Design → `03_style_guides.md`
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_presentation
 # MAGIC %sql
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
 
@@ -497,6 +499,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_opponent_highlights
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_highlights
 # MAGIC -- =====================================================================
@@ -697,6 +700,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_opponent_rating
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_rating
 # MAGIC -- =====================================================================
@@ -779,6 +783,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_race_performance
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_performance
 # MAGIC -- =====================================================================
@@ -913,6 +918,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_cumulative_results_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_daily_series
 # MAGIC -- =====================================================================
@@ -981,6 +987,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_opponent_median_glo_bin_results_long
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_median_glo_bin_results_long
 # MAGIC -- =====================================================================
@@ -1015,6 +1022,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_opponent_top5_by_games
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_top5_by_games
 # MAGIC -- =====================================================================
@@ -1111,6 +1119,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_opponent_insights
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_insights
 # MAGIC -- =====================================================================
@@ -1562,6 +1571,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_streak_detail
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_streak_detail
 # MAGIC -- =====================================================================
@@ -1654,6 +1664,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_streak_overview
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_streak_overview
 # MAGIC -- =====================================================================
@@ -1752,6 +1763,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_tournament_performance
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_tournament_performance
 # MAGIC -- =====================================================================
@@ -1890,6 +1902,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_global_elo_rating_history
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_global_elo_rating_history
 # MAGIC -- =====================================================================
@@ -1950,6 +1963,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_results_all_long
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_results_all_long
 # MAGIC -- =====================================================================
@@ -2080,6 +2094,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_race_elo_rating_history
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_elo_rating_history
 # MAGIC -- =====================================================================
@@ -2147,6 +2162,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_global_elo_rating_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_global_elo_rating_daily_series
 # MAGIC -- =====================================================================
@@ -2215,6 +2231,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_race_elo_rating_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_elo_rating_daily_series
 # MAGIC -- =====================================================================
@@ -2300,6 +2317,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_cumulative_results_last_n_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series
 # MAGIC -- =====================================================================
@@ -2405,6 +2423,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Coach presentation smoke tests
 # MAGIC %sql
 # MAGIC -- TEST: naf_catalog.gold_presentation (coach) smoke tests (dashboard-aligned)
 # MAGIC -- =====================================================================

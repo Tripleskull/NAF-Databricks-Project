@@ -32,14 +32,17 @@
 # MAGIC - Project Design → `03_style_guides.md`
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Drop schema gold_summary
 # MAGIC %sql
 # MAGIC -- DANGER: drops EVERYTHING in naf_catalog.gold_summary(views + tables) incl. dependencies.
 # MAGIC -- DROP SCHEMA IF EXISTS naf_catalog.gold_summary CASCADE;
 
 # COMMAND ----------
 
+# DBTITLE 1,Drop view gold_presentation.nation_game_quality_bin_wdl_display
 # MAGIC %sql
 # MAGIC -- CLEANUP: Drop legacy configurable bin framework objects (removed 2026-03).
 # MAGIC -- Run once to remove orphaned catalog entries, then delete this cell.
@@ -61,12 +64,14 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_summary
 # MAGIC %sql -- SCHEMA: naf_catalog.gold_summary
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_summary;
 # MAGIC
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_game_spine_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_game_spine_v
 # MAGIC -- =====================================================================
@@ -104,6 +109,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_rating_history_spine_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_rating_history_spine_v
 # MAGIC -- =====================================================================
@@ -145,6 +151,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_race_elo_rating_history_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_race_elo_rating_history_v
 # MAGIC -- =====================================================================
@@ -186,6 +193,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_global_elo_rating_history_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_global_elo_rating_history_v
 # MAGIC -- =====================================================================
@@ -225,6 +233,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_global_elo_game_spine_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_global_elo_game_spine_v
 # MAGIC -- =====================================================================
@@ -267,6 +276,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_results_cumulative_series_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_results_cumulative_series_v
 # MAGIC -- =====================================================================
@@ -407,6 +417,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_rating_race_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_rating_race_summary
 # MAGIC -- =====================================================================
@@ -689,6 +700,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Moved to 332: coach_race_relative_strength
 # %sql
 # -- TABLE: naf_catalog.gold_summary.coach_race_relative_strength
 # -- =====================================================================
@@ -761,6 +773,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Moved to 332: coach_race_nation_rank
 # %sql
 # -- TABLE: naf_catalog.gold_summary.coach_race_nation_rank
 # -- =====================================================================
@@ -825,6 +838,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_streak_segments
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_streak_segments
 # MAGIC -- =====================================================================
@@ -1026,6 +1040,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_streak_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_streak_summary
 # MAGIC -- =====================================================================
@@ -1115,6 +1130,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_rating_global_elo_summary
 # MAGIC %sql
 # MAGIC -- *TABLE*: naf_catalog.gold_summary.coach_rating_global_elo_summary
 # MAGIC -- =====================================================================
@@ -1424,6 +1440,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_performance_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_performance_summary
 # MAGIC -- =====================================================================
@@ -1565,6 +1582,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_form_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_form_summary
 # MAGIC -- =====================================================================
@@ -1653,6 +1671,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_opponent_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_summary
 # MAGIC -- =====================================================================
@@ -1761,6 +1780,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_opponent_global_elo_enriched_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v
 # MAGIC -- =====================================================================
@@ -1809,6 +1829,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_opponent_median_glo_bin_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
 # MAGIC -- =====================================================================
@@ -1910,6 +1931,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_opponent_global_elo_all_opponents_summary_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_all_opponents_summary_v
 # MAGIC -- =====================================================================
@@ -1953,6 +1975,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_race_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_race_summary
 # MAGIC -- =====================================================================
@@ -2205,6 +2228,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_summary.coach_opponent_global_elo_mean_summary_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v
 # MAGIC -- =====================================================================
@@ -2274,6 +2298,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_tournament_performance_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_tournament_performance_summary
 # MAGIC -- =====================================================================
@@ -2409,6 +2434,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.coach_biggest_upset_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_biggest_upset_summary
 # MAGIC -- =====================================================================

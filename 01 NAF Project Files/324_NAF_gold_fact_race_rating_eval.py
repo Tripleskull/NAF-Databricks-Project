@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # 324 — Race Rating Evaluation & Tuning
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT (research / analysis)
+# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Research (not part of production pipeline)
 # MAGIC **Pipeline position:** Runs after 310 (config), 320 (Elo + race Elo), 323 (race rating engine)
 # MAGIC
 # MAGIC ## Purpose
@@ -39,7 +39,7 @@
 # =============================================================================
 
 import math
-import datetime
+import datetime as dt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -363,9 +363,8 @@ plt.show()
 # =============================================================================
 
 import os
-import datetime
 
-run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # --- Delta table ---
 metrics_rows = []
@@ -1116,9 +1115,7 @@ if RUN_TUNING_RESULTS:
 SAVE_RR_TUNING_RESULTS = False
 
 if SAVE_RR_TUNING_RESULTS:
-    import datetime
-
-    run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
     coarse_save = rr_coarse_df.copy()
     coarse_save["search_stage"] = "coarse"

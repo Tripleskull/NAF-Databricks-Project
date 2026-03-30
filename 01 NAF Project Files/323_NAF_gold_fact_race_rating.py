@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # 323 — Race-Aware Rating Engine
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT (production)
+# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Production
 # MAGIC **Pipeline position:** Runs after 310 (config) and 320 (game feed)
 # MAGIC
 # MAGIC ## Model
@@ -523,6 +523,7 @@ print(f"  Latest g distribution: mean={latest_g['mean_g']}  "
 
 # COMMAND ----------
 
+# DBTITLE 1,Coach Race Rating Plot
 # ---------------------------------------------------------------------------
 # Coach Race Rating Plot — paste into 323 or run standalone
 # ---------------------------------------------------------------------------
@@ -614,6 +615,7 @@ else:
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_fact.race_correlation_matrix_fact
 # MAGIC %sql
 # MAGIC -- COMMAND ----------
 # MAGIC -- DBTITLE 1,Stage 2 Covariance Table DDL
@@ -649,8 +651,6 @@ else:
 # MAGIC   load_timestamp          TIMESTAMP    NOT NULL
 # MAGIC )
 # MAGIC USING DELTA;
-
-# COMMAND ----------
 
 # COMMAND ----------
 # DBTITLE 1,Stage 2 Covariance Estimation from Mature Stage 1 Deviations
@@ -903,6 +903,7 @@ display(
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_fact.race_rating_corr_history_fact
 # MAGIC %sql
 # MAGIC -- COMMAND ----------
 # MAGIC -- DBTITLE 1,Stage 2 History Table DDL
@@ -976,8 +977,6 @@ display(
 # MAGIC   load_timestamp                 TIMESTAMP    NOT NULL
 # MAGIC )
 # MAGIC USING DELTA;
-
-# COMMAND ----------
 
 # COMMAND ----------
 # DBTITLE 1,Stage 2 Covariance Load + Race Index Helpers
@@ -1148,8 +1147,6 @@ preview_pdf = pd.DataFrame(
 )
 
 display(preview_pdf)
-
-# COMMAND ----------
 
 # COMMAND ----------
 # DBTITLE 1,Stage 2 Feed Load + State Containers + Helper Functions
@@ -1356,8 +1353,6 @@ print(
 )
 
 # COMMAND ----------
-
-# COMMAND ----------
 # DBTITLE 1,Stage 2 Covariance Diagnostics: Correlation + Overlap Heatmaps (with race names)
 
 import numpy as np
@@ -1507,8 +1502,6 @@ display(pairs_df.sort_values(["corr", "overlap"], ascending=[False, False]).head
 
 print("\nTop negative correlations")
 display(pairs_df.sort_values(["corr", "overlap"], ascending=[True, False]).head(10))
-
-# COMMAND ----------
 
 # COMMAND ----------
 # took 27 minutes to run
@@ -1786,8 +1779,6 @@ print(
 )
 
 # COMMAND ----------
-
-# COMMAND ----------
 # DBTITLE 1,Write Stage 2 results
 
 from pyspark.sql import functions as F, types as T
@@ -1851,8 +1842,6 @@ rr2_df = (
 print(f"Wrote {rr2_df.count():,} rows to {RR_STAGE2_TARGET}")
 
 # COMMAND ----------
-
-# COMMAND ----------
 # DBTITLE 1,Stage 2 sanity checks
 
 df = spark.table(RR_STAGE2_TARGET)
@@ -1878,8 +1867,6 @@ display(df.selectExpr(
 ))
 
 # COMMAND ----------
-
-# COMMAND ----------
 # DBTITLE 1,Spillover example (manual inspection)
 
 display(
@@ -1896,8 +1883,6 @@ display(
     )
     .limit(50)
 )
-
-# COMMAND ----------
 
 # COMMAND ----------
 # DBTITLE 1,Quick Stage1 vs Stage2 comparison

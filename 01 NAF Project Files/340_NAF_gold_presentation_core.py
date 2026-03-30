@@ -35,8 +35,10 @@
 # MAGIC - No KPI re-definition here: metrics stay in `gold_summary`; this notebook adds **display-only** shaping.
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_presentation
 # MAGIC %sql
 # MAGIC -- SCHEMA: naf_catalog.gold_presentation
 # MAGIC -- =====================================================================
@@ -49,6 +51,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.nation_flag_emoji_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_flag_emoji_v
 # MAGIC -- =====================================================================
@@ -172,6 +175,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.nation_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_identity_v
 # MAGIC -- =====================================================================
@@ -205,6 +209,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.coach_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_identity_v
 # MAGIC -- =====================================================================
@@ -246,6 +251,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.tournament_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.tournament_identity_v
 # MAGIC -- =====================================================================
@@ -288,6 +294,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create view gold_presentation.race_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.race_identity_v
 # MAGIC -- =====================================================================

@@ -1,4 +1,14 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC # 343 — Tournament Presentation Views
+# MAGIC
+# MAGIC **Layer:** GOLD_PRESENTATION &nbsp;|&nbsp; **Status:** Production
+# MAGIC **Pipeline position:** Runs after 340 (core presentation) and 333 (tournament summaries)
+# MAGIC
+# MAGIC Dashboard-contract views for tournament analytics.
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
 # MAGIC
@@ -64,8 +74,10 @@
 # MAGIC        ON ts.winner_coach_id = c.coach_id;
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_presentation
 # MAGIC %sql
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
 # MAGIC
@@ -95,6 +107,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_presentation
 # MAGIC %sql
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_presentation;
 # MAGIC

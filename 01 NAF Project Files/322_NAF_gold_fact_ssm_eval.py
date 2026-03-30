@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # 322 — SSM Model Evaluation & Tuning
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT (research / analysis)  
+# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Research (not part of production pipeline)
 # MAGIC **Pipeline position:** Runs after 321 (SSM engines)
 # MAGIC
 # MAGIC ## Purpose
@@ -390,6 +390,7 @@ print("=" * 70)
 # COMMAND ----------
 
 
+# DBTITLE 1,SSM2 Hyperparameter Tuner — Brier-UA Objective
 # =============================================================================
 # COMPONENT: SSM2 Hyperparameter Tuner — Brier-UA Objective
 # =============================================================================
@@ -605,68 +606,75 @@ def run_brier_grid(grid, val_start, val_end, label="Grid"):
     return all_results
 
 # ---------------------------------------------------------------------------
-# 5) Run tuning (uncomment to execute)
+# 5) Run tuning — set RUN_TUNER = True to execute the grid search.
+#    WARNING: Expect 3-6 hours on Community Edition (~337 engine runs).
 # ---------------------------------------------------------------------------
-# Define validation window (must match evaluation cell split)
-# TUNE_VAL_START = val_cutoff   # e.g. 20250325
-# TUNE_VAL_END   = test_cutoff  # e.g. 20250925
+RUN_TUNER = False
 
-# # --- Coarse pass ---
-# coarse_results = run_brier_grid(COARSE_GRID, TUNE_VAL_START, TUNE_VAL_END,
-#                                 "COARSE GRID (Brier-UA)")
-# coarse_best = min(coarse_results, key=lambda x: x["brier_ua"])
+if RUN_TUNER:
+    # Validation window (must match evaluation cell split)
+    TUNE_VAL_START = val_cutoff   # e.g. 20250325
+    TUNE_VAL_END   = test_cutoff  # e.g. 20250925
 
-# print(f"\nCoarse best: Brier-UA = {coarse_best['brier_ua']:.5f} "
-#       f"(raw = {coarse_best['brier_raw']:.5f}, n = {coarse_best['n_obs']})")
-# print(f"  Params: {coarse_best['params']}")
-# for tier, s in sorted(coarse_best.get("brier_by_tier", {}).items()):
-#     print(f"  {tier}: Brier-UA = {s['brier_ua']:.5f} (n={s['n']})")
+    # --- Coarse pass ---
+    coarse_results = run_brier_grid(COARSE_GRID, TUNE_VAL_START, TUNE_VAL_END,
+                                    "COARSE GRID (Brier-UA)")
+    coarse_best = min(coarse_results, key=lambda x: x["brier_ua"])
 
-# # --- Fine pass ---
-# fine_grid = make_fine_grid(coarse_best["params"])
-# print(f"\nFine grid neighbourhood:")
-# for k, v in fine_grid.items():
-#     print(f"  {k}: {[round(x, 4) for x in v]}")
+    print(f"\nCoarse best: Brier-UA = {coarse_best['brier_ua']:.5f} "
+          f"(raw = {coarse_best['brier_raw']:.5f}, n = {coarse_best['n_obs']})")
+    print(f"  Params: {coarse_best['params']}")
+    for tier, s in sorted(coarse_best.get("brier_by_tier", {}).items()):
+        print(f"  {tier}: Brier-UA = {s['brier_ua']:.5f} (n={s['n']})")
 
-# fine_results = run_brier_grid(fine_grid, TUNE_VAL_START, TUNE_VAL_END,
-#                               "FINE GRID (Brier-UA)")
-# fine_best = min(fine_results, key=lambda x: x["brier_ua"])
+    # --- Fine pass ---
+    fine_grid = make_fine_grid(coarse_best["params"])
+    print(f"\nFine grid neighbourhood:")
+    for k, v in fine_grid.items():
+        print(f"  {k}: {[round(x, 4) for x in v]}")
 
-# print(f"\n{'='*70}")
-# print(f"FINAL BEST PARAMETERS (Brier-UA objective)")
-# print(f"{'='*70}")
-# print(f"  sigma2_obs = {fine_best['params']['sigma2_obs']:.4f}")
-# print(f"  q_time     = {fine_best['params']['q_time']:.4f}")
-# print(f"  q_game     = {fine_best['params']['q_game']:.4f}")
-# print(f"  v_scale    = {fine_best['params']['v_scale']:.4f}")
-# print(f"\n  Brier-UA   = {fine_best['brier_ua']:.5f}")
-# print(f"  Brier-raw  = {fine_best['brier_raw']:.5f}")
-# print(f"  n_obs      = {fine_best['n_obs']}")
-# for tier, s in sorted(fine_best.get("brier_by_tier", {}).items()):
-#     print(f"  {tier}: Brier-UA = {s['brier_ua']:.5f} (n={s['n']})")
+    fine_results = run_brier_grid(fine_grid, TUNE_VAL_START, TUNE_VAL_END,
+                                  "FINE GRID (Brier-UA)")
+    fine_best = min(fine_results, key=lambda x: x["brier_ua"])
 
-# # --- Top 10 ---
-# fine_sorted = sorted(fine_results, key=lambda x: x["brier_ua"])
-# print(f"\nTop 10 fine-grid candidates:")
-# print(f"{'Brier-UA':>10}  {'raw':>10}  "
-#       f"{'σ²_obs':>7}  {'q_time':>7}  {'q_game':>7}  {'v_scale':>7}")
-# for r in fine_sorted[:10]:
-#     p = r["params"]
-#     print(f"{r['brier_ua']:10.5f}  {r['brier_raw']:10.5f}  "
-#           f"{p['sigma2_obs']:7.4f}  {p['q_time']:7.3f}  "
-#           f"{p['q_game']:7.3f}  {p['v_scale']:7.2f}")
+    print(f"\n{'='*70}")
+    print(f"FINAL BEST PARAMETERS (Brier-UA objective)")
+    print(f"{'='*70}")
+    print(f"  sigma2_obs = {fine_best['params']['sigma2_obs']:.4f}")
+    print(f"  q_time     = {fine_best['params']['q_time']:.4f}")
+    print(f"  q_game     = {fine_best['params']['q_game']:.4f}")
+    print(f"  v_scale    = {fine_best['params']['v_scale']:.4f}")
+    print(f"\n  Brier-UA   = {fine_best['brier_ua']:.5f}")
+    print(f"  Brier-raw  = {fine_best['brier_raw']:.5f}")
+    print(f"  n_obs      = {fine_best['n_obs']}")
+    for tier, s in sorted(fine_best.get("brier_by_tier", {}).items()):
+        print(f"  {tier}: Brier-UA = {s['brier_ua']:.5f} (n={s['n']})")
 
-# print(f"\n{'='*70}")
-# print("To apply: update SSM2_SIGMA2_OBS, SSM2_Q_TIME, SSM2_Q_GAME, "
-#       "SSM2_V_SCALE above, re-run engine + evaluation cells.")
-# print("Then evaluate on the TEST window (date_id >= test_cutoff) to "
-#       "confirm improvement on unseen data.")
-# print(f"{'='*70}")
+    # --- Top 10 ---
+    fine_sorted = sorted(fine_results, key=lambda x: x["brier_ua"])
+    print(f"\nTop 10 fine-grid candidates:")
+    print(f"{'Brier-UA':>10}  {'raw':>10}  "
+          f"{'σ²_obs':>7}  {'q_time':>7}  {'q_game':>7}  {'v_scale':>7}")
+    for r in fine_sorted[:10]:
+        p = r["params"]
+        print(f"{r['brier_ua']:10.5f}  {r['brier_raw']:10.5f}  "
+              f"{p['sigma2_obs']:7.4f}  {p['q_time']:7.3f}  "
+              f"{p['q_game']:7.3f}  {p['v_scale']:7.2f}")
+
+    print(f"\n{'='*70}")
+    print("To apply: update SSM2_SIGMA2_OBS, SSM2_Q_TIME, SSM2_Q_GAME, "
+          "SSM2_V_SCALE above, re-run engine + evaluation cells.")
+    print("Then evaluate on the TEST window (date_id >= test_cutoff) to "
+          "confirm improvement on unseen data.")
+    print(f"{'='*70}")
+else:
+    print("Tuner skipped (RUN_TUNER = False). Set to True and re-run to execute.")
 
 
 # COMMAND ----------
 
 
+# DBTITLE 1,Re-usable SSM2 Engine Function
 # =============================================================================
 # COMPONENT: Re-usable SSM2 Engine Function
 # =============================================================================
@@ -829,6 +837,7 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
 # COMMAND ----------
 
 
+# DBTITLE 1,Structured Model Comparison — SSM v1, SSM v2, Elo
 # =============================================================================
 # COMPONENT: Structured Model Comparison — SSM v1, SSM v2, Elo
 # =============================================================================
@@ -868,7 +877,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from pyspark.sql import functions as F
-import datetime
+import datetime as dt
 
 # ---------------------------------------------------------------------------
 # 1) Define validation/test split
@@ -1578,7 +1587,7 @@ print(f"{'='*78}")
 # 11) Store results — Delta table, CSV, text report, plots
 # ---------------------------------------------------------------------------
 
-run_timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+run_timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 # 11.1) Store metrics in Delta table
 metrics_rows = []

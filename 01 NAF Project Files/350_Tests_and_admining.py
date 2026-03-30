@@ -1,4 +1,16 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC # 350 — Pipeline Tests & Administration
+# MAGIC
+# MAGIC **Layer:** TEST &nbsp;|&nbsp; **Status:** Production
+# MAGIC **Pipeline position:** Runs last (after all 340+ notebooks)
+# MAGIC
+# MAGIC PK/FK checks, uniqueness tests, data quality validation across all layers.
+# MAGIC Collects structured test results into a report table with CSV export.
+
+# COMMAND ----------
+
+# DBTITLE 1,Core pipeline tests
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- NAF MODEL TEST SCRIPT (Core + optional Coach Dashboard objects)
@@ -403,6 +415,7 @@
 # MAGIC WHERE fail_rows <> 0
 # MAGIC ORDER BY severity DESC, check_name;
 
+
 # COMMAND ----------
 
 # DBTITLE 1,Coach pipeline PK/FK checks
@@ -460,6 +473,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Phase 1: Coach form + opponent strength tests
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- PHASE 1: COACH FORM SUMMARY + OPPONENT STRENGTH TESTS
@@ -914,6 +928,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Silver invariants
 # MAGIC %sql
 # MAGIC -- ============================================================
 # MAGIC -- SILVER invariants
@@ -998,6 +1013,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Tournament and race FK coverage checks
 # MAGIC %sql
 # MAGIC -- 1) Which tournament_ids are missing in gold_dim.tournament_dim?
 # MAGIC WITH missing_tournaments AS (
@@ -1047,6 +1063,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Silver UNKNOWN sentinel validation
 # MAGIC %sql
 # MAGIC WITH p AS (
 # MAGIC   SELECT CAST(PMOD(XXHASH64('UNKNOWN'), 2147483647) AS INT) AS old_unknown_hash
@@ -1209,6 +1226,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Silver UNKNOWN sentinel checks
 # MAGIC %sql
 # MAGIC WITH checks AS (
 # MAGIC
@@ -2249,6 +2267,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create exports volume
 # MAGIC %sql
 # MAGIC CREATE VOLUME IF NOT EXISTS naf_catalog.gold_summary.exports;
 

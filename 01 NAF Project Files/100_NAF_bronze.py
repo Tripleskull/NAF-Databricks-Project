@@ -19,8 +19,10 @@
 # MAGIC   - `ingest_timestamp`, `ingest_source`, `file_name`
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Create schema bronze
 # MAGIC %sql
 # MAGIC
 # MAGIC -- DROP SCHEMA IF EXISTS naf_catalog.bronze CASCADE;
@@ -29,6 +31,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.coach_export_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.coach_export_raw
 # MAGIC USING DELTA AS
@@ -60,6 +63,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.coach_ranking_variant_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.coach_ranking_variant_raw
 # MAGIC USING DELTA AS
@@ -100,6 +104,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.game_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.game_raw
 # MAGIC USING DELTA AS
@@ -190,6 +195,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.race_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.race_raw
 # MAGIC USING DELTA AS
@@ -232,6 +238,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.tournament_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.tournament_raw
 # MAGIC USING DELTA AS
@@ -328,6 +335,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.tournament_statistics_group_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.tournament_statistics_group_raw
 # MAGIC USING DELTA AS
@@ -368,6 +376,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.tournament_statistics_list_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.tournament_statistics_list_raw
 # MAGIC USING DELTA AS
@@ -404,6 +413,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.tournament_coach_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.tournament_coach_raw
 # MAGIC USING DELTA AS
@@ -438,6 +448,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table bronze.variants_raw
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.bronze.variants_raw
 # MAGIC USING DELTA AS
@@ -472,6 +483,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Ingest FIFA country codes from HTML
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType
 import re, os
@@ -530,6 +542,7 @@ df_bronze = (
 
 # COMMAND ----------
 
+# DBTITLE 1,Ingest ISO country codes from CSV
 import re, os
 from pyspark.sql import functions as F
 

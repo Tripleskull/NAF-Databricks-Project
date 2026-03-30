@@ -1,4 +1,15 @@
 # Databricks notebook source
+# MAGIC %md
+# MAGIC # 333 — Tournament Summaries
+# MAGIC
+# MAGIC **Layer:** GOLD_SUMMARY &nbsp;|&nbsp; **Status:** Production
+# MAGIC **Pipeline position:** Runs after 330 (core summaries)
+# MAGIC
+# MAGIC Tournament-level aggregations: tournament metrics, race participation,
+# MAGIC global race summaries, nation participation.
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.tournament_winners AS
 # MAGIC
@@ -48,8 +59,10 @@
 # MAGIC FROM final;
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.tournament_summary
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.tournament_summary AS
 # MAGIC
@@ -213,6 +226,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.tournament_race_summary
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.tournament_race_summary AS
 # MAGIC
@@ -267,6 +281,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.global_race_summary
 # MAGIC %sql
 # MAGIC -- Global race summary across ALL games
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.global_race_summary AS
@@ -316,6 +331,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table gold_summary.tournament_nation_summary
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.tournament_nation_summary AS
 # MAGIC

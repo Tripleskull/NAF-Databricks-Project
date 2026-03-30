@@ -23,14 +23,17 @@
 # MAGIC - No duplicated nation attributes outside `nation_dim` (join via `nation_id`)
 # MAGIC
 
+
 # COMMAND ----------
 
+# DBTITLE 1,Create schema silver
 # MAGIC %sql
 # MAGIC -- DROP SCHEMA IF EXISTS naf_catalog.silver CASCADE;
 # MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.silver;
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.country_codes_iso
 # MAGIC %sql -- TABLE: naf_catalog.silver.country_codes_iso
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Clean ISO-3166 country code reference for nation mapping.
@@ -80,6 +83,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.country_codes_fifa
 # MAGIC %sql -- TABLE: naf_catalog.silver.country_codes_fifa
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Clean FIFA country code reference for nation mapping.
@@ -179,6 +183,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.country_reference
 # MAGIC %sql -- TABLE: naf_catalog.silver.country_reference
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Unified country reference (FIFA + ISO) for mapping and enrichment.
@@ -261,6 +266,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.nation_manual_map
 # MAGIC %sql -- TABLE: naf_catalog.silver.nation_manual_map
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Manual overrides for nation name canonicalization.
@@ -317,6 +323,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.nations_entity
 # MAGIC %sql -- TABLE: naf_catalog.silver.nations_entity
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical nation entity table (deduped + mapped to ISO/FIFA where possible).
@@ -597,6 +604,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.coaches_clean
 # MAGIC %sql -- TABLE: naf_catalog.silver.coaches_clean
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical cleaned coaches table (types + nation_id mapping).
@@ -688,6 +696,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.coach_rating_variant_clean
 # MAGIC %sql -- TABLE: naf_catalog.silver.coach_rating_variant_clean
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Clean coach rating snapshot records by variant/race (typed + deduped).
@@ -766,6 +775,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.games_clean
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.silver.games_clean
 # MAGIC -- =====================================================================
@@ -913,6 +923,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.races_clean
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.silver.races_clean
 # MAGIC -- PURPOSE     : Canonical cleaned race lookup (typed + normalized booleans) for joins.
@@ -982,6 +993,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.tournaments_clean
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.silver.tournaments_clean
 # MAGIC -- =====================================================================
@@ -1156,6 +1168,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.tournament_statistics_group_clean
 # MAGIC %sql -- TABLE: naf_catalog.silver.tournament_statistics_group_clean
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical cleaned tournament statistics event rows (typed + dedup-ready).
@@ -1223,6 +1236,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.tournament_statistics_list_clean
 # MAGIC %sql -- TABLE: naf_catalog.silver.tournament_statistics_list_clean
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical cleaned tournament statistic type lookup for joins.
@@ -1285,6 +1299,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.tournament_coach_clean
 # MAGIC %sql -- TABLE: naf_catalog.silver.tournament_coach_clean
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical cleaned tournament participation rows (coach + race per tournament).
@@ -1339,6 +1354,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create table silver.variants_clean
 # MAGIC %sql -- TABLE: naf_catalog.silver.variants_clean
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical cleaned variant lookup (supported variants only).
@@ -1396,6 +1412,7 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Silver validation checks
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- SILVER VALIDATION (layer-local)
