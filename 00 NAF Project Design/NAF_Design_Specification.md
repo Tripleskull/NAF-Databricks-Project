@@ -1,8 +1,9 @@
 # NAF Data Platform — Design Specification
 
 > **Scope**: Architecture, naming, schema design, dimension contracts, and all modelling policies.
-> **Excludes**: SQL/code style guide (`03_style_guides.md`), analytical parameters (`Analytical_Parameters.md`), nation dashboard build plan (`Nation_plan.md`).
+> **Excludes**: SQL/code style guide (`style_guides.md`), analytical parameters (`Analytical_Parameters.md`), nation dashboard build plan (`Nation_Dashboard_Plan.md`).
 > **Precedence**: This document is the single source of truth for modelling rules. If implementation diverges, either update this doc or plan a migration — do not let drift persist silently.
+> **Last updated:** 2026-03-30
 
 ---
 

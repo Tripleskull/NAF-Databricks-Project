@@ -4,6 +4,8 @@ This document provides practical style guidance for writing readable, maintainab
 
 For naming conventions and design decisions, see `NAF_Design_Specification.md`.
 
+> **Last updated:** 2026-03-30
+
 ---
 
 ## 1) Databricks SQL style

@@ -2,6 +2,7 @@
 
 > **Purpose**: Logical ordering and dependency map for every summary and presentation object. Intended as a reading guide ("what builds on what") and a build-order reference ("what must exist before I can run X").
 > **Convention**: Objects are listed in build order within each section. Indentation shows dependency depth. `[V]` = view, `[T]` = table.
+> **Last updated:** 2026-03-30
 
 ---
 

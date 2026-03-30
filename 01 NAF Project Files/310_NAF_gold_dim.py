@@ -44,7 +44,7 @@
 # MAGIC -- SOURCES      : naf_catalog.silver.races_clean
 # MAGIC -- NOTES        : race_id = 0 is a reserved GLOBAL (race-agnostic) scope row with race_name = 'none'.
 # MAGIC --                Do not treat race_id = 0 as a playable race.
-# MAGIC -- See design docs: 00_design_decisions.md, 11_race_dimension.md
+# MAGIC -- See: NAF_Design_Specification.md
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC
@@ -83,7 +83,7 @@
 # MAGIC -- SOURCES      : naf_catalog.silver.tournament_statistics_list_clean
 # MAGIC -- NOTES        : Defines metadata and human-readable labels for statistic IDs.
 # MAGIC --                Used to enrich tournament_statistics_fact.
-# MAGIC -- See design docs: 00_design_decisions.md, 02_schema_design.md
+# MAGIC -- See: NAF_Design_Specification.md
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC
@@ -108,7 +108,7 @@
 # MAGIC -- SOURCES      : naf_catalog.silver.nations_entity
 # MAGIC -- NOTES        : nation_id is a deterministic surrogate (hash of canonical nation group key).
 # MAGIC --                Includes an 'UNKNOWN' nation row for unmapped/blank nation inputs.
-# MAGIC -- See design docs: 00_design_decisions.md, 02_schema_design.md
+# MAGIC -- See: NAF_Design_Specification.md
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_dim.nation_dim
@@ -163,7 +163,7 @@
 # MAGIC -- SOURCES      : naf_catalog.silver.tournaments_clean
 # MAGIC -- NOTES        : start_date_id / end_date_id are derived in Silver as INT YYYYMMDD.
 # MAGIC --               No aggregates or event outcomes here.
-# MAGIC -- See design docs: 00_design_decisions.md, 02_schema_design.md
+# MAGIC -- See: NAF_Design_Specification.md
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_dim.tournament_dim
@@ -399,4 +399,3 @@
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM scored;
 # MAGIC
-                                                                                                 

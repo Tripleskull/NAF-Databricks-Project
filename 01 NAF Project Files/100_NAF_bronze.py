@@ -577,4 +577,3 @@ spark.sql("DROP TABLE IF EXISTS naf_catalog.bronze.iso_country_codes_raw")
   .mode("overwrite")
   .saveAsTable("naf_catalog.bronze.iso_country_codes_raw")
 )
-                                                                                                                            

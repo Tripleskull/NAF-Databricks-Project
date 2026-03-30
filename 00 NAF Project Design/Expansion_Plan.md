@@ -3,6 +3,7 @@
 > Scope: All new features for the Nation Dashboard, Coach Dashboard, and a new Global Status Report Dashboard.
 > Approach: Phased delivery. Each phase is independently deployable and testable.
 > Status: **Plan finalised** — all design decisions resolved.
+> **Last updated:** 2026-03-30
 
 ---
 
@@ -337,7 +338,6 @@ For distribution baselines (boxplots, quantiles), use WORLD (all coaches globall
 4. Intra-nation exclusion validation (no self-play in nation WDL)
 5. Update `Pipeline_Object_Index.md`
 6. Update `Analytical_Parameters.md`
-7. Update `PROJECT_STATUS.md`
 
 ---
 

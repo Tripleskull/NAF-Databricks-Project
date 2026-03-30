@@ -1,8 +1,8 @@
 # Analytical Parameters
 
 > **Scope**: Every tuneable number in the analytical pipeline — Elo engine constants, tournament weighting, burn-in thresholds, minimum-games eligibility, window sizes, binning schemes.
-> **Companion to**: `NAF_Design_Specification.md` (architecture and policies), `03_style_guides.md` (code formatting).
-> **Supersedes**: `Rating_System_Spec.md` (retire after this file is adopted).
+> **Companion to**: `NAF_Design_Specification.md` (architecture and policies), `style_guides.md` (code formatting).
+> **Last updated:** 2026-03-30
 > **Config table**: `naf_catalog.gold_dim.analytical_config` — singleton table built in `310_NAF_gold_dim.py`. All parameters below are stored here and consumed by downstream notebooks via CTE or Python read.
 > **Rule**: Changes to any parameter here constitute a model change. Update this document first, update the config table definition in 310, then re-run affected pipelines.
 

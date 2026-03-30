@@ -1,6 +1,7 @@
 # Nation Dashboard — Overhaul Plan
 
 > Date: 2026-02-23
+> **Last updated:** 2026-03-30
 > Status: AGREED (widget-by-widget review complete)
 > Base file: Coach Dashboard (12).lvdash.json
 

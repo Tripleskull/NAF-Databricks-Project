@@ -54,7 +54,7 @@
 # MAGIC -- SOURCES      : naf_catalog.silver.games_clean
 # MAGIC -- NOTES        : event_timestamp, game_date, and date_id are canonicalized in Silver.
 # MAGIC --                Excludes non-supported variants and placeholder coach_id=9 per Silver rules.
-# MAGIC -- See design docs: 00_design_decisions.md, 02_schema_design.md
+# MAGIC -- See: NAF_Design_Specification.md
 # MAGIC -- =====================================================================
 # MAGIC
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_fact.games_fact
@@ -712,4 +712,3 @@ feed_df.select(
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM naf_catalog.silver.tournament_statistics_group_clean;
 # MAGIC
-                                                                         
