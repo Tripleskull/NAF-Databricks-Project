@@ -1,24 +1,20 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Bronze layer (`naf_catalog.bronze`)
+# MAGIC # 100 — Bronze Layer
 # MAGIC
-# MAGIC Bronze is **raw source truth** (snapshot/overwrite). **Do not add business meaning here.**
+# MAGIC **Layer:** BRONZE &nbsp;|&nbsp; **Status:** Production
+# MAGIC **Pipeline position:** First notebook in the pipeline
 # MAGIC
-# MAGIC **Authoritative references (these win):**
-# MAGIC - `00_design_decisions.md` (canonical conventions: metadata columns, naming/key rules)
-# MAGIC - `00_principles.md` (layer responsibilities)
-# MAGIC - `02_schema_design.md` (medallion boundaries + schemas)
-# MAGIC - `03_style_guides.md` (general style)
+# MAGIC Raw source truth (snapshot/overwrite). One Delta table per source feed. No business logic.
 # MAGIC
-# MAGIC ## Bronze rules (short)
-# MAGIC - 1 table per source feed (`*_raw`), stored as **Delta**
-# MAGIC - **Only technical** column sanitisation (identifier-safe), keep all fields
+# MAGIC **References:** `NAF_Design_Specification.md` (architecture + naming rules), `style_guides.md`
+# MAGIC
+# MAGIC ## Bronze rules
+# MAGIC - One table per source feed (`*_raw`), stored as Delta
+# MAGIC - Technical column sanitisation only — keep all fields, no semantic renames
 # MAGIC - Allow `_rescued_data` for schema evolution
-# MAGIC - No: dedup, filtering “bad” rows, semantic renames, domain logic, reshaping
-# MAGIC - Required metadata columns:
-# MAGIC   - `ingest_timestamp`, `ingest_source`, `file_name`
-# MAGIC
-# MAGIC
+# MAGIC - No dedup, filtering, domain logic, or reshaping
+# MAGIC - Required metadata: `ingest_timestamp`, `ingest_source`, `file_name`
 
 # COMMAND ----------
 
@@ -581,3 +577,4 @@ spark.sql("DROP TABLE IF EXISTS naf_catalog.bronze.iso_country_codes_raw")
   .mode("overwrite")
   .saveAsTable("naf_catalog.bronze.iso_country_codes_raw")
 )
+                                                                                                                            

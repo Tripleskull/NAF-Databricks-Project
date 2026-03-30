@@ -31,10 +31,7 @@
 # MAGIC - Put the target object on the first line (e.g. `%sql -- VIEW: naf_catalog.gold_presentation.coach_profile`)
 # MAGIC - Views use `CREATE OR REPLACE VIEW ... AS` (no `USING DELTA`)
 # MAGIC
-# MAGIC **Design authority (wins):**
-# MAGIC - Project Design → `00_design_decisions.md`
-# MAGIC - Project Design → `02_schema_design.md`
-# MAGIC - Project Design → `03_style_guides.md`
+# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 
@@ -2628,3 +2625,4 @@
 # MAGIC FROM checks
 # MAGIC ORDER BY status DESC, check_name;
 # MAGIC
+                                                                                                                                                                                               

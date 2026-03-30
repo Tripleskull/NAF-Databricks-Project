@@ -5,11 +5,7 @@
 # MAGIC **Purpose:** Build **minimal, normalized canonical entities** (SCD1 / current-state) from **Silver**.
 # MAGIC **Not in scope:** metrics, aggregates, windows, rankings → `gold_summary` / `gold_presentation`.
 # MAGIC
-# MAGIC **Design authority (wins):**
-# MAGIC - Project Design → `00_design_decisions.md`
-# MAGIC - Project Design → `02_schema_design.md`
-# MAGIC - Project Design → `03_style_guides.md`
-# MAGIC - Dimension specs (when applicable): `10_nation_dimension.md`, `11_race_dimension.md`, `12_coach_dimension.md`, `13_tournament_dimension.md`, `14_date_dimension.md`
+# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC ## Gold_dim rules (short)
 # MAGIC - Output: one dimension table per entity (SCD1). Re-runnable / idempotent loads.
@@ -403,3 +399,4 @@
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM scored;
 # MAGIC
+                                                                                                 

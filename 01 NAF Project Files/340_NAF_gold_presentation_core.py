@@ -24,11 +24,7 @@
 # MAGIC - `race_identity_v` (race display identity; includes GLOBAL handling if used)
 # MAGIC - ~~`global_elo_bin_scheme`~~ (removed — legacy configurable bin framework)
 # MAGIC
-# MAGIC ## Design authority
-# MAGIC Project Design:
-# MAGIC - `00_design_decisions.md` (wins)
-# MAGIC - `02_schema_design.md`
-# MAGIC - `03_style_guides.md`
+# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC ## Contract rules
 # MAGIC - Prefer explicit column lists (avoid `SELECT *`) for published contracts.
@@ -326,3 +322,4 @@
 # MAGIC   END AS race_name_display
 # MAGIC FROM naf_catalog.gold_dim.race_dim AS r;
 # MAGIC
+                                                                                                                                                                                                                                                                                                                                                                                                        

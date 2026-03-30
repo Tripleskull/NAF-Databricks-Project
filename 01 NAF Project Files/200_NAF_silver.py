@@ -10,10 +10,7 @@
 # MAGIC **Not in scope:** metrics, windows, rankings, aggregates  
 # MAGIC → belongs in `naf_catalog.gold_summary` (metrics) and `naf_catalog.gold_presentation` (dashboard shaping).
 # MAGIC
-# MAGIC **Design authority (wins):**
-# MAGIC - Project Design → `00_design_decisions.md`
-# MAGIC - Project Design → `00_principles.md`
-# MAGIC - Project Design → `03_style_guides.md`
+# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC ## Silver output guarantees (every table/view)
 # MAGIC - Grain is stated (“1 row per …”)
@@ -1555,3 +1552,4 @@
 # MAGIC    OR (iso2_code IS NOT NULL AND iso2_code <> UPPER(iso2_code))
 # MAGIC    OR (iso3_code IS NOT NULL AND iso3_code <> UPPER(iso3_code));
 # MAGIC
+                                                                                                                                                                               

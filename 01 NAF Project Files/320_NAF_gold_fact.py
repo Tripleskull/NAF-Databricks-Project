@@ -18,10 +18,7 @@
 # MAGIC - Include `*_date` / `*_timestamp` only when they are true event attributes (not derived KPI time)
 # MAGIC - Ratings/outputs must remain **at event grain** (no per-coach / per-season rollups here)
 # MAGIC
-# MAGIC **Design authority (wins):**
-# MAGIC - Project Design → `00_design_decisions.md`
-# MAGIC - Project Design → `02_schema_design.md`
-# MAGIC - Project Design → `03_style_guides.md`
+# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 
@@ -715,3 +712,4 @@ feed_df.select(
 # MAGIC   CURRENT_TIMESTAMP() AS load_timestamp
 # MAGIC FROM naf_catalog.silver.tournament_statistics_group_clean;
 # MAGIC
+                                                                         
