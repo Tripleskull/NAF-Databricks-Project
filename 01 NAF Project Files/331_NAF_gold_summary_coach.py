@@ -31,36 +31,7 @@
 # MAGIC - Project Design → `02_schema_design.md`
 # MAGIC - Project Design → `03_style_guides.md`
 # MAGIC
-
-
-# COMMAND ----------
-
-# DBTITLE 1,Drop schema gold_summary
-# MAGIC %sql
-# MAGIC -- DANGER: drops EVERYTHING in naf_catalog.gold_summary(views + tables) incl. dependencies.
-# MAGIC -- DROP SCHEMA IF EXISTS naf_catalog.gold_summary CASCADE;
-
-# COMMAND ----------
-
-# DBTITLE 1,Drop view gold_presentation.nation_game_quality_bin_wdl_display
-# MAGIC %sql
-# MAGIC -- CLEANUP: Drop legacy configurable bin framework objects (removed 2026-03).
-# MAGIC -- Run once to remove orphaned catalog entries, then delete this cell.
 # MAGIC
-# MAGIC -- Presentation views first (depend on summary tables)
-# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.nation_game_quality_bin_wdl_display;
-# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.coach_opponent_global_elo_bin_results_long;
-# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.coach_opponent_global_elo_bin_insights;
-# MAGIC DROP VIEW  IF EXISTS naf_catalog.gold_presentation.global_elo_bin_scheme;
-# MAGIC
-# MAGIC -- Summary tables
-# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.nation_game_quality_bin_wdl;
-# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.coach_opponent_global_elo_bin_summary;
-# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.global_elo_bin_scheme;
-# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.global_elo_bin_scheme_config;
-# MAGIC
-# MAGIC -- 332 cleanup: redundant comparison table
-# MAGIC DROP TABLE IF EXISTS naf_catalog.gold_summary.nation_overview_comparison_summary;
 
 # COMMAND ----------
 
@@ -71,7 +42,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_game_spine_v
+# DBTITLE 1,gold_summary.coach_game_spine_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_game_spine_v
 # MAGIC -- =====================================================================
@@ -109,7 +80,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_rating_history_spine_v
+# DBTITLE 1,gold_summary.coach_rating_history_spine_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_rating_history_spine_v
 # MAGIC -- =====================================================================
@@ -151,7 +122,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_race_elo_rating_history_v
+# DBTITLE 1,gold_summary.coach_race_elo_rating_history_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_race_elo_rating_history_v
 # MAGIC -- =====================================================================
@@ -193,7 +164,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_global_elo_rating_history_v
+# DBTITLE 1,gold_summary.coach_global_elo_rating_history_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_global_elo_rating_history_v
 # MAGIC -- =====================================================================
@@ -233,7 +204,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_global_elo_game_spine_v
+# DBTITLE 1,gold_summary.coach_global_elo_game_spine_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_global_elo_game_spine_v
 # MAGIC -- =====================================================================
@@ -276,7 +247,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_results_cumulative_series_v
+# DBTITLE 1,gold_summary.coach_results_cumulative_series_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_results_cumulative_series_v
 # MAGIC -- =====================================================================
@@ -417,7 +388,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_rating_race_summary
+# DBTITLE 1,gold_summary.coach_rating_race_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_rating_race_summary
 # MAGIC -- =====================================================================
@@ -700,145 +671,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Moved to 332: coach_race_relative_strength
-# %sql
-# -- TABLE: naf_catalog.gold_summary.coach_race_relative_strength
-# -- =====================================================================
-# -- PURPOSE:
-# --   World-relative strength and world specialist identification.
-# --   Computes each coach's race Elo relative to world median and identifies
-# --   world top 2% specialists per race.
-# -- LAYER:
-# --   GOLD_SUMMARY
-# -- GRAIN:
-# --   1 row per (coach_id, race_id) for coaches with 25+ games (post-threshold)
-# -- PRIMARY KEY:
-# --   (coach_id, race_id)
-# -- SOURCES:
-# --   - naf_catalog.gold_summary.coach_rating_race_summary (elo_peak_post_threshold, games_with_race)
-# --   - naf_catalog.gold_summary.world_race_elo_quantiles (world median)
-# -- NOTES:
-# --   - is_world_specialist: top 2% globally, above world median, 25+ games
-# --   - Uses PERCENT_RANK() pattern from coach_form_summary
-# -- =====================================================================
-
-# CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_race_relative_strength
-# USING DELTA AS
-
-# WITH coach_race_data AS (
-#   SELECT
-#     crr.coach_id,
-#     crr.race_id,
-#     crr.elo_peak_post_threshold AS elo_peak,
-#     crr.games_with_race,
-#     w.elo_peak_p50 AS world_median_elo,
-#     w.elo_peak_p90 AS world_p90_elo
-#   FROM naf_catalog.gold_summary.coach_rating_race_summary crr
-#   INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles w
-#     ON crr.race_id = w.race_id
-#   WHERE crr.rating_system = 'NAF_ELO'
-#     AND crr.games_with_race >= 25
-#     AND crr.elo_peak_post_threshold IS NOT NULL
-# ),
-# percentiles AS (
-#   SELECT
-#     coach_id,
-#     race_id,
-#     elo_peak,
-#     games_with_race,
-#     world_median_elo,
-#     world_p90_elo,
-#     CAST(PERCENT_RANK() OVER (PARTITION BY race_id ORDER BY elo_peak) * 100 AS DOUBLE) AS world_percentile
-#   FROM coach_race_data
-# )
-# SELECT
-#   coach_id,
-#   race_id,
-#   elo_peak,
-#   games_with_race,
-#   world_median_elo,
-#   world_p90_elo,
-#   CAST(elo_peak - world_median_elo AS DOUBLE) AS relative_strength,
-#   world_percentile,
-#   CASE
-#     WHEN world_percentile >= 98.0
-#      AND elo_peak >= world_median_elo
-#      AND games_with_race >= 25
-#     THEN TRUE
-#     ELSE FALSE
-#   END AS is_world_specialist,
-#   CURRENT_TIMESTAMP() AS load_timestamp
-# FROM percentiles;
-
-
-# COMMAND ----------
-
-# DBTITLE 1,Moved to 332: coach_race_nation_rank
-# %sql
-# -- TABLE: naf_catalog.gold_summary.coach_race_nation_rank
-# -- =====================================================================
-# -- PURPOSE:
-# --   Nation-relative ranking and national specialist identification.
-# --   Identifies top 3 coaches per race within each nation (minimum quality required).
-# -- LAYER:
-# --   GOLD_SUMMARY
-# -- GRAIN:
-# --   1 row per (coach_id, race_id) for coaches with 25+ games (post-threshold)
-# -- PRIMARY KEY:
-# --   (coach_id, race_id)
-# -- SOURCES:
-# --   - naf_catalog.gold_summary.coach_rating_race_summary (elo_peak_post_threshold, games_with_race)
-# --   - naf_catalog.gold_dim.coach_dim (nation_id)
-# --   - naf_catalog.gold_summary.world_race_elo_quantiles (world median threshold)
-# -- NOTES:
-# --   - is_national_specialist: top 3 in nation, above world median, 25+ games
-# --   - Uses DENSE_RANK() to handle ties
-# --   - Excludes Unknown nation (nation_id = 0)
-# -- =====================================================================
-
-# CREATE OR REPLACE TABLE naf_catalog.gold_summary.coach_race_nation_rank
-# USING DELTA AS
-
-# WITH coach_nation_race AS (
-#   SELECT
-#     crr.coach_id,
-#     crr.race_id,
-#     c.nation_id,
-#     crr.elo_peak_post_threshold AS elo_peak,
-#     crr.games_with_race,
-#     w.elo_peak_p50 AS world_median_elo
-#   FROM naf_catalog.gold_summary.coach_rating_race_summary crr
-#   INNER JOIN naf_catalog.gold_dim.coach_dim c
-#     ON crr.coach_id = c.coach_id
-#   INNER JOIN naf_catalog.gold_summary.world_race_elo_quantiles w
-#     ON crr.race_id = w.race_id
-#   WHERE crr.rating_system = 'NAF_ELO'
-#     AND crr.games_with_race >= 25
-#     AND crr.elo_peak_post_threshold IS NOT NULL
-#     AND c.nation_id <> 0
-# )
-# SELECT
-#   coach_id,
-#   race_id,
-#   nation_id,
-#   elo_peak,
-#   games_with_race,
-#   world_median_elo,
-#   CAST(DENSE_RANK() OVER (PARTITION BY nation_id, race_id ORDER BY elo_peak DESC) AS INT) AS nation_rank,
-#   CASE
-#     WHEN DENSE_RANK() OVER (PARTITION BY nation_id, race_id ORDER BY elo_peak DESC) <= 3
-#      AND elo_peak >= world_median_elo
-#      AND games_with_race >= 25
-#     THEN TRUE
-#     ELSE FALSE
-#   END AS is_national_specialist,
-#   CURRENT_TIMESTAMP() AS load_timestamp
-# FROM coach_nation_race;
-
-
-# COMMAND ----------
-
-# DBTITLE 1,Create table gold_summary.coach_streak_segments
+# DBTITLE 1,gold_summary.coach_streak_segments
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_streak_segments
 # MAGIC -- =====================================================================
@@ -1040,7 +873,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_streak_summary
+# DBTITLE 1,gold_summary.coach_streak_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_streak_summary
 # MAGIC -- =====================================================================
@@ -1130,7 +963,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_rating_global_elo_summary
+# DBTITLE 1,gold_summary.coach_rating_global_elo_summary
 # MAGIC %sql
 # MAGIC -- *TABLE*: naf_catalog.gold_summary.coach_rating_global_elo_summary
 # MAGIC -- =====================================================================
@@ -1440,7 +1273,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_performance_summary
+# DBTITLE 1,gold_summary.coach_performance_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_performance_summary
 # MAGIC -- =====================================================================
@@ -1582,7 +1415,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_form_summary
+# DBTITLE 1,gold_summary.coach_form_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_form_summary
 # MAGIC -- =====================================================================
@@ -1671,7 +1504,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_opponent_summary
+# DBTITLE 1,gold_summary.coach_opponent_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_summary
 # MAGIC -- =====================================================================
@@ -1780,7 +1613,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_opponent_global_elo_enriched_v
+# DBTITLE 1,gold_summary.coach_opponent_global_elo_enriched_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_enriched_v
 # MAGIC -- =====================================================================
@@ -1829,7 +1662,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_opponent_median_glo_bin_summary
+# DBTITLE 1,gold_summary.coach_opponent_median_glo_bin_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_opponent_median_glo_bin_summary
 # MAGIC -- =====================================================================
@@ -1931,7 +1764,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_opponent_global_elo_all_opponents_summary_v
+# DBTITLE 1,gold_summary.coach_opponent_global_elo_all_opponents_summary_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_all_opponents_summary_v
 # MAGIC -- =====================================================================
@@ -1975,7 +1808,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_race_summary
+# DBTITLE 1,gold_summary.coach_race_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_race_summary
 # MAGIC -- =====================================================================
@@ -2228,7 +2061,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.coach_opponent_global_elo_mean_summary_v
+# DBTITLE 1,gold_summary.coach_opponent_global_elo_mean_summary_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.coach_opponent_global_elo_mean_summary_v
 # MAGIC -- =====================================================================
@@ -2298,7 +2131,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_tournament_performance_summary
+# DBTITLE 1,gold_summary.coach_tournament_performance_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_tournament_performance_summary
 # MAGIC -- =====================================================================
@@ -2434,7 +2267,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_biggest_upset_summary
+# DBTITLE 1,gold_summary.coach_biggest_upset_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_biggest_upset_summary
 # MAGIC -- =====================================================================

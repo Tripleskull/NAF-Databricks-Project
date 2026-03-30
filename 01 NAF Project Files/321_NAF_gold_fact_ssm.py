@@ -73,7 +73,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_fact.ssm_rating_history_fact
+# DBTITLE 1,gold_fact.ssm_rating_history_fact
 # MAGIC %sql -- TABLE: naf_catalog.gold_fact.ssm_rating_history_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : SSM (State-Space Model) rating history per game, GLOBAL scope.
@@ -435,7 +435,7 @@ print(f"SSM engine: wrote {hist_df.count()} rows to {target}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Quick sanity check: sample output for a few coaches
+# DBTITLE 1,Sanity check: sample output for a few coaches
 # MAGIC %sql
 # MAGIC -- Quick sanity check: sample output for a few coaches
 # MAGIC SELECT

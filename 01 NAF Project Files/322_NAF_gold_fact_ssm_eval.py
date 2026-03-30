@@ -25,7 +25,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Load Analytical Config
+# DBTITLE 1,Analytical Config
 # =============================================================================
 # COMPONENT: Load analytical parameters from central config
 # =============================================================================
@@ -389,8 +389,8 @@ print("=" * 70)
 
 # COMMAND ----------
 
-
 # DBTITLE 1,SSM2 Hyperparameter Tuner — Brier-UA Objective
+
 # =============================================================================
 # COMPONENT: SSM2 Hyperparameter Tuner — Brier-UA Objective
 # =============================================================================
@@ -673,8 +673,8 @@ else:
 
 # COMMAND ----------
 
+# DBTITLE 1,SSM2 Engine Function
 
-# DBTITLE 1,Re-usable SSM2 Engine Function
 # =============================================================================
 # COMPONENT: Re-usable SSM2 Engine Function
 # =============================================================================
@@ -836,8 +836,8 @@ def run_ssm2_variant(sigma2_obs, q_time, q_game, v_scale,
 
 # COMMAND ----------
 
+# DBTITLE 1,Model Comparison — SSM v1, SSM v2, Elo
 
-# DBTITLE 1,Structured Model Comparison — SSM v1, SSM v2, Elo
 # =============================================================================
 # COMPONENT: Structured Model Comparison — SSM v1, SSM v2, Elo
 # =============================================================================

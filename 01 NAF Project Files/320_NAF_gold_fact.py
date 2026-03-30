@@ -23,7 +23,7 @@
 # MAGIC - Project Design → `02_schema_design.md`
 # MAGIC - Project Design → `03_style_guides.md`
 # MAGIC
-
+# MAGIC
 
 # COMMAND ----------
 
@@ -41,7 +41,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_fact.games_fact
+# DBTITLE 1,gold_fact.games_fact
 # MAGIC %sql -- TABLE: naf_catalog.gold_fact.games_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Event-truth games fact table (one record per NAF game).
@@ -83,7 +83,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_fact.game_global_order_spine_v
+# DBTITLE 1,gold_fact.game_global_order_spine_v
 # MAGIC %sql -- VIEW: naf_catalog.gold_fact.game_global_order_spine_v
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical global game ordering spine (adds game_index) for consistent sequencing.
@@ -112,7 +112,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_fact.coach_games_fact
+# DBTITLE 1,gold_fact.coach_games_fact
 # MAGIC %sql -- VIEW: naf_catalog.gold_fact.coach_games_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Per-coach perspective of games (coach vs opponent), home/away normalized.
@@ -229,7 +229,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_fact.game_feed_for_ratings_fact
+# DBTITLE 1,gold_fact.game_feed_for_ratings_fact
 # MAGIC %sql -- VIEW: naf_catalog.gold_fact.game_feed_for_ratings_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Ordered game feed for rating computation (adds k_value/n_eff/is_major_tournament).
@@ -300,7 +300,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_fact.rating_history_fact
+# DBTITLE 1,gold_fact.rating_history_fact
 # MAGIC %sql -- TABLE: naf_catalog.gold_fact.rating_history_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Rating change history per game and scope (GLOBAL / RACE), for analysis and downstream summaries.
@@ -619,7 +619,7 @@ target = "naf_catalog.gold_fact.rating_history_fact"
 
 # COMMAND ----------
 
-# DBTITLE 1,Load game feed for Elo engine
+# DBTITLE 1,game feed for Elo engine
 from pyspark.sql import functions as F
 
 feed_df = (
@@ -685,7 +685,7 @@ feed_df.select(
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_fact.tournament_statistics_fact
+# DBTITLE 1,gold_fact.tournament_statistics_fact
 # MAGIC %sql -- TABLE: naf_catalog.gold_fact.tournament_statistics_fact
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Tournament stat event rows for analysis and joins.

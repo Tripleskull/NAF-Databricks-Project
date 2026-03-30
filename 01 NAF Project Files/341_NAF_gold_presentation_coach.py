@@ -36,7 +36,7 @@
 # MAGIC - Project Design → `02_schema_design.md`
 # MAGIC - Project Design → `03_style_guides.md`
 # MAGIC
-
+# MAGIC
 
 # COMMAND ----------
 
@@ -46,7 +46,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,VIEW: coach_profile (AMBIGUOUS_REFERENCE fix)
+# DBTITLE 1,coach_profile (AMBIGUOUS_REFERENCE fix)
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_profile
 # MAGIC -- =====================================================================
@@ -499,7 +499,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_opponent_highlights
+# DBTITLE 1,gold_presentation.coach_opponent_highlights
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_highlights
 # MAGIC -- =====================================================================
@@ -700,7 +700,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_opponent_rating
+# DBTITLE 1,gold_presentation.coach_opponent_rating
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_rating
 # MAGIC -- =====================================================================
@@ -783,7 +783,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_race_performance
+# DBTITLE 1,gold_presentation.coach_race_performance
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_performance
 # MAGIC -- =====================================================================
@@ -918,7 +918,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_cumulative_results_daily_series
+# DBTITLE 1,gold_presentation.coach_cumulative_results_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_daily_series
 # MAGIC -- =====================================================================
@@ -987,7 +987,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_opponent_median_glo_bin_results_long
+# DBTITLE 1,gold_presentation.coach_opponent_median_glo_bin_results_long
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_median_glo_bin_results_long
 # MAGIC -- =====================================================================
@@ -1022,7 +1022,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_opponent_top5_by_games
+# DBTITLE 1,gold_presentation.coach_opponent_top5_by_games
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_top5_by_games
 # MAGIC -- =====================================================================
@@ -1119,7 +1119,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_opponent_insights
+# DBTITLE 1,gold_presentation.coach_opponent_insights
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_opponent_insights
 # MAGIC -- =====================================================================
@@ -1571,7 +1571,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_streak_detail
+# DBTITLE 1,gold_presentation.coach_streak_detail
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_streak_detail
 # MAGIC -- =====================================================================
@@ -1664,7 +1664,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_streak_overview
+# DBTITLE 1,gold_presentation.coach_streak_overview
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_streak_overview
 # MAGIC -- =====================================================================
@@ -1763,7 +1763,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_tournament_performance
+# DBTITLE 1,gold_presentation.coach_tournament_performance
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_tournament_performance
 # MAGIC -- =====================================================================
@@ -1902,7 +1902,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_global_elo_rating_history
+# DBTITLE 1,gold_presentation.coach_global_elo_rating_history
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_global_elo_rating_history
 # MAGIC -- =====================================================================
@@ -1963,7 +1963,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_results_all_long
+# DBTITLE 1,gold_presentation.coach_results_all_long
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_results_all_long
 # MAGIC -- =====================================================================
@@ -2094,7 +2094,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_race_elo_rating_history
+# DBTITLE 1,gold_presentation.coach_race_elo_rating_history
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_elo_rating_history
 # MAGIC -- =====================================================================
@@ -2162,7 +2162,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_global_elo_rating_daily_series
+# DBTITLE 1,gold_presentation.coach_global_elo_rating_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_global_elo_rating_daily_series
 # MAGIC -- =====================================================================
@@ -2231,7 +2231,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_race_elo_rating_daily_series
+# DBTITLE 1,gold_presentation.coach_race_elo_rating_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_race_elo_rating_daily_series
 # MAGIC -- =====================================================================
@@ -2317,7 +2317,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_cumulative_results_last_n_daily_series
+# DBTITLE 1,gold_presentation.coach_cumulative_results_last_n_daily_series
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_cumulative_results_last_n_daily_series
 # MAGIC -- =====================================================================

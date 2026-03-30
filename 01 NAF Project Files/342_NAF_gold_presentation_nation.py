@@ -65,7 +65,7 @@
 # MAGIC   `%sql -- VIEW: naf_catalog.gold_presentation.nation_overview`
 # MAGIC - Keep ID columns explicit (e.g. `opponent_nation_id`, `race_id`), and treat presentation as formatting/orchestration only.
 # MAGIC
-
+# MAGIC
 
 # COMMAND ----------
 
@@ -75,7 +75,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_overview_comparison
+# DBTITLE 1,gold_presentation.nation_overview_comparison
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_overview_comparison
 # MAGIC -- =====================================================================
@@ -136,7 +136,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_overview
+# DBTITLE 1,gold_presentation.nation_overview
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_overview
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
@@ -216,7 +216,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_race_meta
+# DBTITLE 1,gold_presentation.nation_race_meta
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_race_meta
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
@@ -299,7 +299,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_vs_nation_meta
+# DBTITLE 1,gold_presentation.nation_vs_nation_meta
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_vs_nation_meta
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -351,7 +351,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_coach_activity_timeseries
+# DBTITLE 1,gold_presentation.nation_coach_activity_timeseries
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_coach_activity_timeseries
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -389,7 +389,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_members_cumulative_weekly_display
+# DBTITLE 1,gold_presentation.nation_members_cumulative_weekly_display
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_members_cumulative_weekly_display
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -420,7 +420,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_glo_peak_distribution
+# DBTITLE 1,gold_presentation.nation_glo_peak_distribution
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_peak_distribution
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -467,7 +467,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_glo_binned_distribution_display
+# DBTITLE 1,gold_presentation.nation_glo_binned_distribution_display
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_binned_distribution_display
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Dashboard-facing GLO histogram data with nation display names.
@@ -517,7 +517,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_glo_smooth_cdf_display
+# DBTITLE 1,gold_presentation.nation_glo_smooth_cdf_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_smooth_cdf_display
 # MAGIC -- =====================================================================
@@ -602,7 +602,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_race_elo_peak_summary
+# DBTITLE 1,gold_presentation.nation_race_elo_peak_summary
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_race_elo_peak_summary
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
@@ -640,7 +640,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_race_strength_comparison
+# DBTITLE 1,gold_presentation.nation_race_strength_comparison
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_race_strength_comparison
 # MAGIC -- =====================================================================
@@ -717,7 +717,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_glo_metric_quantiles
+# DBTITLE 1,gold_presentation.nation_glo_metric_quantiles
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_metric_quantiles
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE: Dashboard contract for nation + world GLO quantiles (boxplot stats)
@@ -769,7 +769,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_glo_peak_card_long
+# DBTITLE 1,gold_presentation.nation_glo_peak_card_long
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_glo_peak_card_long
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_glo_peak_card_long AS
 # MAGIC SELECT
@@ -819,7 +819,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_coach_glo_metrics_long
+# DBTITLE 1,gold_presentation.nation_coach_glo_metrics_long
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_coach_glo_metrics_long
 # MAGIC CREATE OR REPLACE VIEW naf_catalog.gold_presentation.nation_coach_glo_metrics_long AS
 # MAGIC WITH base AS (
@@ -891,7 +891,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_rivalry_meta
+# DBTITLE 1,gold_presentation.nation_rivalry_meta
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_rivalry_meta
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -944,7 +944,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_rivalry_display
+# DBTITLE 1,gold_presentation.nation_rivalry_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_rivalry_display
 # MAGIC -- =====================================================================
@@ -991,7 +991,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_glo_exchange_display
+# DBTITLE 1,gold_presentation.nation_glo_exchange_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_glo_exchange_display
 # MAGIC -- =====================================================================
@@ -1025,7 +1025,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_profile_long
+# DBTITLE 1,gold_presentation.nation_profile_long
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_profile_long
 # MAGIC -- =====================================================================
@@ -1439,7 +1439,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_top_coach_opponent_bin_perf
+# DBTITLE 1,gold_presentation.nation_top_coach_opponent_bin_perf
 # MAGIC %sql -- VIEW: naf_catalog.gold_presentation.nation_top_coach_opponent_bin_perf
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -1518,7 +1518,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_results_cumulative_display
+# DBTITLE 1,gold_presentation.nation_results_cumulative_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_results_cumulative_display
 # MAGIC -- =====================================================================
@@ -1577,7 +1577,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_domestic_performance_display
+# DBTITLE 1,gold_presentation.nation_domestic_performance_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_domestic_performance_display
 # MAGIC -- =====================================================================
@@ -1621,7 +1621,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_opponent_elo_bin_wdl_display
+# DBTITLE 1,gold_presentation.nation_opponent_elo_bin_wdl_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_opponent_elo_bin_wdl_display
 # MAGIC -- =====================================================================
@@ -1662,14 +1662,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,REMOVED: nation_game_quality_bin_wdl_display
-# MAGIC %sql
-# MAGIC -- REMOVED: nation_game_quality_bin_wdl_display
-# MAGIC -- Legacy view — depended on configurable bin framework. Not used by any dashboard.
-
-# COMMAND ----------
-
-# DBTITLE 1,Create view gold_presentation.nation_team_candidates_display
+# DBTITLE 1,gold_presentation.nation_team_candidates_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_team_candidates_display
 # MAGIC -- =====================================================================
@@ -1747,7 +1740,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_power_ranking_display
+# DBTITLE 1,gold_presentation.nation_power_ranking_display
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_power_ranking_display
 # MAGIC -- =====================================================================

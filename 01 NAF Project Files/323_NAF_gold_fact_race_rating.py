@@ -38,7 +38,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Load Analytical Config (Stage 1 + Stage 2)
+# DBTITLE 1,Analytical Config (Stage 1 + Stage 2)
 # =============================================================================
 # COMPONENT: Load analytical parameters and shared constants
 # =============================================================================
@@ -463,7 +463,7 @@ print(f"✓ Wrote {n_written:,} rows to {target}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Quick Diagnostics
+# DBTITLE 1,Diagnostics
 # Quick sanity checks after engine run
 
 import numpy as np
@@ -615,7 +615,7 @@ else:
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_fact.race_correlation_matrix_fact
+# DBTITLE 1,gold_fact.race_correlation_matrix_fact
 # MAGIC %sql
 # MAGIC -- COMMAND ----------
 # MAGIC -- DBTITLE 1,Stage 2 Covariance Table DDL
@@ -653,8 +653,8 @@ else:
 # MAGIC USING DELTA;
 
 # COMMAND ----------
-# DBTITLE 1,Stage 2 Covariance Estimation from Mature Stage 1 Deviations
 
+# DBTITLE 1,Stage 2 Covariance Estimation from Mature Stage 1 Deviations
 # =============================================================================
 # COMPONENT: Stage 2 covariance estimation
 # =============================================================================
@@ -903,7 +903,7 @@ display(
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_fact.race_rating_corr_history_fact
+# DBTITLE 1,gold_fact.race_rating_corr_history_fact
 # MAGIC %sql
 # MAGIC -- COMMAND ----------
 # MAGIC -- DBTITLE 1,Stage 2 History Table DDL
@@ -979,8 +979,8 @@ display(
 # MAGIC USING DELTA;
 
 # COMMAND ----------
-# DBTITLE 1,Stage 2 Covariance Load + Race Index Helpers
 
+# DBTITLE 1,Stage 2 Covariance Load + Race Index Helpers
 # =============================================================================
 # COMPONENT: Stage 2 covariance load
 # =============================================================================
@@ -1149,8 +1149,8 @@ preview_pdf = pd.DataFrame(
 display(preview_pdf)
 
 # COMMAND ----------
-# DBTITLE 1,Stage 2 Feed Load + State Containers + Helper Functions
 
+# DBTITLE 1,Stage 2 Feed Load + State Containers + Helper Functions
 # =============================================================================
 # COMPONENT: Stage 2 correlated race-rating engine setup
 # =============================================================================
@@ -1353,8 +1353,8 @@ print(
 )
 
 # COMMAND ----------
-# DBTITLE 1,Stage 2 Covariance Diagnostics: Correlation + Overlap Heatmaps (with race names)
 
+# DBTITLE 1,Stage 2 Covariance Diagnostics: Correlation + Overlap Heatmaps (with race names)
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -1504,8 +1504,9 @@ print("\nTop negative correlations")
 display(pairs_df.sort_values(["corr", "overlap"], ascending=[True, False]).head(10))
 
 # COMMAND ----------
-# took 27 minutes to run
+
 # DBTITLE 1,Stage 2 Correlated Race Rating Engine (main loop)
+# took 27 minutes to run
 
 # =============================================================================
 # COMPONENT: Stage 2 correlated race-rating engine
@@ -1779,8 +1780,8 @@ print(
 )
 
 # COMMAND ----------
-# DBTITLE 1,Write Stage 2 results
 
+# DBTITLE 1,Write Stage 2 results
 from pyspark.sql import functions as F, types as T
 
 rr2_schema = T.StructType([
@@ -1842,8 +1843,8 @@ rr2_df = (
 print(f"Wrote {rr2_df.count():,} rows to {RR_STAGE2_TARGET}")
 
 # COMMAND ----------
-# DBTITLE 1,Stage 2 sanity checks
 
+# DBTITLE 1,Stage 2 sanity checks
 df = spark.table(RR_STAGE2_TARGET)
 
 print("Rows:", df.count())
@@ -1867,8 +1868,8 @@ display(df.selectExpr(
 ))
 
 # COMMAND ----------
-# DBTITLE 1,Spillover example (manual inspection)
 
+# DBTITLE 1,Spillover example (manual inspection)
 display(
     spark.table(RR_STAGE2_TARGET)
     .filter(F.col("coach_id") == 9524)
@@ -1885,8 +1886,8 @@ display(
 )
 
 # COMMAND ----------
-# DBTITLE 1,Quick Stage1 vs Stage2 comparison
 
+# DBTITLE 1,Stage1 vs Stage2 comparison
 df1 = spark.table("naf_catalog.gold_fact.race_rating_history_fact") \
     .select("game_id", "coach_id", "theta_after") \
     .withColumnRenamed("theta_after", "theta_s1")

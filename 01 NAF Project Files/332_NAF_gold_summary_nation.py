@@ -72,11 +72,11 @@
 # MAGIC
 # MAGIC
 # MAGIC
-
+# MAGIC
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_overview_summary
+# DBTITLE 1,gold_summary.nation_overview_summary
 # MAGIC %sql -- TABLE: naf_catalog.gold_summary.nation_overview_summary
 # MAGIC -- NOTE: nation_coach_glo_metrics is now defined in 330_NAF_gold_summary_core.py
 # MAGIC -- =====================================================================
@@ -238,7 +238,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_games_timeseries
+# DBTITLE 1,gold_summary.nation_games_timeseries
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_games_timeseries
 # MAGIC -- =============================================================================
@@ -286,7 +286,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_coach_activity_timeseries
+# DBTITLE 1,gold_summary.nation_coach_activity_timeseries
 # MAGIC %sql -- TABLE: naf_catalog.gold_summary.nation_coach_activity_timeseries
 # MAGIC -- =============================================================================
 # MAGIC -- PURPOSE:
@@ -347,7 +347,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_members_cumulative_weekly
+# DBTITLE 1,gold_summary.nation_members_cumulative_weekly
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_members_cumulative_weekly
 # MAGIC -- =====================================================================
@@ -435,7 +435,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_results_cumulative_series
+# DBTITLE 1,gold_summary.nation_results_cumulative_series
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_results_cumulative_series
 # MAGIC -- =====================================================================
@@ -547,7 +547,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_domestic_summary
+# DBTITLE 1,gold_summary.nation_domestic_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_domestic_summary
 # MAGIC -- =====================================================================
@@ -619,15 +619,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,REMOVED: nation_overview_comparison_summary
-# MAGIC %sql
-# MAGIC -- REMOVED: nation_overview_comparison_summary
-# MAGIC -- Redundant — superseded by nation_overview_comparison (below).
-# MAGIC -- Dropped in 331 cleanup cell (2026-03).
-
-# COMMAND ----------
-
-# DBTITLE 1,Create table gold_summary.nation_overview_comparison
+# DBTITLE 1,gold_summary.nation_overview_comparison
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_overview_comparison
 # MAGIC -- =====================================================================
@@ -810,7 +802,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_race_summary
+# DBTITLE 1,gold_summary.nation_race_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_race_summary
 # MAGIC -- =============================================================================
@@ -890,7 +882,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_glo_metric_quantiles
+# DBTITLE 1,gold_summary.nation_glo_metric_quantiles
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_glo_metric_quantiles
 # MAGIC -- =============================================================================
@@ -955,7 +947,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_glo_binned_distribution
+# DBTITLE 1,gold_summary.nation_glo_binned_distribution
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_glo_binned_distribution
 # MAGIC -- =====================================================================
@@ -1077,7 +1069,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_vs_nation_summary
+# DBTITLE 1,gold_summary.nation_vs_nation_summary
 # MAGIC %sql -- TABLE: naf_catalog.gold_summary.nation_vs_nation_summary
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE:
@@ -1227,7 +1219,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_rivalry_summary
+# DBTITLE 1,gold_summary.nation_rivalry_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_rivalry_summary
 # MAGIC -- =============================================================================
@@ -1283,7 +1275,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_elite_rivalry_summary
+# DBTITLE 1,gold_summary.nation_elite_rivalry_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_elite_rivalry_summary
 # MAGIC -- =============================================================================
@@ -1378,7 +1370,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.nation_coach_race_elo_peak
+# DBTITLE 1,gold_summary.nation_coach_race_elo_peak
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.nation_coach_race_elo_peak
 # MAGIC -- =============================================================================
@@ -1414,7 +1406,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_race_elo_peak_summary
+# DBTITLE 1,gold_summary.nation_race_elo_peak_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_race_elo_peak_summary
 # MAGIC -- =============================================================================
@@ -1450,7 +1442,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.world_race_elo_quantiles
+# DBTITLE 1,gold_summary.world_race_elo_quantiles
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_summary.world_race_elo_quantiles
 # MAGIC -- =====================================================================
@@ -1484,15 +1476,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Note: world_glo_metric_quantiles moved to 330
-# MAGIC -- NOTE: world_glo_metric_quantiles is now defined in 330_NAF_gold_summary_core.py
-# MAGIC -- Presentation views (nation_glo_metric_quantiles, nation_glo_peak_card_long)
-# MAGIC -- are defined in 342_NAF_gold_presentation_nation.py.
-# MAGIC
-
-# COMMAND ----------
-
-# DBTITLE 1,Create view gold_summary.coach_opponent_glo_bin_summary
+# DBTITLE 1,gold_summary.coach_opponent_glo_bin_summary
 # MAGIC %sql -- VIEW: naf_catalog.gold_summary.coach_opponent_glo_bin_summary
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Coach-level opponent strength bins using the fixed 4-bin
@@ -1577,7 +1561,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_opponent_elo_bin_wdl
+# DBTITLE 1,gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_opponent_elo_bin_wdl
 # MAGIC -- =====================================================================
@@ -1717,15 +1701,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,REMOVED: nation_game_quality_bin_wdl
-# MAGIC %sql
-# MAGIC -- REMOVED: nation_game_quality_bin_wdl
-# MAGIC -- Legacy table — depended on configurable bin framework (global_elo_bin_scheme).
-# MAGIC -- Not used by any dashboard. Opponent bins use fixed scheme in nation_opponent_elo_bin_wdl.
-
-# COMMAND ----------
-
-# DBTITLE 1,Create table gold_summary.nation_active_coaches_summary
+# DBTITLE 1,gold_summary.nation_active_coaches_summary
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_active_coaches_summary
 # MAGIC -- =====================================================================
@@ -1757,7 +1733,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_race_relative_strength
+# DBTITLE 1,gold_summary.coach_race_relative_strength
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_race_relative_strength
 # MAGIC -- =====================================================================
@@ -1830,7 +1806,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_team_candidate_scores
+# DBTITLE 1,gold_summary.nation_team_candidate_scores
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_team_candidate_scores
 # MAGIC -- =====================================================================
@@ -1975,7 +1951,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_power_ranking
+# DBTITLE 1,gold_summary.nation_power_ranking
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_power_ranking
 # MAGIC -- =====================================================================
@@ -2053,7 +2029,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.coach_race_nation_rank
+# DBTITLE 1,gold_summary.coach_race_nation_rank
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.coach_race_nation_rank
 # MAGIC -- =====================================================================

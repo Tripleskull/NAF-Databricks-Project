@@ -31,11 +31,11 @@
 # MAGIC   Join those in `gold_presentation`.
 # MAGIC - "glo" = **GLOBAL NAF_ELO** (race-agnostic, `COALESCE(race_id,0)=0`).
 # MAGIC   `is_valid_glo` is a **reporting/stability flag**, not "does the rating exist".
-
+# MAGIC
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_summary.nation_coach_glo_metrics
+# DBTITLE 1,gold_summary.nation_coach_glo_metrics
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_summary.nation_coach_glo_metrics
 # MAGIC -- =====================================================================
@@ -161,7 +161,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_summary.world_glo_metric_quantiles
+# DBTITLE 1,gold_summary.world_glo_metric_quantiles
 # MAGIC %sql -- VIEW: naf_catalog.gold_summary.world_glo_metric_quantiles
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : World-level GLO metric quantiles (PEAK/MEAN/MEDIAN).

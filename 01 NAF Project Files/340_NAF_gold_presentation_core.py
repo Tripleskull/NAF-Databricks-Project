@@ -34,7 +34,7 @@
 # MAGIC - Prefer explicit column lists (avoid `SELECT *`) for published contracts.
 # MAGIC - No KPI re-definition here: metrics stay in `gold_summary`; this notebook adds **display-only** shaping.
 # MAGIC
-
+# MAGIC
 
 # COMMAND ----------
 
@@ -51,7 +51,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_flag_emoji_v
+# DBTITLE 1,gold_presentation.nation_flag_emoji_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_flag_emoji_v
 # MAGIC -- =====================================================================
@@ -175,7 +175,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.nation_identity_v
+# DBTITLE 1,gold_presentation.nation_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.nation_identity_v
 # MAGIC -- =====================================================================
@@ -209,7 +209,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.coach_identity_v
+# DBTITLE 1,gold_presentation.coach_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.coach_identity_v
 # MAGIC -- =====================================================================
@@ -251,7 +251,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.tournament_identity_v
+# DBTITLE 1,gold_presentation.tournament_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.tournament_identity_v
 # MAGIC -- =====================================================================
@@ -294,7 +294,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create view gold_presentation.race_identity_v
+# DBTITLE 1,gold_presentation.race_identity_v
 # MAGIC %sql
 # MAGIC -- VIEW: naf_catalog.gold_presentation.race_identity_v
 # MAGIC -- =====================================================================
@@ -326,11 +326,3 @@
 # MAGIC   END AS race_name_display
 # MAGIC FROM naf_catalog.gold_dim.race_dim AS r;
 # MAGIC
-
-# COMMAND ----------
-
-# MAGIC %md
-# MAGIC ### End of 340 core presentation objects
-# MAGIC Legacy `global_elo_bin_scheme` view removed — configurable bin framework retired.
-# MAGIC Fixed opponent GLO bins live in `coach_opponent_median_glo_bin_summary` (331) and
-# MAGIC `nation_opponent_elo_bin_wdl` (332) with inline bin definitions.

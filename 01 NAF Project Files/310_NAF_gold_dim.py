@@ -18,7 +18,7 @@
 # MAGIC - Always state **grain + PK uniqueness** + expected FKs in the notebook header.
 # MAGIC - Enforce basic integrity: PK unique, required keys NOT NULL, and coverage for referenced IDs from Silver where relevant.
 # MAGIC
-
+# MAGIC
 
 # COMMAND ----------
 
@@ -37,7 +37,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.race_dim
+# DBTITLE 1,gold_dim.race_dim
 # MAGIC %sql
 # MAGIC -- TABLE: naf_catalog.gold_dim.race_dim
 # MAGIC -- =====================================================================
@@ -76,7 +76,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.tournament_stat_dim
+# DBTITLE 1,gold_dim.tournament_stat_dim
 # MAGIC %sql -- TABLE: naf_catalog.gold_dim.tournament_stat_dim
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical lookup of tournament statistic types for joins.
@@ -101,7 +101,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.nation_dim
+# DBTITLE 1,gold_dim.nation_dim
 # MAGIC %sql -- TABLE: naf_catalog.gold_dim.nation_dim
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical nation lookup (names + codes + flag key) for joins.
@@ -130,7 +130,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.coach_dim
+# DBTITLE 1,gold_dim.coach_dim
 # MAGIC %sql -- TABLE: naf_catalog.gold_dim.coach_dim ==================================================
 # MAGIC -- PURPOSE: Canonical list of active coaches and their current nation.
 # MAGIC -- LAYER: GOLD_DIM
@@ -153,7 +153,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.tournament_dim
+# DBTITLE 1,gold_dim.tournament_dim
 # MAGIC %sql -- TABLE: naf_catalog.gold_dim.tournament_dim
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical tournament lookup (minimal + stable attributes) for joins.
@@ -188,7 +188,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.date_dim
+# DBTITLE 1,gold_dim.date_dim
 # MAGIC %sql -- TABLE: naf_catalog.gold_dim.date_dim
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Canonical calendar table (ISO weekday: Mon=1 ... Sun=7).
@@ -241,7 +241,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.analytical_config
+# DBTITLE 1,gold_dim.analytical_config
 # MAGIC %sql
 # MAGIC -- =====================================================================
 # MAGIC -- OBJECT       : naf_catalog.gold_dim.analytical_config
@@ -335,7 +335,7 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Create table gold_dim.tournament_parameters
+# DBTITLE 1,gold_dim.tournament_parameters
 # MAGIC %sql -- TABLE: naf_catalog.gold_dim.tournament_parameters
 # MAGIC -- =====================================================================
 # MAGIC -- PURPOSE      : Deterministic tournament-level parameter lookup used by rating pipelines.

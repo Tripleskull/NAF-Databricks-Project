@@ -72,7 +72,6 @@ print(f"Test window:       date_id >= {test_cutoff} ({EVAL_TEST_MONTHS} months)"
 # COMMAND ----------
 
 # DBTITLE 1,Assemble Evaluation DataFrame
-# DBTITLE 1,Assemble Evaluation DataFrame
 # =============================================================================
 # Load predictions from all models and merge into a single evaluation DF.
 # Each row = one (game_id, coach_id) observation in the test window.
@@ -299,7 +298,6 @@ for sl in slices:
 
 # COMMAND ----------
 
-# DBTITLE 1,Calibration Plots
 # DBTITLE 1,Calibration Plots
 # =============================================================================
 # Calibration comparison
@@ -556,7 +554,6 @@ print(f"{'='*110}")
 
 # COMMAND ----------
 
-# DBTITLE 1,Race Rating Tuner (validation-window, stage 1)
 # DBTITLE 1,Race Rating Tuner (validation-window, stage 1)
 # =============================================================================
 # PURPOSE
@@ -1563,7 +1560,6 @@ else:
 
 # COMMAND ----------
 
-# DBTITLE 1,Untitled
 # DBTITLE 1,Ridgeline Plot — Coach race rating distributions over time
 
 import numpy as np
