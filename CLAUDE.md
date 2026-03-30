@@ -1,3 +1,5 @@
+> This file contains working instructions for AI-assisted development with Claude. It is part of the development workflow and is kept in the repository for transparency.
+
 # NAF Databricks Project - Instructions for Claude
 
 ## Project Context
@@ -133,13 +135,11 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `Expansion_Plan.md` - 9-phase roadmap (nation dashboard, team selector, global status report)
 - `Skill_Estimation_Plan.md` - SSM design options analysis (Option 4 selected and implemented)
 - `ssm_model_outline_v2_with_suggestions.md` - SSM v2 design spec (time-aware + adaptive volatility)
-- `Nation_plan.md` - Nation dashboard content plan (retire after nation pipeline is finalised)
+- `Nation_plan.md` - Deprecated; see Nation_Dashboard_Plan.md
 - `style_guides.md` - SQL/PySpark formatting rules
 
 ### Other Documentation
 - `CLAUDE.md` - This file (project instructions)
-- `PROJECT_STATUS.md` - Current status, open issues, next steps
-- `NAF Project Code Review.md` - Initial code review (reference until all issues resolved)
 
 ## Known Issues & Patterns
 

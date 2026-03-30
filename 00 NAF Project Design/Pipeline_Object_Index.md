@@ -53,6 +53,14 @@ These objects are consumed across all domains.
 | 1 | `gold_fact.ssm_rating_history_fact` | [T] | 1 row per (game_id, coach_id) — SSM v1 (game-indexed random walk) |
 | 2 | `gold_fact.ssm2_rating_history_fact` | [T] | 1 row per (game_id, coach_id) — SSM v2 (time-aware + adaptive volatility) |
 
+### Race-Aware Rating Facts (323)
+
+| # | Object | Type | Grain |
+|---|---|---|---|
+| 1 | `gold_fact.race_rating_history_fact` | [T] | 1 row per (game_id, coach_id) — joint EKF: global skill (g) + race deviation (d) |
+
+323 decomposes coach strength as `θ = g + d` where `g` is global skill and `d` is a race-specific deviation. Stage 1 uses independent race deviations (no cross-race covariance). Evaluated in 324 (research notebook, not listed here).
+
 ### Presentation Core (340)
 
 Identity shims consumed by all domain-specific presentation notebooks.
@@ -259,10 +267,11 @@ This means **331 (coach summary) must run before 332 (nation summary) and 333 (t
 The correct notebook execution order, respecting all dependencies:
 
 ```
-310  Gold Dim           (dims + analytical_config + tournament_parameters)
-320  Gold Fact          (games_fact, coach_games_fact, rating_history_fact)
-321  Gold Fact SSM      (ssm_rating_history_fact, ssm2_rating_history_fact)
-331  Gold Summary Coach (spines → series → summaries → streaks → opponent → bins)
+310  Gold Dim             (dims + analytical_config + tournament_parameters)
+320  Gold Fact            (games_fact, coach_games_fact, rating_history_fact)
+321  Gold Fact SSM        (ssm_rating_history_fact, ssm2_rating_history_fact)
+323  Gold Fact Race Rating (race_rating_history_fact)
+331  Gold Summary Coach   (spines → series → summaries → streaks → opponent → bins)
 332  Gold Summary Nation
 333  Gold Summary Tournament
 340  Gold Presentation Core (identity shims)
@@ -271,4 +280,4 @@ The correct notebook execution order, respecting all dependencies:
 343  Gold Presentation Tournament
 ```
 
-Note: 321 depends on 320 (`game_feed_for_ratings_fact`) and 310 (`analytical_config`). It can run in parallel with 331+. 340 (presentation core) can technically run after 310 (it only needs dims), but logically it groups with the presentation phase. 332 and 333 can run in parallel after 331.
+Note: 321 and 323 both depend on 320 (`game_feed_for_ratings_fact`) and 310 (`analytical_config`). They can run in parallel with each other and with 331+. Research/evaluation notebooks (322, 324) are not part of the production pipeline — run on demand. 340 (presentation core) can technically run after 310 (it only needs dims), but logically it groups with the presentation phase. 332 and 333 can run in parallel after 331.

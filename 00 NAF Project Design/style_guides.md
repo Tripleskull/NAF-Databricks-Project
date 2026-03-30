@@ -2,7 +2,7 @@
 
 This document provides practical style guidance for writing readable, maintainable Databricks SQL and PySpark notebooks, aligned with the medallion layers.
 
-Specific naming conventions live in `01_variable_naming.md`. Concrete design decisions (e.g. home/away key naming) live in `00_design_decisions.md`.
+For naming conventions and design decisions, see `NAF_Design_Specification.md`.
 
 ---
 

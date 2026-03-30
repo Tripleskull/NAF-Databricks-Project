@@ -27,51 +27,55 @@ These sources are not maintained by this repository and may change over time. Ow
 
 # NAF Databricks Project
 
-A data engineering and analytics project for analysing NAF (Blood Bowl) data using a structured, production-style pipeline in Databricks. The project focuses on transforming raw match and tournament data into reliable analytical datasets and dashboards for players, coaches and the broader community.
+A data engineering and analytics project built on Databricks that transforms raw NAF (Blood Bowl) match and tournament data into structured analytical datasets, rating systems and interactive dashboards. The project serves players, coaches (including national team selectors) and the broader Blood Bowl community.
 
 ## Overview
 
-This project implements a full data pipeline and analytical layer designed to structure and clean raw NAF data, build consistent analytical models, generate insights through dashboards and reports and support decision-making in competitive Blood Bowl contexts. The pipeline emphasises reproducibility, data quality and clear analytical logic.
+The NAF maintains a global registry of sanctioned Blood Bowl tournaments and match results. This project ingests that data and builds a layered analytical pipeline — from raw ingestion through to dashboard-ready outputs — covering coach ratings, nation-level aggregations, tournament statistics and race/faction analysis. The pipeline emphasises reproducibility, data quality, centralised configuration and transparent analytical logic.
 
-## Use Cases
+## Rating Models
 
-The project aims to support multiple analytical perspectives. For players, it enables ratings, performance tracking and match narratives. For coaches, including national teams, it supports performance analysis, evaluation and preparation.
+A central feature of the project is its suite of coach rating systems, each progressively more sophisticated.
 
-Tournament and race analytics are planned, with foundational structures in place. These will cover event-level metrics, participation insights, matchup analysis, power comparisons and meta-level trends as the project develops.
+**Elo** (320) is the foundation: a classical Elo system with configurable K-factor and scale, producing a single skill estimate per coach. It provides a solid baseline but treats every game equally regardless of timing or race choice.
+
+**State-Space Model (SSM)** (321) replaces the fixed-step Elo update with an Extended Kalman Filter. Version 1 uses a random-walk prior, while version 2 adds time-aware process noise and adaptive volatility — coaches who haven't played recently see their uncertainty grow, and the model self-tunes its responsiveness. SSM v2 produces both a point estimate and a calibrated uncertainty band for every coach.
+
+**Race-Aware Rating** (323) extends the SSM framework into two dimensions. Each coach's predicted strength is decomposed into a global skill component (shared across all races) and a race-specific deviation (how much better or worse the coach performs with a particular faction). The two components are estimated jointly via a 2D Extended Kalman Filter, with information from each game split proportionally between global and race channels based on their relative uncertainties. This allows the model to leverage a coach's full match history for the global estimate while still capturing genuine race specialisation, avoiding the data-fragmentation problem that plagues naive per-race ratings.
+
+Evaluation notebooks (322, 324) benchmark these models against baselines using Brier scores, accuracy, calibration plots and experience-sliced analysis.
 
 ## Architecture
 
-The pipeline follows a medallion architecture (Bronze → Silver → Gold). The Bronze layer handles raw ingestion, the Silver layer standardises and cleans data and the Gold layer contains analytical models and outputs, including dimension tables, fact tables, summary tables and presentation views used in dashboards.
+The pipeline follows a medallion architecture across three layers. The Bronze layer (100) handles raw ingestion from the NAF data export. The Silver layer (200) standardises, cleans and conforms the data — resolving country codes, handling edge cases and producing a consistent analytical foundation. The Gold layer is split into four sub-layers: dimensions (310) for reference data and centralised configuration, facts (320–324) for rating engines and match-level outputs, summaries (330–334) for pre-aggregated analytical tables and presentation (340–344) for dashboard-contract views.
 
-Data assets are organised within a unified catalog structure: `naf_catalog.bronze`, `naf_catalog.silver`, `naf_catalog.gold_dim`, `naf_catalog.gold_fact`, `naf_catalog.gold_summary` and `naf_catalog.gold_presentation`. A central configuration table (naf_catalog.gold_dim.analytical_config) is used to manage analytical parameters.
+All tuneable parameters — Elo settings, SSM hyperparameters, race-rating configuration, activity windows, experience thresholds — are managed through a singleton configuration table (`naf_catalog.gold_dim.analytical_config`) defined in 310. Rating engines read from this config at runtime, so parameter changes propagate without code edits.
 
-## Key Features
-
-The project includes an end-to-end data pipeline built in Databricks using SQL and PySpark, structured analytical modelling, rating systems such as ELO and state-space approaches and a dashboard-ready presentation layer. The design prioritises data quality, reproducibility and clear, explainable metrics.
+Data assets live within a unified catalog: `naf_catalog.{bronze, silver, gold_dim, gold_fact, gold_summary, gold_presentation}`.
 
 ## Project Structure
 
-The pipeline is implemented as a series of notebooks organised under “NAF Project Files”, covering Bronze ingestion (100-series), Silver transformation (200-series), Gold dimension and fact tables (300-series), advanced models (320–324), summary layers (330–334), presentation views (340–344) and testing (350). Dashboards are located under “02 NAF Dashboards” and design documentation under “00 NAF Project Design”, including architecture specifications, analytical parameters, pipeline structure and development plans.
+```
+00 NAF Project Design/     Design specs, parameter docs, pipeline index, plans
+01 NAF Project Files/      Notebooks (100–350), executed in numeric order
+02 NAF Dashboards/         Databricks AI/BI dashboard definitions
+```
+
+Notebooks follow a numeric convention: 100-series for Bronze, 200-series for Silver, 310 for dimensions, 320–324 for fact/rating engines, 330–334 for summaries, 340–344 for presentation views and 350 for pipeline tests. Research notebooks (322, 324) are not part of the production pipeline but share the same config infrastructure.
 
 ## Technology Stack
 
-The project is built using Databricks (Community Edition), PySpark, SQL, Delta Lake and GitHub for version control.
+The project is built using Databricks (Community Edition), PySpark, SQL, Delta Lake, Python (NumPy, Matplotlib for evaluation) and GitHub for version control. Dashboards use the Databricks AI/BI (Lovelytics) framework.
 
 ## Design Principles
 
-The project is built around clear separation of data layers, consistent naming and schema design, reproducible and traceable transformations, analytical transparency through documented assumptions and a balance between robustness and iteration speed.
+The project is built around clear separation of data layers, centralised and documented configuration, consistent naming and schema conventions, reproducible and traceable transformations, analytical transparency through documented assumptions and a balance between robustness and iteration speed. All rating models are designed to be explainable — outputs include uncertainty estimates and diagnostic plots, not just point predictions.
 
 ## Status
 
-The project is under active development. Core pipeline layers, data modelling and coach-focused analytics are implemented, including rating systems and dashboard-ready outputs.
+Core pipeline layers are complete: Bronze through Gold, including Elo, SSM v1/v2 and race-aware rating engines. Coach-focused analytics and a polished coach dashboard are in production. Nation analytics are in early development with foundational structures in place. Tournament and race summary/presentation layers have stub notebooks ready for expansion.
 
-Tournament and race analytics are currently in an early stage, with foundational structures in place but further modelling and analysis still to be developed.
-
-Ongoing work includes expanding analytical coverage, improving dashboards and refining evaluation and tuning of rating systems.
-
-## Notes
-
-This project is developed as a structured data and analytics system rather than a lightweight script-based workflow. Some components, particularly advanced models and evaluation notebooks, are experimental and may evolve over time.
+Ongoing work includes expanding nation and tournament dashboards, refining race-rating calibration (current evaluation shows slight overconfidence at the high end) and improving publication readiness of documentation and results.
 
 ## License
 

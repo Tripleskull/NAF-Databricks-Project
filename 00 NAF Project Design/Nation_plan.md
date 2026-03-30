@@ -1,3 +1,5 @@
+> **Deprecated.** This document has been superseded by `Nation_Dashboard_Plan.md` and `NAF_Design_Specification.md`. Kept for historical reference only — do not update.
+
 # Nation Dashboard vNext — single plan (content + strategy + architecture + metrics)
 
 ## 0) Goals (what this dashboard should answer)
