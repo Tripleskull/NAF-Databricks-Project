@@ -2,34 +2,21 @@
 # MAGIC %md
 # MAGIC # 323 — Race-Aware Rating Engine
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Production
-# MAGIC **Pipeline position:** Runs after 310 (config) and 320 (game feed)
+# MAGIC **Layer:** GOLD_FACT  |  **Status:** Production
+# MAGIC **Pipeline position:** After 310 (config) and 320 (game feed)
 # MAGIC
-# MAGIC ## Model
+# MAGIC Decomposes each coach's skill into a global component `g` and race-specific deviations `d`.
+# MAGIC Each game updates `g` and the played race's `d` via a joint 2D EKF step.
 # MAGIC
-# MAGIC Each coach's strength with race `r` is decomposed as:
-# MAGIC ```
-# MAGIC θ_{i,r,t} = g_{i,t} + d_{i,r,t}
-# MAGIC ```
-# MAGIC where `g` is global skill and `d` is a race-specific deviation (prior mean = 0).
+# MAGIC ## Dependencies
+# MAGIC - `gold_fact.game_feed_for_ratings_fact` — ordered game feed
+# MAGIC - `gold_dim.analytical_config` — rr_* parameters
 # MAGIC
-# MAGIC **Stage 1 (this version):** Independent race deviations — no cross-race
-# MAGIC covariance yet. Each game updates `g` and the played race's `d` via a
-# MAGIC joint 2-dimensional EKF step.
+# MAGIC ## Outputs
+# MAGIC - `gold_fact.race_rating_history_fact` — 1 row per (game_id, coach_id); g + d components
 # MAGIC
-# MAGIC **Observation model:** Same logistic link as Elo/SSM:
-# MAGIC ```
-# MAGIC P(win) = 1 / (1 + 10^((θ_opp - θ_self) / S))
-# MAGIC ```
-# MAGIC where `θ_self = g_self + d_self_race` and `θ_opp = g_opp + d_opp_race`.
-# MAGIC
-# MAGIC ## Output
-# MAGIC
-# MAGIC - `naf_catalog.gold_fact.race_rating_history_fact` — 1 row per (game_id, coach_id)
-# MAGIC
-# MAGIC ## Design reference
-# MAGIC
-# MAGIC See `00 NAF Project Design/race_rating_model_plan.md` for full spec.
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design reference:** `00 NAF Project Design/archive/Race_Rating_Design.md`
 
 # COMMAND ----------
 

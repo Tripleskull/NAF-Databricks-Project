@@ -2,11 +2,20 @@
 # MAGIC %md
 # MAGIC # 350 — Pipeline Tests & Administration
 # MAGIC
-# MAGIC **Layer:** TEST &nbsp;|&nbsp; **Status:** Production
-# MAGIC **Pipeline position:** Runs last (after all 340+ notebooks)
+# MAGIC **Layer:** TEST  |  **Status:** Production
+# MAGIC **Pipeline position:** Last (after all 340+ notebooks)
 # MAGIC
-# MAGIC PK/FK checks, uniqueness tests, data quality validation across all layers.
-# MAGIC Collects structured test results into a report table with CSV export.
+# MAGIC PK/FK checks, uniqueness tests, and data quality validation across all layers.
+# MAGIC Collects structured results into a report table with CSV export.
+# MAGIC
+# MAGIC ## Dependencies
+# MAGIC - `silver.*` — nations_entity, coaches_clean, games_clean, tournaments_clean
+# MAGIC - `gold_dim.*` — nation_dim, coach_dim, tournament_dim, race_dim, date_dim
+# MAGIC - `gold_fact.*` — games_fact, coach_games_fact, rating_history_fact
+# MAGIC - All gold_summary and gold_presentation objects (existence checks)
+# MAGIC
+# MAGIC ## Outputs
+# MAGIC - No persistent outputs; returns failing checks only (empty result = PASS)
 
 # COMMAND ----------
 

@@ -1,69 +1,47 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold Presentation — Nation
+# MAGIC # 342 — Gold Presentation Nation
 # MAGIC
-# MAGIC This notebook builds **dashboard-friendly views** in `naf_catalog.gold_presentation` for nation analytics.
+# MAGIC **Layer:** GOLD_PRESENTATION  |  **Status:** Production
+# MAGIC **Pipeline position:** After 340 (core presentation) and 332 (nation summaries)
 # MAGIC
-# MAGIC These views are **thin shapes** over the curated Gold model:
+# MAGIC Dashboard-facing views for nation analytics. Joins dims and summaries — no re-aggregation of facts.
 # MAGIC
-# MAGIC - **Dimensions** (`naf_catalog.gold_dim`) provide stable IDs + canonical attributes (names, codes, flags).
-# MAGIC - **Summaries/Facts** (`naf_catalog.gold_summary`, `naf_catalog.gold_fact`) provide all KPIs/aggregations and event truth.
-# MAGIC - **Presentation** (`naf_catalog.gold_presentation`) only:
-# MAGIC   - joins dims + summaries/facts,
-# MAGIC   - adds light UI helpers (labels/buckets),
-# MAGIC   - **does not** re-implement heavy business logic or re-aggregate base facts.
+# MAGIC ## Dependencies
+# MAGIC - `gold_presentation.nation_identity_v`, `gold_presentation.coach_identity_v` (340)
+# MAGIC - `gold_dim.nation_dim`, `gold_dim.coach_dim`, `gold_dim.date_dim`
+# MAGIC - `gold_summary.nation_overview_summary`, `gold_summary.nation_overview_comparison`
+# MAGIC - `gold_summary.nation_race_summary`, `gold_summary.nation_vs_nation_summary`
+# MAGIC - `gold_summary.nation_coach_activity_timeseries`, `gold_summary.nation_members_cumulative_weekly`
+# MAGIC - `gold_summary.nation_coach_glo_metrics` and other nation_* summary tables from 332
 # MAGIC
-# MAGIC ## Views created here
+# MAGIC ## Outputs
+# MAGIC - `gold_presentation.nation_overview_comparison` (VIEW) — focus nation vs NATION / REST_OF_WORLD / WORLD
+# MAGIC - `gold_presentation.nation_overview` (VIEW) — 1 row per nation_id; headline KPIs + bucketing
+# MAGIC - `gold_presentation.nation_race_meta` (VIEW) — 1 row per (nation_id, race_id)
+# MAGIC - `gold_presentation.nation_vs_nation_meta` (VIEW) — pairwise nation H2H with display fields
+# MAGIC - `gold_presentation.nation_coach_activity_timeseries` (VIEW) — participation over time
+# MAGIC - `gold_presentation.nation_members_cumulative_weekly_display` (VIEW) — cumulative member count by week
+# MAGIC - `gold_presentation.nation_results_cumulative_display` (VIEW) — cumulative W/D/L series
+# MAGIC - `gold_presentation.nation_glo_peak_distribution` (VIEW) — coach-level GLO peak scatter
+# MAGIC - `gold_presentation.nation_glo_binned_distribution_display` (VIEW) — 25-pt GLO histogram
+# MAGIC - `gold_presentation.nation_glo_smooth_cdf_display` (VIEW) — smooth CDF per nation + World
+# MAGIC - `gold_presentation.nation_glo_metric_quantiles` (VIEW) — GLO quantile boxplot data
+# MAGIC - `gold_presentation.nation_glo_peak_card_long` (VIEW) — pivoted GLO card metrics
+# MAGIC - `gold_presentation.nation_coach_glo_metrics_long` (VIEW) — coach GLO metrics (PEAK/MEAN/MEDIAN)
+# MAGIC - `gold_presentation.nation_race_elo_peak_summary` (VIEW) — nation race Elo peak stats
+# MAGIC - `gold_presentation.nation_race_strength_comparison` (VIEW) — nation vs world race Elo boxplot
+# MAGIC - `gold_presentation.nation_rivalry_meta` (VIEW) — rivalry pairs with display fields
+# MAGIC - `gold_presentation.nation_rivalry_display` (VIEW) — top 10 rivals merged with H2H
+# MAGIC - `gold_presentation.nation_glo_exchange_display` (VIEW) — GLO exchange bar chart data
+# MAGIC - `gold_presentation.nation_profile_long` (VIEW) — rich profile card (label/value pairs)
+# MAGIC - `gold_presentation.nation_top_coach_opponent_bin_perf` (VIEW) — top coaches with 4-bin opponent W/D/L
+# MAGIC - `gold_presentation.nation_domestic_performance_display` (VIEW) — home/away performance split
+# MAGIC - `gold_presentation.nation_opponent_elo_bin_wdl_display` (VIEW) — W/D/L by opponent rating bin
+# MAGIC - `gold_presentation.nation_team_candidates_display` (VIEW) — coach selector scores
+# MAGIC - `gold_presentation.nation_power_ranking_display` (VIEW) — nation power ranking
 # MAGIC
-# MAGIC ### Overview / comparison
-# MAGIC - `nation_overview_comparison` — focus nation vs NATION / REST_OF_WORLD / WORLD
-# MAGIC - `nation_overview` — one row per nation; headline KPIs + bucketing
-# MAGIC
-# MAGIC ### Race / matchup
-# MAGIC - `nation_race_meta` — nation × race composition (+ World aggregate)
-# MAGIC - `nation_vs_nation_meta` — pairwise nation H2H with display fields
-# MAGIC
-# MAGIC ### Activity series
-# MAGIC - `nation_coach_activity_timeseries` — participation over time
-# MAGIC - `nation_members_cumulative_weekly_display` — cumulative member count by week
-# MAGIC - `nation_results_cumulative_display` — cumulative W/D/L series
-# MAGIC
-# MAGIC ### GLO distributions
-# MAGIC - `nation_glo_peak_distribution` — coach-level GLO peak scatter
-# MAGIC - `nation_glo_binned_distribution_display` — 25-pt GLO histogram
-# MAGIC - `nation_glo_smooth_cdf_display` — smooth CDF per nation + World
-# MAGIC - `nation_glo_metric_quantiles` — GLO quantile boxplot data (nation + World)
-# MAGIC - `nation_glo_peak_card_long` — pivoted GLO card metrics
-# MAGIC - `nation_coach_glo_metrics_long` — coach GLO metrics unpivoted (PEAK/MEAN/MEDIAN)
-# MAGIC
-# MAGIC ### Race Elo
-# MAGIC - `nation_race_elo_peak_summary` — nation race Elo peak stats
-# MAGIC - `nation_race_strength_comparison` — nation vs world race Elo boxplot
-# MAGIC
-# MAGIC ### Rivalry / exchange
-# MAGIC - `nation_rivalry_meta` — rivalry pairs with display fields
-# MAGIC - `nation_rivalry_display` — top 10 rivals merged with H2H
-# MAGIC - `nation_glo_exchange_display` — GLO exchange bar chart data
-# MAGIC
-# MAGIC ### Nation profile
-# MAGIC - `nation_profile_long` — rich profile card (label/value pairs)
-# MAGIC
-# MAGIC ### Opponent binning
-# MAGIC - `nation_top_coach_opponent_bin_perf` — top coaches with 4-bin opponent W/D/L
-# MAGIC
-# MAGIC ### Domestic / international
-# MAGIC - `nation_domestic_performance_display` — home/away performance split
-# MAGIC - `nation_opponent_elo_bin_wdl_display` — nation W/D/L by opponent rating bin
-# MAGIC
-# MAGIC ### Team selector / power ranking
-# MAGIC - `nation_team_candidates_display` — coach selector scores
-# MAGIC - `nation_power_ranking_display` — nation power ranking
-# MAGIC
-# MAGIC ## Notebook conventions
-# MAGIC - **One object per SQL cell** (one `CREATE OR REPLACE VIEW` per cell).
-# MAGIC - Put the target object on the **first line** for collapsible navigation, e.g.  
-# MAGIC   `%sql -- VIEW: naf_catalog.gold_presentation.nation_overview`
-# MAGIC - Keep ID columns explicit (e.g. `opponent_nation_id`, `race_id`), and treat presentation as formatting/orchestration only.
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 

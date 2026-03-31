@@ -1,37 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold Presentation — Coach (`naf_catalog.gold_presentation`)
+# MAGIC # 341 — Gold Presentation Coach
 # MAGIC
-# MAGIC Build **dashboard-facing contracts** (thin shapes) for coach analytics.
+# MAGIC **Layer:** GOLD_PRESENTATION  |  **Status:** Production
+# MAGIC **Pipeline position:** After 340 (core presentation) and 331 (coach summaries)
 # MAGIC
-# MAGIC **Inputs (only):**
-# MAGIC - `naf_catalog.gold_dim` = canonical attributes + stable IDs
-# MAGIC - `naf_catalog.gold_summary` = all KPIs / aggregates / snapshots
+# MAGIC Dashboard-facing views for coach analytics. Joins dims and summaries — no re-aggregation of facts.
 # MAGIC
-# MAGIC **Presentation is allowed to:**
-# MAGIC - join dims + summaries
-# MAGIC - add UI helpers (labels/buckets/ranks, stable sort fields like `order_index`)
-# MAGIC - compute time-dependent UI fields at query time (e.g. `*_age_days` via `CURRENT_DATE()`)
+# MAGIC ## Dependencies
+# MAGIC - `gold_presentation.coach_identity_v` (340)
+# MAGIC - `gold_dim.race_dim`
+# MAGIC - `gold_summary.coach_performance_summary`, `gold_summary.coach_rating_global_elo_summary`
+# MAGIC - `gold_summary.coach_race_summary`, `gold_summary.coach_streak_summary`
+# MAGIC - `gold_summary.coach_form_summary`, `gold_summary.coach_opponent_global_elo_mean_summary_v`
 # MAGIC
-# MAGIC **Presentation is NOT allowed to:**
-# MAGIC - re-aggregate facts
-# MAGIC - redefine KPI logic (metrics belong to `gold_summary`)
+# MAGIC ## Outputs
+# MAGIC - `gold_presentation.coach_profile` (VIEW) — 1 row per coach_id; full dashboard contract
 # MAGIC
-# MAGIC ## Canonical coach contracts (dashboards should prefer these)
-# MAGIC - `naf_catalog.gold_presentation.coach_profile` — 1 row per `coach_id`
-# MAGIC - `naf_catalog.gold_presentation.coach_race_performance` — 1 row per (`coach_id`, `race_id`)
-# MAGIC
-# MAGIC ## Stability rules
-# MAGIC - Prefer **explicit column lists** (avoid `SELECT *`)
-# MAGIC - Keep canonical keys explicit (`opponent_coach_id`, `tournament_id`, `race_id`); if adding UI aliases, keep the canonical key too
-# MAGIC - Time-dependent fields should be **views only** (no stored tables)
-# MAGIC
-# MAGIC ## Notebook conventions
-# MAGIC - **One object per SQL cell** (one `CREATE OR REPLACE VIEW` per cell)
-# MAGIC - Put the target object on the first line (e.g. `%sql -- VIEW: naf_catalog.gold_presentation.coach_profile`)
-# MAGIC - Views use `CREATE OR REPLACE VIEW ... AS` (no `USING DELTA`)
-# MAGIC
-# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 

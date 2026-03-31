@@ -1,11 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 343 — Tournament Presentation Views
+# MAGIC # 343 — Gold Presentation Tournament
 # MAGIC
-# MAGIC **Layer:** GOLD_PRESENTATION &nbsp;|&nbsp; **Status:** Production
-# MAGIC **Pipeline position:** Runs after 340 (core presentation) and 333 (tournament summaries)
+# MAGIC **Layer:** GOLD_PRESENTATION  |  **Status:** Production
+# MAGIC **Pipeline position:** After 340 (core presentation) and 333 (tournament summaries)
 # MAGIC
-# MAGIC Dashboard-contract views for tournament analytics.
+# MAGIC Dashboard-facing views for tournament analytics. Joins dims and summaries — no re-aggregation of facts.
+# MAGIC
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.tournament_dim`, `gold_dim.tournament_parameters`, `gold_dim.coach_dim`, `gold_dim.race_dim`
+# MAGIC - `gold_summary.tournament_summary`, `gold_summary.tournament_race_summary`
+# MAGIC - `gold_summary.tournament_nation_summary`, `gold_summary.tournament_winners`
+# MAGIC
+# MAGIC ## Outputs
+# MAGIC - `gold_presentation.tournament_overview` (VIEW) — 1 row per tournament_id; hero metrics + winner
+# MAGIC - `gold_presentation.tournament_race_meta` (VIEW) — 1 row per (tournament_id, race_id)
+# MAGIC - `gold_presentation.tournament_nation_meta` (VIEW) — 1 row per (tournament_id, nation_name)
+# MAGIC
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 
 # COMMAND ----------
 

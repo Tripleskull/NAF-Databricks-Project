@@ -1,19 +1,27 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold_dim notebook contract (`naf_catalog.gold_dim`)
+# MAGIC # 310 — Gold Dimensions
 # MAGIC
-# MAGIC **Purpose:** Build **minimal, normalized canonical entities** (SCD1 / current-state) from **Silver**.
-# MAGIC **Not in scope:** metrics, aggregates, windows, rankings → `gold_summary` / `gold_presentation`.
+# MAGIC **Layer:** GOLD_DIM  |  **Status:** Production
+# MAGIC **Pipeline position:** After 200 (Silver)
 # MAGIC
-# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC Builds minimal, normalised canonical dimension tables (SCD1) from Silver. No metrics or aggregates.
 # MAGIC
-# MAGIC ## Gold_dim rules (short)
-# MAGIC - Output: one dimension table per entity (SCD1). Re-runnable / idempotent loads.
-# MAGIC - Keys: `<entity>_id` (no generic `id`); `date_id` = INT `YYYYMMDD`; booleans use `is_` (prefer NOT NULL).
-# MAGIC - **No duplication of attributes owned by other dims** (use FKs; e.g., nation attributes live in `nation_dim`).
-# MAGIC - Always state **grain + PK uniqueness** + expected FKs in the notebook header.
-# MAGIC - Enforce basic integrity: PK unique, required keys NOT NULL, and coverage for referenced IDs from Silver where relevant.
+# MAGIC ## Dependencies
+# MAGIC - `silver.races_clean`, `silver.nations_entity`, `silver.coaches_clean`
+# MAGIC - `silver.tournaments_clean`, `silver.games_clean`, `silver.tournament_statistics_list_clean`
 # MAGIC
+# MAGIC ## Outputs
+# MAGIC - `gold_dim.race_dim` — 1 row per race_id (race_id=0 reserved for GLOBAL scope)
+# MAGIC - `gold_dim.tournament_stat_dim` — 1 row per stat_id
+# MAGIC - `gold_dim.nation_dim` — 1 row per nation_id
+# MAGIC - `gold_dim.coach_dim` — 1 row per coach_id (SCD1)
+# MAGIC - `gold_dim.tournament_dim` — 1 row per tournament_id
+# MAGIC - `gold_dim.date_dim` — 1 row per date_id YYYYMMDD (calendar 2000–2035)
+# MAGIC - `gold_dim.analytical_config` — singleton; all tuneable parameters
+# MAGIC - `gold_dim.tournament_parameters` — 1 row per tournament_id (n_eff, k_value)
+# MAGIC
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 
 # COMMAND ----------

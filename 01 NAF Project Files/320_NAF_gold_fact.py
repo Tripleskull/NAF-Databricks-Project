@@ -1,24 +1,25 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold_fact notebook contract (`naf_catalog.gold_fact`)
+# MAGIC # 320 — Gold Facts + Elo Engine
 # MAGIC
-# MAGIC **Purpose:** Gold facts are **event-truth** tables.
+# MAGIC **Layer:** GOLD_FACT  |  **Status:** Production
+# MAGIC **Pipeline position:** After 310 (Dimensions)
 # MAGIC
-# MAGIC Every fact notebook must state:
-# MAGIC - **Grain** (one sentence: “1 row per …”)
-# MAGIC - **Primary key** (enforced unique)
-# MAGIC - **Foreign keys** to `naf_catalog.gold_dim`
+# MAGIC Builds event-truth fact tables and runs the Elo rating engine. All outputs are at event grain.
 # MAGIC
-# MAGIC **Inputs:** built from **Silver** (and dims where needed for keys).
-# MAGIC **Not in scope:** aggregates, KPIs, rolling/windows, trajectories → `naf_catalog.gold_summary`.
+# MAGIC ## Dependencies
+# MAGIC - `silver.games_clean`, `silver.tournament_statistics_group_clean`
+# MAGIC - `gold_dim.analytical_config`, `gold_dim.tournament_parameters`, `gold_dim.tournament_dim`
 # MAGIC
-# MAGIC ## Conventions (short)
-# MAGIC - Prefer a single event key: `<entity>_id` (no generic `id`)
-# MAGIC - Use `date_id` = INT `YYYYMMDD` where applicable
-# MAGIC - Include `*_date` / `*_timestamp` only when they are true event attributes (not derived KPI time)
-# MAGIC - Ratings/outputs must remain **at event grain** (no per-coach / per-season rollups here)
+# MAGIC ## Outputs
+# MAGIC - `gold_fact.games_fact` — 1 row per game_id
+# MAGIC - `gold_fact.game_global_order_spine_v` (VIEW) — 1 row per game_id; adds global game_index
+# MAGIC - `gold_fact.coach_games_fact` (VIEW) — 1 row per (game_id, coach_id); per-coach perspective
+# MAGIC - `gold_fact.game_feed_for_ratings_fact` (VIEW) — 1 row per game_id; adds k_value, n_eff
+# MAGIC - `gold_fact.rating_history_fact` — 1 row per (scope, rating_system, game_id, coach_id, race_id); Elo output
+# MAGIC - `gold_fact.tournament_statistics_fact` — 1 row per (tournament_id, coach_id, race_id, stat_id, stat_date)
 # MAGIC
-# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 

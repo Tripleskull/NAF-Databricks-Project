@@ -1,36 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold Summary – Core / World Reference
+# MAGIC # 330 — Gold Summary Core
 # MAGIC
-# MAGIC This notebook builds **cross-cutting summary objects** in `naf_catalog.gold_summary`
-# MAGIC that are shared across multiple downstream summary notebooks (331, 332, 333, 334).
+# MAGIC **Layer:** GOLD_SUMMARY  |  **Status:** Production
+# MAGIC **Pipeline position:** After 320 (fact layer); before 331–334
 # MAGIC
-# MAGIC ## Purpose
-# MAGIC Objects here depend **only on gold_dim (310) and gold_fact (320)** — never on
-# MAGIC other summary notebooks. This guarantees 330 can run before any other summary notebook
-# MAGIC in the pipeline: **310 → 320 → 330 → 331 → 332 → …**
+# MAGIC Builds cross-cutting summary objects shared by all downstream summary notebooks (331–334).
+# MAGIC Depends only on gold_dim and gold_fact — never on other summary notebooks.
 # MAGIC
-# MAGIC ## Dependencies (inputs)
-# MAGIC - `naf_catalog.gold_dim.analytical_config` (tuneable parameters)
-# MAGIC - `naf_catalog.gold_dim.coach_dim` (coach → nation_id)
-# MAGIC - `naf_catalog.gold_fact.rating_history_fact` (Elo event history; GLOBAL = "glo")
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.analytical_config` — tuneable parameters
+# MAGIC - `gold_dim.coach_dim` — coach → nation_id
+# MAGIC - `gold_fact.rating_history_fact` — Elo event history
 # MAGIC
-# MAGIC ## Output objects (this notebook)
-# MAGIC
-# MAGIC ### Coach-level GLO spine
+# MAGIC ## Outputs
 # MAGIC - `gold_summary.nation_coach_glo_metrics` — 1 row per (nation_id, coach_id); GLOBAL Elo metrics
-# MAGIC
-# MAGIC ### World reference quantiles
 # MAGIC - `gold_summary.world_glo_metric_quantiles` (VIEW) — world GLO quantile benchmarks (PEAK/MEAN/MEDIAN)
 # MAGIC
-# MAGIC ## Notebook conventions
-# MAGIC - **One object per cell** (one `CREATE OR REPLACE TABLE/VIEW ...` per cell).
-# MAGIC - First line must include the object name for collapsible navigation:
-# MAGIC   `%sql -- TABLE: naf_catalog.gold_summary.<table_name>`
-# MAGIC - `gold_summary` tables: **no descriptive fields** (`nation_name*`, `flag_code`, etc).
-# MAGIC   Join those in `gold_presentation`.
-# MAGIC - "glo" = **GLOBAL NAF_ELO** (race-agnostic, `COALESCE(race_id,0)=0`).
-# MAGIC   `is_valid_glo` is a **reporting/stability flag**, not "does the rating exist".
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 
 # COMMAND ----------

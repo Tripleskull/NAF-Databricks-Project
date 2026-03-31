@@ -1,74 +1,44 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold Summary – Nation
+# MAGIC # 332 — Gold Summary Nation
 # MAGIC
-# MAGIC This notebook builds the **nation-facing summary tables** in `naf_catalog.gold_summary`.
+# MAGIC **Layer:** GOLD_SUMMARY  |  **Status:** Production
+# MAGIC **Pipeline position:** After 331 (coach summaries)
 # MAGIC
-# MAGIC ## Purpose
-# MAGIC `gold_summary` contains **aggregations / KPIs / rollups** used by dashboards and exports.  
-# MAGIC It must stay **ID-based and analytics-ready**, while all **display fields** (names, flags, labels) belong in `gold_presentation`.
+# MAGIC Nation-level aggregations and KPIs: overview, activity series, distributions, rivalry, race Elo, team selector.
 # MAGIC
-# MAGIC ## Dependencies (inputs)
-# MAGIC - `naf_catalog.gold_dim.analytical_config` (tuneable parameters)
-# MAGIC - `naf_catalog.gold_dim.coach_dim` (coach → nation_id)
-# MAGIC - `naf_catalog.gold_dim.tournament_dim` (tournament → host nation_id)
-# MAGIC - `naf_catalog.gold_fact.coach_games_fact` (coach-participation view of games; unique at game_id × coach_id)
-# MAGIC - `naf_catalog.gold_fact.games_fact` (one row per game)
-# MAGIC - `naf_catalog.gold_fact.rating_history_fact` (Elo event history; GLOBAL = “glo”)
-# MAGIC - `naf_catalog.gold_summary.nation_coach_glo_metrics` (coach GLO spine from 330)
-# MAGIC - `naf_catalog.gold_summary.coach_rating_global_elo_summary` (coach GLO summary from 331)
-# MAGIC - `naf_catalog.gold_summary.coach_performance_summary` (opponent strength from 331)
-# MAGIC - `naf_catalog.gold_summary.coach_rating_race_summary` (race Elo from 331)
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.analytical_config`, `gold_dim.coach_dim`, `gold_dim.tournament_dim`, `gold_dim.nation_dim`
+# MAGIC - `gold_fact.coach_games_fact`, `gold_fact.games_fact`, `gold_fact.rating_history_fact`
+# MAGIC - `gold_summary.nation_coach_glo_metrics` (330)
+# MAGIC - `gold_summary.coach_rating_global_elo_summary`, `gold_summary.coach_performance_summary`, `gold_summary.coach_rating_race_summary` (331)
 # MAGIC
-# MAGIC ## Output objects (this notebook)
-# MAGIC
-# MAGIC ### Core nation spines / overview
+# MAGIC ## Outputs
 # MAGIC - `gold_summary.nation_overview_summary` — 1 row per nation_id; headline KPIs
-# MAGIC - `gold_summary.nation_active_coaches_summary` — 1 row per nation_id; coaches active in last calendar year
-# MAGIC
-# MAGIC ### Activity series
-# MAGIC - `gold_summary.nation_games_timeseries` — games per (nation, year)
-# MAGIC - `gold_summary.nation_coach_activity_timeseries` — active coaches per (nation, year)
+# MAGIC - `gold_summary.nation_active_coaches_summary` — 1 row per nation_id; active in last calendar year
+# MAGIC - `gold_summary.nation_games_timeseries` — games per (nation_id, year)
+# MAGIC - `gold_summary.nation_coach_activity_timeseries` — active coaches per (nation_id, year)
 # MAGIC - `gold_summary.nation_members_cumulative_weekly` — cumulative coach count by week
 # MAGIC - `gold_summary.nation_results_cumulative_series` — cumulative W/D/L by game sequence
-# MAGIC
-# MAGIC ### Domestic / comparison
 # MAGIC - `gold_summary.nation_domestic_summary` — domestic vs international split
 # MAGIC - `gold_summary.nation_overview_comparison` — focus nation vs NATION / REST_OF_WORLD / WORLD
-# MAGIC
-# MAGIC ### Race / GLO distributions
 # MAGIC - `gold_summary.nation_race_summary` — race-level nation stats
 # MAGIC - `gold_summary.nation_glo_metric_quantiles` — GLO quantiles per nation
 # MAGIC - `gold_summary.nation_glo_binned_distribution` — 25-pt GLO histogram bins
-# MAGIC
-# MAGIC ### Nation-vs-nation / rivalry
 # MAGIC - `gold_summary.nation_vs_nation_summary` — pairwise nation H2H
 # MAGIC - `gold_summary.nation_rivalry_summary` — ranked rivalry pairs
 # MAGIC - `gold_summary.nation_elite_rivalry_summary` — elite-only rivalry pairs
-# MAGIC
-# MAGIC ### Race Elo
 # MAGIC - `gold_summary.nation_coach_race_elo_peak` (VIEW) — coach race Elo peaks
 # MAGIC - `gold_summary.nation_race_elo_peak_summary` — nation-level race Elo peak stats
-# MAGIC
-# MAGIC ### World reference
 # MAGIC - `gold_summary.world_race_elo_quantiles` (VIEW) — world race Elo quantile benchmarks
-# MAGIC
-# MAGIC ### Opponent binning
-# MAGIC - `gold_summary.coach_opponent_glo_bin_summary` (VIEW) — coach-level 4-bin opponent W/D/L (helper for nation views)
+# MAGIC - `gold_summary.coach_opponent_glo_bin_summary` (VIEW) — coach-level 4-bin opponent W/D/L
 # MAGIC - `gold_summary.nation_opponent_elo_bin_wdl` — nation-level 4-bin opponent W/D/L
-# MAGIC
-# MAGIC ### Team selector / power ranking
 # MAGIC - `gold_summary.nation_team_candidate_scores` — coach selector scores per nation
 # MAGIC - `gold_summary.nation_power_ranking` — nation power ranking
+# MAGIC - `gold_summary.coach_race_relative_strength` — coach race relative strength
+# MAGIC - `gold_summary.coach_race_nation_rank` — coach race rank within nation
 # MAGIC
-# MAGIC ## Notebook conventions
-# MAGIC - **One object per cell** (one `CREATE OR REPLACE TABLE ...` per cell).
-# MAGIC - First line must include the object name for collapsible navigation:
-# MAGIC   `%sql -- TABLE: naf_catalog.gold_summary.<table_name>`
-# MAGIC - `gold_summary` tables: **no descriptive fields** (`nation_name*`, `flag_code`, etc).
-# MAGIC   Join those in `gold_presentation`.
-# MAGIC - “glo” = **GLOBAL NAF_ELO** (race-agnostic, `COALESCE(race_id,0)=0`).
-# MAGIC   `is_valid_glo` is a **reporting/stability flag**, not “does the rating exist”.
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 # MAGIC

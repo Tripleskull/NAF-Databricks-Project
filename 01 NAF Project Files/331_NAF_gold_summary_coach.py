@@ -1,32 +1,39 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold Summary notebook contract (`naf_catalog.gold_summary`)
+# MAGIC # 331 — Gold Summary Coach
 # MAGIC
-# MAGIC **Purpose:** Derived analytics layer. Materialize **reusable measures** (aggregates, windows, streaks, distributions) from `naf_catalog.gold_fact` at **declared, stable grains** for downstream `naf_catalog.gold_presentation` / dashboards.
+# MAGIC **Layer:** GOLD_SUMMARY  |  **Status:** Production
+# MAGIC **Pipeline position:** After 330 (core summaries)
 # MAGIC
-# MAGIC ## Rules (minimal)
-# MAGIC - **IDs + measures only** (keys + numeric outputs + deltas + `*_frac` rates + ordering fields + timestamps + availability/validity flags)
-# MAGIC - **No display attributes** (names/labels/ISO/UI formatting → `gold_presentation`)
-# MAGIC - **Dates:** use `date_id` only (no `*_date`/`*_timestamp` as business date columns in outputs)
-# MAGIC - **Rates:** `*_frac` is **0–1**; `*_pct` (**0–100**) is presentation-only
-# MAGIC - **Don’t hide data:** keep metrics populated; add `has_*` / `is_valid_*` flags + explicit threshold columns for filtering/interpretation
-# MAGIC - **No event truth duplication:** event detail stays in `gold_fact`; summary = derived measures at stated grain
+# MAGIC Coach-level aggregations and KPIs: performance, ratings, race summaries, streaks, form, opponent analysis, tournament performance.
 # MAGIC
-# MAGIC ## Naming conventions
-# MAGIC - **`glo` = `global_elo`**: Abbreviated form used in column names (e.g., `avg_opponent_glo_peak`).
-# MAGIC   Full prefix `global_elo_` used in the Global Elo summary table itself.
+# MAGIC ## Dependencies
+# MAGIC - `gold_fact.coach_games_fact`, `gold_fact.rating_history_fact`
+# MAGIC - `gold_dim.analytical_config`, `gold_dim.coach_dim`
 # MAGIC
-# MAGIC ## Design decisions (summary layer)
-# MAGIC - **`form_label` / `bin_label` in summary**: Intentionally kept here (not deferred to presentation)
-# MAGIC   because the label thresholds are analytical rules, not UI formatting.
-# MAGIC - **`coach_form_summary` reads from `gold_fact`**: Intentional — form score requires
-# MAGIC   `score_expected` which only exists in `rating_history_fact`, not in any summary spine.
-# MAGIC - **25-game specialist threshold**: Fixed rule (not config-driven). Documented in
-# MAGIC   `Analytical_Parameters.md`. Used in `coach_race_relative_strength` and `coach_race_nation_rank` (both in 332).
-# MAGIC - **Opponent GLO bins**: Fixed 4-bin scheme (0-150 / 150-200 / 200-250 / 250+) in
-# MAGIC   `coach_opponent_median_glo_bin_summary`. Legacy configurable bin framework removed.
+# MAGIC ## Outputs
+# MAGIC - `gold_summary.coach_game_spine_v` (VIEW) — 1 row per (coach_id, game_id)
+# MAGIC - `gold_summary.coach_rating_history_spine_v` (VIEW) — 1 row per (scope, rating_system, coach_id, race_id, game_id)
+# MAGIC - `gold_summary.coach_race_elo_rating_history_v` (VIEW) — RACE scope rating history
+# MAGIC - `gold_summary.coach_global_elo_rating_history_v` (VIEW) — GLOBAL scope rating history
+# MAGIC - `gold_summary.coach_global_elo_game_spine_v` (VIEW) — GLOBAL rating events
+# MAGIC - `gold_summary.coach_results_cumulative_series_v` (VIEW) — cumulative W/D/L by game sequence
+# MAGIC - `gold_summary.coach_rating_race_summary` — 1 row per (rating_system, coach_id, race_id)
+# MAGIC - `gold_summary.coach_streak_segments` — 1 row per (scope, coach_id, race_id, streak_type, group_id)
+# MAGIC - `gold_summary.coach_streak_summary` — 1 row per (scope, coach_id, race_id)
+# MAGIC - `gold_summary.coach_rating_global_elo_summary` — 1 row per (rating_system, coach_id)
+# MAGIC - `gold_summary.coach_performance_summary` — 1 row per coach_id
+# MAGIC - `gold_summary.coach_form_summary` — 1 row per coach_id
+# MAGIC - `gold_summary.coach_opponent_summary` — 1 row per (rating_system, coach_id, opponent_coach_id)
+# MAGIC - `gold_summary.coach_opponent_global_elo_enriched_v` (VIEW) — 1 row per (rating_system, coach_id, opponent_coach_id)
+# MAGIC - `gold_summary.coach_opponent_median_glo_bin_summary` — 1 row per (coach_id, bin_index)
+# MAGIC - `gold_summary.coach_opponent_global_elo_all_opponents_summary_v` (VIEW) — 1 row per (rating_system, coach_id)
+# MAGIC - `gold_summary.coach_race_summary` — 1 row per (rating_system, coach_id, race_id)
+# MAGIC - `gold_summary.coach_opponent_global_elo_mean_summary_v` (VIEW) — 1 row per (rating_system, coach_id)
+# MAGIC - `gold_summary.coach_tournament_performance_summary` — 1 row per (rating_system, coach_id, tournament_id)
+# MAGIC - `gold_summary.coach_biggest_upset_summary` — 1 row per (coach_id, upset_type)
 # MAGIC
-# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 

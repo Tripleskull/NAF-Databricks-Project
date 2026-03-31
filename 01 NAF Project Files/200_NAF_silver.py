@@ -1,24 +1,32 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Silver notebook contract (`naf_catalog.silver`)
+# MAGIC # 200 — Silver Layer
 # MAGIC
-# MAGIC **Purpose:** Canonicalize Bronze into clean, stable, joinable datasets:
-# MAGIC - standard types + `snake_case`
-# MAGIC - deterministic/stable `*_id`
-# MAGIC - explainable dedup + key integrity
+# MAGIC **Layer:** SILVER  |  **Status:** Production
+# MAGIC **Pipeline position:** After 100 (Bronze)
 # MAGIC
-# MAGIC **Not in scope:** metrics, windows, rankings, aggregates  
-# MAGIC → belongs in `naf_catalog.gold_summary` (metrics) and `naf_catalog.gold_presentation` (dashboard shaping).
+# MAGIC Canonicalises Bronze into clean, stable, joinable datasets. Standard types, snake_case, deterministic surrogate keys, and explainable dedup. No metrics or aggregates.
 # MAGIC
-# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC ## Dependencies
+# MAGIC - `bronze.*` — all raw ingest tables from 100
 # MAGIC
-# MAGIC ## Silver output guarantees (every table/view)
-# MAGIC - Grain is stated (“1 row per …”)
-# MAGIC - Primary key is unique (no duplicates)
-# MAGIC - Required `*_id` columns are **NOT NULL**
-# MAGIC - `date_id` (YYYYMMDD) used where applicable
-# MAGIC - No duplicated nation attributes outside `nation_dim` (join via `nation_id`)
+# MAGIC ## Outputs
+# MAGIC - `silver.country_codes_iso` — 1 row per ISO country (alpha-2 key)
+# MAGIC - `silver.country_codes_fifa` — 1 row per FIFA country key
+# MAGIC - `silver.country_reference` — 1 row per country key (FIFA + ISO merged)
+# MAGIC - `silver.nation_manual_map` — nation name canonicalisation rules
+# MAGIC - `silver.nations_entity` — 1 row per nation_id (deterministic surrogate key)
+# MAGIC - `silver.coaches_clean` — 1 row per coach_id
+# MAGIC - `silver.coach_rating_variant_clean` — 1 row per (coach_id, variant_id)
+# MAGIC - `silver.games_clean` — 1 row per game_id
+# MAGIC - `silver.races_clean` — 1 row per race_id
+# MAGIC - `silver.tournaments_clean` — 1 row per tournament_id
+# MAGIC - `silver.tournament_statistics_group_clean` — 1 row per (tournament_id, coach_id, stat_id)
+# MAGIC - `silver.tournament_statistics_list_clean` — 1 row per stat_id
+# MAGIC - `silver.tournament_coach_clean` — 1 row per (tournament_id, coach_id)
+# MAGIC - `silver.variants_clean` — 1 row per variant_id
 # MAGIC
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 
 # COMMAND ----------

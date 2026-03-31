@@ -2,19 +2,28 @@
 # MAGIC %md
 # MAGIC # 100 — Bronze Layer
 # MAGIC
-# MAGIC **Layer:** BRONZE &nbsp;|&nbsp; **Status:** Production
-# MAGIC **Pipeline position:** First notebook in the pipeline
+# MAGIC **Layer:** BRONZE  |  **Status:** Production
+# MAGIC **Pipeline position:** First in pipeline
 # MAGIC
-# MAGIC Raw source truth (snapshot/overwrite). One Delta table per source feed. No business logic.
+# MAGIC Ingests raw source files into Delta tables. Technical column sanitisation only — no business logic, dedup, or reshaping.
 # MAGIC
-# MAGIC **References:** `NAF_Design_Specification.md` (architecture + naming rules), `style_guides.md`
+# MAGIC ## Dependencies
+# MAGIC - `/Volumes/naf_catalog/bronze/naf_raw/` — CSV and HTML source files
 # MAGIC
-# MAGIC ## Bronze rules
-# MAGIC - One table per source feed (`*_raw`), stored as Delta
-# MAGIC - Technical column sanitisation only — keep all fields, no semantic renames
-# MAGIC - Allow `_rescued_data` for schema evolution
-# MAGIC - No dedup, filtering, domain logic, or reshaping
-# MAGIC - Required metadata: `ingest_timestamp`, `ingest_source`, `file_name`
+# MAGIC ## Outputs
+# MAGIC - `bronze.coach_export_raw`
+# MAGIC - `bronze.coach_ranking_variant_raw`
+# MAGIC - `bronze.game_raw`
+# MAGIC - `bronze.race_raw`
+# MAGIC - `bronze.tournament_raw`
+# MAGIC - `bronze.tournament_statistics_group_raw`
+# MAGIC - `bronze.tournament_statistics_list_raw`
+# MAGIC - `bronze.tournament_coach_raw`
+# MAGIC - `bronze.variants_raw`
+# MAGIC - `bronze.fifa_country_codes_raw`
+# MAGIC - `bronze.iso_country_codes_raw`
+# MAGIC
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 
 # COMMAND ----------
 

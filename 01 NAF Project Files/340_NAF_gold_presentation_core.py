@@ -1,34 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Gold Presentation — Core (`naf_catalog.gold_presentation`)
+# MAGIC # 340 — Gold Presentation Core
 # MAGIC
-# MAGIC This notebook builds **shared, reusable presentation contracts** that other `gold_presentation_*` notebooks depend on.
+# MAGIC **Layer:** GOLD_PRESENTATION  |  **Status:** Production
+# MAGIC **Pipeline position:** After gold_dim (310) and gold_summary (330–334); before 341–344
 # MAGIC
-# MAGIC ## Layer
-# MAGIC `naf_catalog.gold_presentation` (thin dashboard-oriented shaping)
+# MAGIC Builds shared identity views consumed by all downstream presentation notebooks.
 # MAGIC
-# MAGIC ## Build order
-# MAGIC Run **after**:
-# MAGIC - `naf_catalog.gold_dim` (nation/coach/tournament/race dims)
-# MAGIC - `naf_catalog.gold_summary`
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.nation_dim`, `gold_dim.coach_dim`, `gold_dim.tournament_dim`, `gold_dim.race_dim`
 # MAGIC
-# MAGIC Run **before**:
-# MAGIC - domain presentation notebooks (e.g. coach/tournament/race dashboards)
+# MAGIC ## Outputs
+# MAGIC - `gold_presentation.nation_flag_emoji_v` (VIEW) — 1 row per nation_id; Unicode flag emoji
+# MAGIC - `gold_presentation.nation_identity_v` (VIEW) — 1 row per nation_id; name + flag_emoji
+# MAGIC - `gold_presentation.coach_identity_v` (VIEW) — 1 row per coach_id; coach + nation identity
+# MAGIC - `gold_presentation.tournament_identity_v` (VIEW) — 1 row per tournament_id; tournament + host nation
+# MAGIC - `gold_presentation.race_identity_v` (VIEW) — 1 row per race_id; display name with GLOBAL mapping
 # MAGIC
-# MAGIC ## Objects created (core contracts)
-# MAGIC - Schema: `naf_catalog.gold_presentation`
-# MAGIC - `nation_flag_emoji_v` (emoji resolution)
-# MAGIC - `nation_identity_v` (nation_name_display + flag_emoji)
-# MAGIC - `coach_identity_v` (coach + nation identity)
-# MAGIC - `tournament_identity_v` (tournament + host nation identity)
-# MAGIC - `race_identity_v` (race display identity; includes GLOBAL handling if used)
-# MAGIC - ~~`global_elo_bin_scheme`~~ (removed — legacy configurable bin framework)
-# MAGIC
-# MAGIC **Design authority (wins):** `NAF_Design_Specification.md`, `style_guides.md`
-# MAGIC
-# MAGIC ## Contract rules
-# MAGIC - Prefer explicit column lists (avoid `SELECT *`) for published contracts.
-# MAGIC - No KPI re-definition here: metrics stay in `gold_summary`; this notebook adds **display-only** shaping.
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 # MAGIC
 # MAGIC
 

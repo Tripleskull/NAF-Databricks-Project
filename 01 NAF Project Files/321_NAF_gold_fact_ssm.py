@@ -1,69 +1,24 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 321 — State-Space Model (SSM) Rating Engine
+# MAGIC # 321 — SSM Rating Engine
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Production
-# MAGIC **Pipeline position:** Runs after 320 (Elo engine)
+# MAGIC **Layer:** GOLD_FACT  |  **Status:** Production
+# MAGIC **Pipeline position:** After 320 (Elo engine)
 # MAGIC
-# MAGIC ## Purpose
-# MAGIC
-# MAGIC Computes latent skill estimates with uncertainty for each coach using an
-# MAGIC **Extended Kalman Filter (EKF)** on a state-space model.
-# MAGIC
-# MAGIC Unlike the Elo engine (which produces a point estimate with no uncertainty),
-# MAGIC the SSM produces `(mu, sigma)` — a skill estimate and its standard deviation —
-# MAGIC for every game in a coach's history.
-# MAGIC
-# MAGIC ## Models
-# MAGIC
-# MAGIC ### SSM v1 (game-indexed random walk)
-# MAGIC
-# MAGIC **State equation:** `θ_t = θ_{t-1} + η_t` where `η_t ~ N(0, σ²_process)`
-# MAGIC (pure random walk, no mean reversion — φ was tuned to 1.0)
-# MAGIC
-# MAGIC **Observation equation:** `P(win) = 1 / (1 + 10^((θ_opp − θ_self) / ELO_SCALE))`
-# MAGIC
-# MAGIC Process noise is constant per game. Opponent uncertainty propagated into S.
-# MAGIC Output: `ssm_rating_history_fact`.
-# MAGIC
-# MAGIC ### SSM v2 (time-aware + adaptive volatility)
-# MAGIC
-# MAGIC **State equation:** `θ_t = θ_{t-1} + η_t` (no mean reversion)
-# MAGIC `P_pred = P_prev + q_time × √(min(Δt, 180)) + q_game + volatility`
-# MAGIC
-# MAGIC **Volatility:** EWMA of squared innovations drives coach-level adaptive noise.
-# MAGIC `shock_ewma = decay × prev + (1−decay) × innovation²`
-# MAGIC `volatility = clip(v_base + v_scale × shock_ewma, v_min, v_max)`
-# MAGIC
-# MAGIC **Observation equation:** Same logistic model as v1.
-# MAGIC Output: `ssm2_rating_history_fact`.
-# MAGIC
-# MAGIC See `00 NAF Project Design/ssm_model_outline_v2_with_suggestions.md` for full v2 spec.
-# MAGIC
-# MAGIC ## Key Design Choices
-# MAGIC
-# MAGIC - **Elo-scale compatible:** Initial rating = 150, logistic scale = 150 (same as Elo engine)
-# MAGIC - **No mean reversion:** Both v1 and v2 use φ=1.0 (random walk) since we aim to
-# MAGIC   track Elo which itself has no mean reversion
-# MAGIC - **Opponent uncertainty propagation:** The opponent's P_opp is added to
-# MAGIC   the innovation variance S, making games against poorly-estimated opponents
-# MAGIC   less informative
-# MAGIC - **Draws modelled as 0.5:** Same as Elo engine — result_numeric ∈ {0.0, 0.5, 1.0}
+# MAGIC Computes latent skill estimates with uncertainty using an Extended Kalman Filter (EKF).
+# MAGIC Produces `(mu, sigma)` per game — unlike Elo which gives only a point estimate.
+# MAGIC Two models: v1 (game-indexed random walk) and v2 (time-aware + adaptive volatility via EWMA).
 # MAGIC
 # MAGIC ## Dependencies
+# MAGIC - `gold_fact.game_feed_for_ratings_fact` — ordered game feed
+# MAGIC - `gold_dim.analytical_config` — elo_initial_rating, elo_scale, SSM parameters
 # MAGIC
-# MAGIC - `naf_catalog.gold_fact.game_feed_for_ratings_fact` (same input as Elo engine)
-# MAGIC - `naf_catalog.gold_dim.analytical_config` (for elo_initial_rating, elo_scale)
+# MAGIC ## Outputs
+# MAGIC - `gold_fact.ssm_rating_history_fact` — v1; 1 row per (game_id, coach_id); GLOBAL scope
+# MAGIC - `gold_fact.ssm2_rating_history_fact` — v2; 1 row per (game_id, coach_id); GLOBAL scope
 # MAGIC
-# MAGIC ## Output
-# MAGIC
-# MAGIC - `naf_catalog.gold_fact.ssm_rating_history_fact` — v1, 1 row per (game_id, coach_id)
-# MAGIC - `naf_catalog.gold_fact.ssm2_rating_history_fact` — v2, 1 row per (game_id, coach_id)
-# MAGIC   Both GLOBAL scope only. Contain mu/sigma before and after each game.
-# MAGIC
-# MAGIC ## Related
-# MAGIC
-# MAGIC - **322** — SSM evaluation, tuning, and diagnostics (run after this notebook)
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design reference:** `00 NAF Project Design/archive/SSM_Design.md`
 
 # COMMAND ----------
 

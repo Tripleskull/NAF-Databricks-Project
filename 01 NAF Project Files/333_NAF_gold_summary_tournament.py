@@ -1,12 +1,25 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 333 — Tournament Summaries
+# MAGIC # 333 — Gold Summary Tournament
 # MAGIC
-# MAGIC **Layer:** GOLD_SUMMARY &nbsp;|&nbsp; **Status:** Production
-# MAGIC **Pipeline position:** Runs after 330 (core summaries)
+# MAGIC **Layer:** GOLD_SUMMARY  |  **Status:** Production
+# MAGIC **Pipeline position:** After 330 (core summaries)
 # MAGIC
-# MAGIC Tournament-level aggregations: tournament metrics, race participation,
-# MAGIC global race summaries, nation participation.
+# MAGIC Tournament-level aggregations: tournament metrics, race participation, global race summaries, nation participation.
+# MAGIC
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.tournament_dim`, `gold_dim.tournament_stat_dim`, `gold_dim.coach_dim`, `gold_dim.race_dim`
+# MAGIC - `gold_fact.tournament_statistics_fact`, `gold_fact.coach_games_fact`
+# MAGIC - `gold_summary.coach_rating_global_elo_summary` (331)
+# MAGIC
+# MAGIC ## Outputs
+# MAGIC - `gold_summary.tournament_winners` — tournament winner records
+# MAGIC - `gold_summary.tournament_summary` — 1 row per tournament_id; headline metrics
+# MAGIC - `gold_summary.tournament_race_summary` — 1 row per (tournament_id, race_id)
+# MAGIC - `gold_summary.global_race_summary` — 1 row per race_id; global across all tournaments
+# MAGIC - `gold_summary.tournament_nation_summary` — 1 row per (tournament_id, nation_name)
+# MAGIC
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
 
 # COMMAND ----------
 
