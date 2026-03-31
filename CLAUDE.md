@@ -124,7 +124,7 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `344_NAF_gold_presentation_race.py` - Race presentation views
 - `350_Tests_and_admining.py` - Pipeline tests
 
-### Dashboards (in Git, under `02 NAF Dashbords/`)
+### Dashboards (in Git, under `02 NAF Dashboards/`)
 - `Coach Dashboard.lvdash.json` - Coach dashboard (polished)
 - `Nation Dashboard.lvdash.json` - Nation dashboard (early)
 
@@ -135,7 +135,7 @@ This Databricks project analyzes NAF (Blood Bowl) data to provide insights throu
 - `Expansion_Plan.md` - 9-phase roadmap (nation dashboard, team selector, global status report)
 - `Nation_Dashboard_Plan.md` - Nation dashboard overhaul plan (widget-by-widget)
 - `style_guides.md` - SQL/PySpark formatting rules
-- `archive/` - Implemented design specs kept for reference (SSM design options, SSM v2 outline, race rating plan)
+- `archive/` - Implemented design specs kept for reference (SSM_Design.md, Race_Rating_Design.md)
 
 ### Other Documentation
 - `CLAUDE.md` - This file (project instructions)

@@ -59,7 +59,7 @@ Two SSM variants implemented as EKF-based rating engines in `321_NAF_gold_fact_s
 
 Tuning used a two-pass grid search (coarse 256 + fine 81 combinations) against a coverage metric targeting ~95% of games where 50-game rolling median Elo falls inside SSM ±2σ.
 
-**Design docs**: `archive/Skill_Estimation_Plan.md`, `archive/ssm_model_outline_v2_with_suggestions.md`.
+**Design doc**: `archive/SSM_Design.md`.
 
 ---
 
@@ -71,7 +71,7 @@ Decomposes coach strength as `θ = g + d` where `g` is global skill and `d` is a
 
 Future directions under consideration: correlated prior / independent update hybrid, low-rank coach × race factor model, hierarchical shrinkage with race main effects, selection diagnostics for g.
 
-**Design doc**: `archive/race_rating_model_plan.md`.
+**Design doc**: `archive/Race_Rating_Design.md`.
 
 ---
 
@@ -85,9 +85,8 @@ Future directions under consideration: correlated prior / independent update hyb
 | `style_guides.md` | **Current** | SQL/PySpark formatting rules. |
 | `Expansion_Plan.md` | **Current** | 9-phase nation dashboard + feature roadmap. |
 | `Nation_Dashboard_Plan.md` | **Current** | Widget-by-widget nation dashboard design spec. |
-| `archive/Skill_Estimation_Plan.md` | **Reference** | SSM design options analysis (Option 4 selected and implemented). |
-| `archive/ssm_model_outline_v2_with_suggestions.md` | **Reference** | SSM v2 design spec (implemented). |
-| `archive/race_rating_model_plan.md` | **Reference** | Race rating design plan (Stage 1 implemented). |
+| `archive/SSM_Design.md` | **Reference** | SSM design document (options analysis, v1 + v2 specs, tuning lessons). |
+| `archive/Race_Rating_Design.md` | **Reference** | Race-aware rating design (Stage 1 implemented, future directions). |
 
 ---
 
