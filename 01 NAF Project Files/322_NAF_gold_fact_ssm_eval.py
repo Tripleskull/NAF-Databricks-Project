@@ -1,27 +1,23 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 322 — SSM Model Evaluation & Tuning
+# MAGIC # 322 — SSM Evaluation & Tuning
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Research (not part of production pipeline)
-# MAGIC **Pipeline position:** Runs after 321 (SSM engines)
+# MAGIC **Layer:** GOLD_FACT  |  **Status:** Research (not production)
+# MAGIC **Pipeline position:** After 321 (SSM engines)
 # MAGIC
-# MAGIC ## Purpose
+# MAGIC Evaluation, tuning, and diagnostics for SSM models. Run on demand for model comparison and development.
+# MAGIC Includes coach plot export, calibration coverage, hyperparameter tuning, ablation tests, and bootstrap CIs.
 # MAGIC
-# MAGIC Evaluation, tuning, and diagnostics for SSM models. Not part of the
-# MAGIC production pipeline — run on demand for model comparison and development.
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.analytical_config` (310)
+# MAGIC - `gold_fact.ssm_rating_history_fact`, `gold_fact.ssm2_rating_history_fact` (321)
+# MAGIC - `gold_fact.game_feed_for_ratings_fact` (320)
 # MAGIC
-# MAGIC ## Contents
+# MAGIC ## Outputs
+# MAGIC - No persistent outputs; produces evaluation metrics, plots, and comparison tables
 # MAGIC
-# MAGIC 1. **Coach plot export** — `export_coach_plots(coach_ids, run_name)`
-# MAGIC 2. **Calibration coverage** — rolling median Elo inside ±2σ by tier
-# MAGIC 3. **Hyperparameter tuner** — Brier-UA objective on validation window
-# MAGIC 4. **Reusable engine function** — `run_ssm2_variant()` for parameter variants
-# MAGIC 5. **Structured model comparison** — evaluation with bootstrap CIs, ablation tests
-# MAGIC 6. **Coach plot execution** — named team/group exports
-# MAGIC
-# MAGIC ## Prerequisites
-# MAGIC
-# MAGIC Must run 310 first (config table) and 321 (pipeline tables + `ssm2_feed_rows`).
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design reference:** `00 NAF Project Design/archive/SSM_Design.md`
 
 # COMMAND ----------
 

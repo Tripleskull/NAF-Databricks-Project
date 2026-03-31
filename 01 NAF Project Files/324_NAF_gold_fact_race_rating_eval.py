@@ -2,34 +2,24 @@
 # MAGIC %md
 # MAGIC # 324 — Race Rating Evaluation & Tuning
 # MAGIC
-# MAGIC **Layer:** GOLD_FACT &nbsp;|&nbsp; **Status:** Research (not part of production pipeline)
-# MAGIC **Pipeline position:** Runs after 310 (config), 320 (Elo + race Elo), 323 (race rating engine)
+# MAGIC **Layer:** GOLD_FACT  |  **Status:** Research (not production)
+# MAGIC **Pipeline position:** After 310 (config), 320 (Elo + race Elo), 323 (race rating engine)
 # MAGIC
-# MAGIC ## Purpose
+# MAGIC Evaluation, tuning, and diagnostics for the race-aware rating model. Run on demand.
+# MAGIC Benchmarks against baselines (0.5, global Elo, race Elo) using Brier scores, log-loss,
+# MAGIC accuracy, experience-sliced analysis, and calibration plots.
 # MAGIC
-# MAGIC Evaluation, tuning, and diagnostics for the race-aware rating model.
-# MAGIC Not part of the production pipeline — run on demand.
+# MAGIC ## Dependencies
+# MAGIC - `gold_dim.analytical_config` (310)
+# MAGIC - `gold_fact.game_feed_for_ratings_fact` (320)
+# MAGIC - `gold_fact.rating_history_fact` (320) — global Elo + race Elo baselines
+# MAGIC - `gold_fact.race_rating_history_fact` (323)
 # MAGIC
-# MAGIC ## Contents
+# MAGIC ## Outputs
+# MAGIC - No persistent outputs; produces evaluation metrics, plots, and comparison tables
 # MAGIC
-# MAGIC 1. **Load config and data** — analytical_config + game feed
-# MAGIC 2. **Benchmark assembly** — 0.5 baseline, global Elo, race Elo, race-aware model
-# MAGIC 3. **Evaluation** — chronological test set, Brier score, log-loss, accuracy
-# MAGIC 4. **Sliced evaluation** — by race-history depth (sparse, first-game, established)
-# MAGIC 5. **Calibration** — calibration plots for all models
-# MAGIC 6. **Export** — results tables and plots
-# MAGIC
-# MAGIC ## Required model comparisons (from plan)
-# MAGIC
-# MAGIC 1. `0.5` baseline
-# MAGIC 2. Global Elo (best global-only from 320)
-# MAGIC 3. Race Elo (independent per-race Elo from 320)
-# MAGIC 4. Race-aware model (323: global + independent race deviations)
-# MAGIC 5. *(Future: global + correlated race deviations)*
-# MAGIC
-# MAGIC ## Prerequisites
-# MAGIC
-# MAGIC Must run 310 (config), 320 (Elo tables), 323 (race rating engine).
+# MAGIC **Design authority:** `NAF_Design_Specification.md`, `style_guides.md`
+# MAGIC **Design reference:** `00 NAF Project Design/archive/Race_Rating_Design.md`
 
 # COMMAND ----------
 

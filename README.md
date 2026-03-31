@@ -1,30 +1,3 @@
-## Getting Started
-
-This project is developed in Databricks and version-controlled through GitHub. The pipeline is organised as a sequence of notebooks following the Bronze → Silver → Gold pattern.
-
-To work with the project, clone the repository, open the notebooks in Databricks or a compatible local setup and run the pipeline in notebook order, starting from Bronze ingestion and ending with tests and presentation views.
-
-More detailed setup and execution guidance may be added in separate documentation.
-
-## External Data and Reference Sources
-
-This project relies on external reference data for country and region standardisation.
-
-- **NAF data export (primary data source)**  
-  https://member.thenaf.net/glicko/nafstat-tmp-name.zip  
-  Daily updated dataset used as the foundation for all analysis.
-
-- **FIFA / IOC country codes**  
-  https://www.rsssf.org/miscellaneous/fifa-codes.html  
-  Maintained by the Rec.Sport.Soccer Statistics Foundation (RSSSF).  
-  © Iain Jeffree and RSSSF. Used with acknowledgement.
-
-- **ISO country codes dataset**  
-  https://gist.github.com/radcliff/f09c0f88344a7fcef373  
-  Used for ISO-based country code mappings and standardisation.
-
-These sources are not maintained by this repository and may change over time. Ownership and rights to the underlying data remain with the respective authors and organisations.
-
 # NAF Databricks Project
 
 A data engineering and analytics project built on Databricks that transforms raw NAF (Blood Bowl) match and tournament data into structured analytical datasets, rating systems and interactive dashboards. The project serves players, coaches (including national team selectors) and the broader Blood Bowl community.
@@ -56,9 +29,10 @@ Data assets live within a unified catalog: `naf_catalog.{bronze, silver, gold_di
 ## Project Structure
 
 ```
-00 NAF Project Design/     Design specs, parameter docs, pipeline index, plans
+00 NAF Project Design/     Design specs, parameter docs, pipeline index, status
 01 NAF Project Files/      Notebooks (100–350), executed in numeric order
 02 NAF Dashboards/         Databricks AI/BI dashboard definitions
+CLAUDE.md                  Developer reference (conventions, file map, technical notes)
 ```
 
 Notebooks follow a numeric convention: 100-series for Bronze, 200-series for Silver, 310 for dimensions, 320–324 for fact/rating engines, 330–334 for summaries, 340–344 for presentation views and 350 for pipeline tests. Research notebooks (322, 324) are not part of the production pipeline but share the same config infrastructure.
@@ -76,6 +50,31 @@ The project is built around clear separation of data layers, centralised and doc
 Core pipeline layers are complete: Bronze through Gold, including Elo, SSM v1/v2 and race-aware rating engines. Coach-focused analytics and a polished coach dashboard are in production. Nation analytics are in early development with foundational structures in place. Tournament and race summary/presentation layers have stub notebooks ready for expansion.
 
 Ongoing work includes expanding nation and tournament dashboards, refining race-rating calibration (current evaluation shows slight overconfidence at the high end) and improving publication readiness of documentation and results.
+
+## Getting Started
+
+This project is developed in Databricks and version-controlled through GitHub. The pipeline is organised as a sequence of notebooks following the Bronze → Silver → Gold pattern.
+
+To work with the project, clone the repository, open the notebooks in Databricks or a compatible local setup and run the pipeline in notebook order, starting from Bronze ingestion and ending with tests and presentation views.
+
+## External Data and Reference Sources
+
+This project relies on external reference data for country and region standardisation.
+
+- **NAF data export (primary data source)**
+  https://member.thenaf.net/glicko/nafstat-tmp-name.zip
+  Daily updated dataset used as the foundation for all analysis.
+
+- **FIFA / IOC country codes**
+  https://www.rsssf.org/miscellaneous/fifa-codes.html
+  Maintained by the Rec.Sport.Soccer Statistics Foundation (RSSSF).
+  © Iain Jeffree and RSSSF. Used with acknowledgement.
+
+- **ISO country codes dataset**
+  https://gist.github.com/radcliff/f09c0f88344a7fcef373
+  Used for ISO-based country code mappings and standardisation.
+
+These sources are not maintained by this repository and may change over time. Ownership and rights to the underlying data remain with the respective authors and organisations.
 
 ## License
 
