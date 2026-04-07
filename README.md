@@ -55,7 +55,22 @@ Ongoing work includes expanding nation and tournament dashboards, refining race-
 
 This project is developed in Databricks and version-controlled through GitHub. The pipeline is organised as a sequence of notebooks following the Bronze → Silver → Gold pattern.
 
-To work with the project, clone the repository, open the notebooks in Databricks or a compatible local setup and run the pipeline in notebook order, starting from Bronze ingestion and ending with tests and presentation views.
+### Prerequisites
+
+You need a Databricks workspace. The free [Databricks Community Edition](https://community.cloud.databricks.com/) is sufficient — no paid tier is required.
+
+### Setup
+
+1. **Load source data into a Volume.** In your Databricks workspace, create a Unity Catalog volume at `/Volumes/naf_catalog/bronze/naf_raw/`. Download the NAF data export (see External Data below) and upload the CSV files into that volume. Also upload the FIFA and ISO country code files referenced in the Bronze notebook.
+
+2. **Clone the repository.** In the Databricks sidebar, go to **Repos → Add Repo** and paste the GitHub URL (`https://github.com/Tripleskull/NAF-Databricks-Project`). This pulls all notebooks and design docs into your workspace.
+
+3. **Run the pipeline.** Open the notebooks under `01 NAF Project Files/` and run them in numeric order: 100 → 200 → 310 → 320 → 321 → 330 → 331 → 332 → 333 → 334 → 340 → 341 → 342 → 343 → 344 → 350. Each notebook is self-contained and creates its tables/views in `naf_catalog`. You can run them one at a time or wire them into a Databricks Workflow job for automation.
+
+4. **Open the dashboards.** After the pipeline completes, import the dashboard JSON files from `02 NAF Dashboards/` via **Dashboards → Import** in the Databricks UI. The dashboards read from the `gold_presentation` views created in step 3.
+
+Research notebooks (322, 324) are optional — they evaluate and tune the rating models but are not needed for the core pipeline.
+
 
 ## External Data and Reference Sources
 
