@@ -18,9 +18,38 @@ A central feature of the project is its suite of coach rating systems, each prog
 
 Evaluation notebooks (322, 324) benchmark these models against baselines using Brier scores, accuracy, calibration plots and experience-sliced analysis.
 
-### SSM v2 Rating Example
+### Model Comparison
 
-SSM v2 diagnostic output for a single coach — skill estimate with calibrated uncertainty bands, Elo overlay, and process noise breakdown:
+The three rating engines form a progression — each adds a capability the previous one lacks:
+
+```mermaid
+flowchart LR
+    subgraph elo ["<b>Elo (320)</b>"]
+        direction TB
+        E1["Fixed K-factor update"]
+        E2["Single point estimate"]
+        E3["No uncertainty, no time\nawareness, no race info"]
+    end
+
+    subgraph ssm ["<b>SSM v2 (321)</b>"]
+        direction TB
+        S1["Extended Kalman Filter"]
+        S2["Skill estimate <b>+ uncertainty band</b>"]
+        S3["Time-aware: uncertainty\ngrows during inactivity"]
+        S4["Adaptive volatility via EWMA"]
+    end
+
+    subgraph rr ["<b>Race-Aware (323)</b>"]
+        direction TB
+        R1["Joint 2D EKF"]
+        R2["Global skill <b>g</b> + race\ndeviation <b>d</b> per faction"]
+        R3["Shares information across\nraces via global component"]
+    end
+
+    elo -- "+uncertainty\n+time" --> ssm -- "+race\ndecomposition" --> rr
+```
+
+The plot below illustrates SSM v2 output for a single coach. The **top panel** shows the skill estimate (blue) with its ±2σ uncertainty band (shaded), overlaid with Elo (red) for comparison. Where Elo produces a single line, the SSM adds a calibrated confidence interval that widens during periods of inactivity and narrows as new results arrive. The **bottom panel** shows the process noise components that drive the uncertainty dynamics.
 
 ![SSM v2 Rating Diagnostics](Output%20Examples/SSM%20rating%20example.png)
 
@@ -44,9 +73,44 @@ Full dashboard export: [Nation Dashboard (PDF)](Output%20Examples/Nation%20Dashb
 
 ## Architecture
 
-The pipeline follows a medallion architecture across three layers. The Bronze layer (100) handles raw ingestion from the NAF data export. The Silver layer (200) standardises, cleans and conforms the data — resolving country codes, handling edge cases and producing a consistent analytical foundation. The Gold layer is split into four sub-layers: dimensions (310) for reference data and centralised configuration, facts (320–324) for rating engines and match-level outputs, summaries (330–334) for pre-aggregated analytical tables and presentation (340–344) for dashboard-contract views.
+The pipeline follows a medallion architecture. Each layer builds on the previous one, with clear contracts between them:
 
-All tuneable parameters — Elo settings, SSM hyperparameters, race-rating configuration, activity windows, experience thresholds — are managed through a singleton configuration table (`naf_catalog.gold_dim.analytical_config`) defined in 310. Rating engines read from this config at runtime, so parameter changes propagate without code edits.
+```mermaid
+flowchart LR
+    subgraph src [" "]
+        direction TB
+        CSV["CSV / HTML\nsource files"]
+    end
+
+    subgraph bronze ["Bronze (100)"]
+        direction TB
+        B["Raw ingestion\n11 Delta tables"]
+    end
+
+    subgraph silver ["Silver (200)"]
+        direction TB
+        S["Cleaned &amp; conformed\n14 tables"]
+    end
+
+    subgraph gold ["Gold Layer"]
+        direction TB
+        DIM["<b>Dimensions (310)</b>\nReference entities\n+ analytical config"]
+        FACT["<b>Facts (320–324)</b>\nGames, Elo, SSM,\nRace-Aware Rating"]
+        SUM["<b>Summaries (330–334)</b>\nCoach, Nation,\nTournament, Race KPIs"]
+        PRES["<b>Presentation (340–344)</b>\nDashboard-contract\nviews"]
+        DIM --> FACT --> SUM --> PRES
+    end
+
+    subgraph out [" "]
+        direction TB
+        DASH["Databricks\nDashboards"]
+    end
+
+    CSV --> bronze --> silver --> DIM
+    PRES --> DASH
+```
+
+All tuneable parameters — Elo settings, SSM hyperparameters, race-rating configuration, activity windows, experience thresholds — are managed through a singleton configuration table (`analytical_config`) in 310. Rating engines read from this config at runtime, so parameter changes propagate without code edits.
 
 Data assets live within a unified catalog: `naf_catalog.{bronze, silver, gold_dim, gold_fact, gold_summary, gold_presentation}`.
 
