@@ -1,10 +1,20 @@
-# NAF Databricks Project
+# NAF Databricks Platform
 
-A data engineering and analytics project built on Databricks that transforms raw NAF (Blood Bowl) match and tournament data into structured analytical datasets, rating systems and interactive dashboards.
+## Executive Summary
+
+This project is a production-style data platform that transforms raw tournament and match data into structured analytics, rating models and dashboards for decision support.
+
+- Built end-to-end in Databricks using a medallion architecture (Bronze → Silver → Gold)
+- Implements multiple rating systems, including Elo, a state-space model (EKF) and a race-aware model
+- Designed for reproducibility, transparency and configurable analytical logic
+- Delivers dashboards used in practice by Blood Bowl coaches and teams
+- Emphasises clear data modelling and communication of insights, not just technical implementation
+
+The platform is publicly available, actively used and continuously evolving as new analytical features and dashboards are added.
 
 ## Overview
 
-The NAF maintains a global registry of sanctioned Blood Bowl tournaments and match results. This project ingests that data and builds a layered analytical pipeline covering coach ratings, nation-level aggregations, tournament statistics and race/faction analysis. The pipeline emphasises reproducibility, data quality, centralised configuration and transparent analytical logic.
+The NAF maintains a global registry of sanctioned Blood Bowl tournaments and match results. This project ingests that data and builds a layered analytical pipeline covering coach ratings, nation-level aggregations, tournament statistics and race/faction analysis.
 
 ## Architecture
 
@@ -88,13 +98,14 @@ Notebooks follow a numeric convention: 100-series for Bronze, 200 for Silver, 31
 
 ## Technology Stack
 
-Databricks (Community Edition), PySpark, SQL, Delta Lake, Python (NumPy, Matplotlib for evaluation) and GitHub for version control. Dashboards use the Databricks AI/BI (Lovelytics) framework.
+Databricks (Community Edition), PySpark, SQL, Delta Lake, Python (NumPy, Matplotlib) and GitHub. Dashboards use the Databricks AI/BI (Lovelytics) framework.
 
 ## Design Principles
 
 Clear separation of data layers, centralised and documented configuration, consistent naming and schema conventions, reproducible and traceable transformations, analytical transparency through documented assumptions. All rating models are designed to be explainable — outputs include uncertainty estimates and diagnostic plots, not just point predictions.
 
 ## Status
+The platform is stable and usable end-to-end, with ongoing expansion of analytical layers and dashboards.
 
 Core pipeline layers are complete: Bronze through Gold, including Elo, SSM v1/v2 and race-aware rating engines. Coach analytics and a polished coach dashboard are in production. Nation analytics are in early development with foundational structures in place. Tournament and race layers have stub notebooks ready for expansion.
 
@@ -111,6 +122,7 @@ The **top panel** shows the SSM v2 skill estimate (blue) with its ±2σ uncertai
 The dashboards below are shown as static exports. Within Databricks, they are fully interactive and filterable.
 
 ### Coach Dashboard
+Dashboards are designed for practical use, enabling coaches and teams to explore performance, trends and decision-relevant insights.
 
 Per-coach profile: career stats, W/D/L trends, Elo trajectory, race-specific ratings, rival analysis and opponent-strength breakdowns.
 
