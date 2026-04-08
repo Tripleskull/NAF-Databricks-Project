@@ -18,6 +18,30 @@ A central feature of the project is its suite of coach rating systems, each prog
 
 Evaluation notebooks (322, 324) benchmark these models against baselines using Brier scores, accuracy, calibration plots and experience-sliced analysis.
 
+### SSM v2 Rating Example
+
+SSM v2 diagnostic output for a single coach — skill estimate with calibrated uncertainty bands, Elo overlay, and process noise breakdown:
+
+![SSM v2 Rating Diagnostics](Output%20Examples/SSM%20rating%20example.png)
+
+## Dashboards
+
+### Coach Dashboard
+
+Interactive per-coach profile: career stats, W/D/L trends, Elo trajectory, race-specific ratings, rival analysis, and opponent-strength breakdowns.
+
+![Coach Dashboard](Output%20Examples/coach_dashboard_preview.png)
+
+Full dashboard export: [Coach Dashboard (PDF)](Output%20Examples/Coach%20Dashboard%202026-04-01%2008_16.pdf)
+
+### Nation Dashboard
+
+Nation-level analytics: member growth, rating distributions, race popularity, inter-nation results, Elo exchange, team selector, and power rankings.
+
+![Nation Dashboard](Output%20Examples/nation_dashboard_preview.png)
+
+Full dashboard export: [Nation Dashboard (PDF)](Output%20Examples/Nation%20Dashboard%202026-04-01%2008_21.pdf)
+
 ## Architecture
 
 The pipeline follows a medallion architecture across three layers. The Bronze layer (100) handles raw ingestion from the NAF data export. The Silver layer (200) standardises, cleans and conforms the data — resolving country codes, handling edge cases and producing a consistent analytical foundation. The Gold layer is split into four sub-layers: dimensions (310) for reference data and centralised configuration, facts (320–324) for rating engines and match-level outputs, summaries (330–334) for pre-aggregated analytical tables and presentation (340–344) for dashboard-contract views.
