@@ -108,7 +108,7 @@ The **top panel** shows the SSM v2 skill estimate (blue) with its ±2σ uncertai
 
 ![SSM v2 Rating Diagnostics](Output%20Examples/SSM%20rating%20example.png)
 
-The dashboards below are shown as static exports. Within Databricks, they are fully interactive — filterable by coach, nation, time period and other parameters.
+The dashboards below are shown as static exports. Within Databricks, they are fully interactive and filterable.
 
 ### Coach Dashboard
 
