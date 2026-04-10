@@ -1602,6 +1602,8 @@ for name, m in metrics.items():
     })
 
 metrics_spark_df = spark.createDataFrame(metrics_rows)
+# Ensure target schema exists (this notebook can be run before 331 creates it)
+spark.sql("CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_summary")
 metrics_spark_df.write.mode("append").saveAsTable("naf_catalog.gold_summary.ssm_evaluation_metrics")
 print(f"\n✓ Metrics stored in naf_catalog.gold_summary.ssm_evaluation_metrics")
 

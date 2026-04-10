@@ -23,6 +23,12 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_summary
+# MAGIC %sql -- SCHEMA: naf_catalog.gold_summary
+# MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_summary;
+
+# COMMAND ----------
+
 # MAGIC %sql
 # MAGIC CREATE OR REPLACE TABLE naf_catalog.gold_summary.tournament_winners AS
 # MAGIC

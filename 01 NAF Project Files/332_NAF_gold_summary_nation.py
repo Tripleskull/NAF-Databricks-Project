@@ -46,6 +46,12 @@
 
 # COMMAND ----------
 
+# DBTITLE 1,Create schema gold_summary
+# MAGIC %sql -- SCHEMA: naf_catalog.gold_summary
+# MAGIC CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_summary;
+
+# COMMAND ----------
+
 # DBTITLE 1,gold_summary.nation_overview_summary
 # MAGIC %sql -- TABLE: naf_catalog.gold_summary.nation_overview_summary
 # MAGIC -- NOTE: nation_coach_glo_metrics is now defined in 330_NAF_gold_summary_core.py

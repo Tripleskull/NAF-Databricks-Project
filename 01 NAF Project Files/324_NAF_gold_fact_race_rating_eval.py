@@ -370,6 +370,9 @@ for name, m in metrics.items():
 
 metrics_spark_df = spark.createDataFrame(metrics_rows)
 
+# Ensure target schema exists (this notebook can be run before 331 creates it)
+spark.sql("CREATE SCHEMA IF NOT EXISTS naf_catalog.gold_summary")
+
 spark.sql("""
     CREATE TABLE IF NOT EXISTS naf_catalog.gold_summary.race_rating_evaluation_metrics (
         run_timestamp STRING,
